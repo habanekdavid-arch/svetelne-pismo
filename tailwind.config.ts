@@ -10,9 +10,9 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#00c8ff",
-          dark: "#00a3d4",
-          light: "#66dfff",
+          DEFAULT: "#FFAE00",
+          dark: "#CC8B00",
+          light: "#FFC64D",
         },
         background: "#ffffff",
         foreground: "#111111",
@@ -56,9 +56,9 @@ const config: Config = {
       boxShadow: {
         card: "0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.08)",
         "card-hover": "0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.08)",
-        "accent-sm": "0 0 12px rgba(0,200,255,0.20)",
-        accent: "0 0 24px rgba(0,200,255,0.35)",
-        "accent-lg": "0 0 48px rgba(0,200,255,0.45)",
+        "accent-sm": "0 0 12px rgba(255,174,0,0.20)",
+        accent: "0 0 24px rgba(255,174,0,0.35)",
+        "accent-lg": "0 0 48px rgba(255,174,0,0.45)",
         "inset-sm": "inset 0 1px 3px rgba(0,0,0,0.08)",
       },
     },

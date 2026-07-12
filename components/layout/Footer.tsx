@@ -87,7 +87,7 @@ export default function Footer() {
             className="text-[11px]"
             style={{ color: "var(--color-muted)" }}
           >
-            © 2026 rozsvieťTO — Projekt spoločnosti 4from media, s.r.o.
+            © {new Date().getFullYear()} rozsvieťTO — Projekt spoločnosti 4from media, s.r.o.
           </p>
 
           <nav aria-label="Právne dokumenty">

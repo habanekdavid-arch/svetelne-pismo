@@ -1,0 +1,10 @@
+export type Config = {
+  text: string;
+  font: string;
+  material: string;
+  lighting: string;
+  lightColor: string;
+  bodyColor: string;
+  height: number;
+  thickness: number;
+};

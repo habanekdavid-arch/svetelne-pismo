@@ -1,348 +1,632 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import LetterScene from "@/components/three/LetterScene";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { Lightbulb, LightbulbOff, Pause, Play } from "lucide-react";
 import OrderModal from "@/components/configurator/OrderModal";
-import type { Config } from "@/lib/types";
+import type { Config, LightModeDirection, LightModeId, MaterialUseTag, SignType } from "@/lib/types";
+import { useSharedConfig } from "@/lib/config-context";
 import { calculatePrice } from "@/lib/pricing";
 import {
   fontOptions,
-  lightingOptions,
+  FONT_CATEGORY_LABEL,
   lightColors,
-  materialOptions,
+  letterColorOptions,
+  MATERIALS,
+  MIN_DEPTH_MM,
+  MAX_DEPTH_MM,
+  LIGHT_MODES,
 } from "@/lib/options";
+import type { FontCategory, FontOption } from "@/lib/options";
 
-const LETTER_COLOR = "#f0f0f0";
+// 3D preview needs WebGL — never render it on the server. Suspense shows a
+// skeleton until the chunk loads; the scene itself renders instantly on top
+// since Config already ships with non-empty defaults (text/font/material).
+const LetterScene = dynamic(() => import("@/components/three/LetterScene"), {
+  ssr: false,
+  loading: () => <LetterSceneSkeleton />,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Light modes that trigger the dark-canvas preview automatically
+const NIGHT_MODES: LightModeId[] = ["halo", "combined", "full"];
+
+const USE_TAG_LABEL: Record<MaterialUseTag, string> = {
+  interiér: "Interiér",
+  exteriér: "Exteriér",
+  oboje:    "Interiér aj exteriér",
+};
+
+// ── Light mode glyph preview tunables ───────────────────────────────────────
+const LIGHT_TILE_GLOW_SIZE   = 42;  // px — svg square inside each mode tile
+const LIGHT_TILE_BLUR_TIGHT  = 2.5; // front/outline/sides — crisp glow
+const LIGHT_TILE_BLUR_SOFT   = 5;   // full — soft outer bloom
+const LIGHT_TILE_BLUR_HALO   = 7.5; // back/combined — diffuse halo behind the glyph
+const LIGHT_TILE_STROKE_WIDTH = 2.5;
+
+// ── Font picker tunables ─────────────────────────────────────────────────────
+const FONT_CATEGORY_ORDER: FontCategory[] = ["sans", "serif", "display", "script", "rounded", "slab"];
+const FONT_PREVIEW_SAMPLE = "Žiarivé písmo"; // diacritic sample — shows at a glance whether a font "has" č/š/ž etc.
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ConfiguratorStage() {
   const [manualMode, setManualMode] = useState<"day" | "night" | null>(null);
-  const [lightHue, setLightHue] = useState(195);
-  const [selectedSwatch, setSelectedSwatch] = useState<string>("cyan");
+  // Default LED colour is the brand yellow — keep the hue slider + swatch
+  // selection in sync with lib/options.ts lightColors' "yellow" entry.
+  const [lightHue, setLightHue] = useState(41);
+  const [selectedSwatch, setSelectedSwatch] = useState<string>("yellow");
+  const [selectedBodySwatch, setSelectedBodySwatch] = useState<string>("black");
   const [orderOpen, setOrderOpen] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(true);
   const reducedMotion = useReducedMotion();
+  const { setConfig: publishConfig } = useSharedConfig();
+
+  // Remember the last active light mode so we can restore it when switching
+  // back from plain → illuminated
+  const lastLightModeRef = useRef<LightModeId>("front");
 
   const [config, setConfig] = useState<Config>({
-    text: "VÁŠ TEXT",
-    font: "modern",
-    material: "alubond",
-    lighting: "full",
-    lightColor: "#00c8ff",
-    bodyColor: LETTER_COLOR,
-    height: 35,
-    thickness: 8,
+    // Plain black "VÁŠ TEXT" on load — a blank, legible canvas, visible the
+    // instant the page loads. The user turns on Svetelné/colour themselves.
+    text:       "VÁŠ TEXT",
+    font:       "montserrat",
+    material:   "plexi",
+    signType:   "plain",
+    lightMode:  "front",
+    // Brand yellow — see lib/options.ts lightColors "yellow" / app/globals.css --color-primary.
+    // Inert while signType is "plain"; used once the user switches to Svetelné.
+    lightColor: "#FFAE00",
+    bodyColor:  letterColorOptions.find((c) => c.id === "black")!.value,
+    height:     35,
+    thickness:  8,
+    rotation:   0,
   });
 
+  // Keep ShowcaseSection in sync with every config change
+  useEffect(() => { publishConfig(config); }, [config, publishConfig]);
+
+  // ── Derived state ────────────────────────────────────────────────────────
   const price = useMemo(() => calculatePrice(config), [config]);
-  const glowModes = ["halo", "full", "open"];
 
-  // Derive preview mode: glow modes force night; manual toggle overrides otherwise
-  const previewMode: "day" | "night" = glowModes.includes(config.lighting)
-    ? "night"
-    : (manualMode ?? "day");
+  const currentMat = MATERIALS.find((m) => m.id === config.material) ?? MATERIALS[0];
 
-  // Sync accent CSS variable with chosen light color
+  const filteredMaterials = MATERIALS.filter((m) =>
+    config.signType === "illuminated" ? m.supportsIlluminated : m.supportsPlain,
+  );
+
+  const availableLightModes = LIGHT_MODES.filter((l) =>
+    currentMat.lightModes.includes(l.id),
+  );
+
+  const previewChar = (config.text.trim().charAt(0) || "A").toUpperCase();
+  const modeTileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const fontTileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const previewMode: "day" | "night" =
+    (config.signType === "illuminated" && NIGHT_MODES.includes(config.lightMode)) ||
+    manualMode === "night"
+      ? "night"
+      : "day";
+
+  const isNight   = previewMode === "night";
+  const pageDark  = manualMode === "night";
+
+  // ── Side effects ─────────────────────────────────────────────────────────
+  // Note: --accent used to be reassigned here to mirror the chosen LED colour
+  // (config.lightColor), which meant the OBJEDNAŤ button and every other
+  // --accent-driven element sitewide (Footer brand, FAQ, steps…) shifted
+  // colour to match whatever LED colour was last picked. Removed — the site
+  // accent is now the fixed brand yellow everywhere, matching vytlacto3d.
+
   useEffect(() => {
-    const accent =
-      config.lightColor === "#ffffff" ? "#c8c8c8" : config.lightColor;
-    document.documentElement.style.setProperty("--accent", accent);
-  }, [config.lightColor]);
+    if (pageDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    return () => document.documentElement.classList.remove("dark");
+  }, [pageDark]);
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+
+  function patch(update: Partial<Config>) {
+    setConfig((prev) => ({ ...prev, ...update }));
+  }
+
+  function handleSignTypeChange(type: SignType) {
+    if (type === "plain") {
+      // Remember current lightMode before hiding the panel
+      lastLightModeRef.current = config.lightMode;
+      setManualMode(null); // clear forced night when switching to plain
+      patch({ signType: type });
+      return;
+    }
+
+    // Switching to illuminated ─────────────────────────────────────────────
+    // 1. Make sure current material supports illuminated
+    let materialId = config.material;
+    if (!currentMat.supportsIlluminated) {
+      const firstIlluminable = MATERIALS.find((m) => m.supportsIlluminated);
+      materialId = firstIlluminable?.id ?? config.material;
+    }
+
+    // 2. Restore last light mode if still valid for the (possibly new) material
+    const targetMat = MATERIALS.find((m) => m.id === materialId) ?? currentMat;
+    const restoredMode = targetMat.lightModes.includes(lastLightModeRef.current)
+      ? lastLightModeRef.current
+      : (targetMat.lightModes[0] ?? "front");
+
+    patch({ signType: type, material: materialId, lightMode: restoredMode });
+  }
+
+  function handleMaterialChange(materialId: string) {
+    const mat = MATERIALS.find((m) => m.id === materialId);
+    if (!mat) return;
+
+    // If new material doesn't support the current lightMode → pick first valid
+    const validMode = mat.lightModes.includes(config.lightMode)
+      ? config.lightMode
+      : (mat.lightModes[0] ?? config.lightMode);
+
+    // Thickness is free for every material — switching material never touches it.
+    patch({ material: materialId, lightMode: validMode });
+  }
+
+  function handleRotationInteraction() {
+    setAutoRotate(false);
+  }
+
+  function setLightMode(id: LightModeId) {
+    lastLightModeRef.current = id;
+    patch({ lightMode: id });
+  }
+
+  function handleModeKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+    const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
+    if (!forward && !backward) return;
+    e.preventDefault();
+    const modes = availableLightModes;
+    const nextIndex = (index + (forward ? 1 : -1) + modes.length) % modes.length;
+    setLightMode(modes[nextIndex].id);
+    modeTileRefs.current[nextIndex]?.focus();
+  }
 
   function setLightColorFromSwatch(id: string, value: string, hue: number) {
     setSelectedSwatch(id);
     setLightHue(hue);
-    setConfig({ ...config, lightColor: value });
+    patch({ lightColor: value });
   }
 
   function setLightColorFromSlider(hue: number) {
     setLightHue(hue);
     setSelectedSwatch("");
-    const color = `hsl(${hue}, 92%, 58%)`;
-    setConfig({ ...config, lightColor: color });
+    patch({ lightColor: `hsl(${hue}, 92%, 58%)` });
   }
 
-  const darkBg = previewMode === "night" || glowModes.includes(config.lighting);
+  function setBodyColor(id: string, value: string) {
+    setSelectedBodySwatch(id);
+    patch({ bodyColor: value });
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="mx-auto mt-14 max-w-6xl">
-      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[210px_1fr_210px]">
-        {/* ── LEFT: Font + Material ── */}
-        <aside className="order-2 space-y-8 lg:order-1 lg:pt-8">
-          <section>
-            <ControlLabel>Odporúčané písmo</ControlLabel>
-            <div className="grid grid-cols-3 gap-2">
-              {fontOptions.map((font) => (
-                <button
-                  key={font.id}
-                  onClick={() => setConfig({ ...config, font: font.id })}
-                  title={font.name}
-                  className={`group relative flex h-12 w-full flex-col items-center justify-center rounded-lg border text-[11px] transition ${
-                    config.font === font.id
-                      ? "border-black bg-black text-white"
-                      : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400"
-                  }`}
-                >
-                  <span className={`text-base leading-none ${font.className}`}>
-                    Aa
-                  </span>
-                  <span
-                    className={`mt-0.5 text-[9px] font-black uppercase leading-none ${config.font === font.id ? "text-white/70" : "text-neutral-400"}`}
-                  >
-                    {font.name.slice(0, 5)}
-                  </span>
-                  <span className="pointer-events-none absolute bottom-14 left-1/2 z-30 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-black px-2 py-1 text-[10px] font-bold text-white group-hover:block">
-                    {font.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
 
+      {/* ── SignType toggle ─────────────────────────────────────────────── */}
+      <div className="mb-10 flex justify-center">
+        <div
+          className="flex gap-1 rounded-full p-1"
+          style={{ background: "var(--color-surface)" }}
+        >
+          {(
+            [
+              { type: "illuminated" as SignType, label: "Svetelné",   Icon: Lightbulb    },
+              { type: "plain"       as SignType, label: "Nesvetelné", Icon: LightbulbOff },
+            ] as const
+          ).map(({ type, label, Icon }) => {
+            const active = config.signType === type;
+            return (
+              <button
+                key={type}
+                onClick={() => handleSignTypeChange(type)}
+                className="flex items-center gap-2 rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all"
+                style={
+                  active
+                    ? { background: "var(--color-foreground)", color: "var(--color-background)" }
+                    : { color: "var(--color-muted)" }
+                }
+              >
+                <Icon size={13} strokeWidth={2.5} />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Three-column grid ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[210px_1fr_210px]">
+
+        {/* ── LEFT: Font + Material — stays at the edge, not a full-width bar ── */}
+        <aside className="order-2 space-y-8 lg:order-1 lg:pt-8">
+
+          {/* Font picker — compact carousel + expandable "all fonts" grid, sized for the sidebar */}
+          <FontPicker
+            value={config.font}
+            onChange={(id) => patch({ font: id })}
+            tileRefs={fontTileRefs}
+          />
+
+          {/* Materials — filtered by signType, shown by benefit not by technical name */}
           <section>
-            <ControlLabel>Materiály</ControlLabel>
-            <div className="space-y-1">
-              {materialOptions.map((mat) => (
-                <button
-                  key={mat.id}
-                  onClick={() => setConfig({ ...config, material: mat.id })}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition ${
-                    config.material === mat.id
-                      ? "bg-black text-white"
-                      : "bg-neutral-100 text-black hover:bg-neutral-200"
-                  }`}
-                >
-                  <span className="text-[12px] font-black uppercase">
-                    {mat.label}
-                  </span>
-                  <span
-                    className={`text-[10px] ${config.material === mat.id ? "text-white/60" : "text-neutral-400"}`}
+            <ControlLabel>Materiál</ControlLabel>
+            <div className="space-y-1.5">
+              {filteredMaterials.map((mat) => {
+                const active = config.material === mat.id;
+                return (
+                  <button
+                    key={mat.id}
+                    onClick={() => handleMaterialChange(mat.id)}
+                    className={`flex w-full flex-col rounded-lg px-3 py-2.5 text-left transition ${
+                      active
+                        ? "bg-(--color-foreground) text-(--color-background)"
+                        : "bg-(--color-surface) text-(--color-foreground) hover:bg-(--color-surface-raised)"
+                    }`}
                   >
-                    ×{mat.multiplier}
-                  </span>
-                </button>
-              ))}
+                    <span className="flex items-center justify-between">
+                      <span className="text-[12px] font-black uppercase">{mat.displayName}</span>
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide"
+                        style={{
+                          background: active ? "rgba(255,255,255,0.18)" : "var(--color-surface-raised)",
+                          color: active ? "var(--color-background)" : "var(--color-muted)",
+                        }}
+                      >
+                        {USE_TAG_LABEL[mat.useTag]}
+                      </span>
+                    </span>
+                    <span
+                      className="mt-0.5 text-[10px] leading-4"
+                      style={{ opacity: active ? 0.75 : 0.55 }}
+                    >
+                      {mat.subtitle}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </section>
         </aside>
 
-        {/* ── CENTER: 3D Preview + controls ── */}
+        {/* ── CENTER: 3D Preview ─────────────────────────────────────────── */}
         <section className="order-1 flex flex-col items-center lg:order-2">
-          {/* Canvas container */}
+
+          {/* Day / Night toggle — only meaningful in illuminated mode */}
           <div
-            className={`relative h-95 w-full overflow-hidden rounded-3xl transition-colors duration-500 ${
-              darkBg ? "bg-neutral-950" : "bg-neutral-100"
-            }`}
+            className="mb-4 flex items-center self-end rounded-full p-1 transition-opacity duration-300"
+            style={{
+              background: "var(--color-surface)",
+              opacity: config.signType === "illuminated" ? 1 : 0.3,
+              pointerEvents: config.signType === "illuminated" ? undefined : "none",
+            }}
           >
-            {/* Radial glow overlay when in night/glow mode */}
-            {darkBg && (
+            {(["day", "night"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setManualMode(mode)}
+                className="rounded-full px-4 py-1.5 text-[9px] font-black uppercase transition-all"
+                style={
+                  previewMode === mode
+                    ? { background: "var(--color-foreground)", color: "var(--color-background)" }
+                    : { color: "var(--color-muted)" }
+                }
+              >
+                {mode === "day" ? "☀ Deň" : "☾ Noc"}
+              </button>
+            ))}
+          </div>
+
+          {/* Canvas — transparent, sign levitates */}
+          <div className="relative h-105 w-full">
+            {isNight && (
               <div
                 className="pointer-events-none absolute inset-0"
                 style={{
-                  background: `radial-gradient(ellipse at 50% 44%, ${config.lightColor}22 0%, transparent 60%)`,
+                  background: `radial-gradient(ellipse at 50% 44%, ${config.lightColor}30 0%, transparent 65%)`,
                 }}
               />
             )}
 
             <LetterScene
               text={config.text}
+              font={config.font}
               lightColor={config.lightColor}
-              letterColor={LETTER_COLOR}
+              letterColor={config.bodyColor}
               thickness={config.thickness}
               material={config.material}
-              lighting={config.lighting}
+              signType={config.signType}
+              lightMode={config.lightMode}
               height={config.height}
+              rotation={config.rotation}
+              autoRotate={autoRotate}
+              onRotationChange={(deg) => patch({ rotation: Math.round(deg) })}
               previewMode={previewMode}
               reducedMotion={reducedMotion}
             />
-
-            {/* Day / Night toggle */}
-            <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/30 p-1 backdrop-blur-sm">
-              <button
-                onClick={() => setManualMode("day")}
-                className={`rounded-full px-3 py-1 text-[9px] font-black uppercase transition ${
-                  previewMode === "day"
-                    ? "bg-white text-black"
-                    : "text-white/70 hover:text-white"
-                }`}
-              >
-                Deň
-              </button>
-              <button
-                onClick={() => setManualMode("night")}
-                className={`rounded-full px-3 py-1 text-[9px] font-black uppercase transition ${
-                  previewMode === "night"
-                    ? "bg-white text-black"
-                    : "text-white/70 hover:text-white"
-                }`}
-              >
-                Noc
-              </button>
-            </div>
           </div>
 
-          {/* Rotation slider */}
-          <div className="mt-4 w-full max-w-sm">
-            <div className="mb-1 flex justify-between text-[10px] font-black uppercase text-neutral-400">
-              <span>Otáčanie</span>
-              <span>{config.height}°</span>
+          {/* Height slider */}
+          <div className="mt-6 w-full max-w-sm">
+            <div
+              className="mb-1 flex justify-between text-[10px] font-black uppercase"
+              style={{ color: "var(--color-muted)" }}
+            >
+              <span>Výška</span>
+              <span>{config.height} cm</span>
             </div>
             <input
               type="range"
               min="15"
               max="55"
               value={config.height}
-              onChange={(e) =>
-                setConfig({ ...config, height: Number(e.target.value) })
-              }
+              onChange={(e) => patch({ height: Number(e.target.value) })}
               className="range-clean w-full"
-              aria-label="Otáčanie náhľadu"
+              aria-label="Výška písmen"
             />
           </div>
 
           {/* Text input */}
           <input
             value={config.text}
-            onChange={(e) => setConfig({ ...config, text: e.target.value })}
+            onChange={(e) => patch({ text: e.target.value })}
             maxLength={30}
-            className="mt-6 w-full max-w-sm rounded-full border border-neutral-200 bg-white px-6 py-3 text-center text-sm font-black uppercase tracking-wide outline-none transition focus:border-black focus:shadow-sm"
+            className="mt-5 w-full max-w-sm rounded-full px-6 py-3 text-center text-sm font-black uppercase tracking-wide outline-none transition-colors"
+            style={{
+              background: "var(--color-surface)",
+              color: "var(--color-foreground)",
+              border: "none",
+            }}
             placeholder="Napíšte váš text…"
             aria-label="Text na nápis"
           />
         </section>
 
-        {/* ── RIGHT: Lighting + Color + Thickness ── */}
+        {/* ── RIGHT: Lighting (conditional) + Color + Thickness ─────────── */}
         <aside className="order-3 space-y-8 lg:pt-8">
-          {/* Lighting grid */}
-          <section>
-            <ControlLabel>Svietenie</ControlLabel>
-            <div className="grid grid-cols-3 gap-2">
-              {lightingOptions.map((opt) => (
-                <div key={opt.id} className="group relative">
-                  <button
-                    onClick={() =>
-                      setConfig({ ...config, lighting: opt.id })
-                    }
-                    aria-label={opt.label}
-                    aria-pressed={config.lighting === opt.id}
-                    className={`flex h-14 w-full flex-col items-center justify-center gap-1 rounded-xl transition ${
-                      config.lighting === opt.id
-                        ? "bg-black text-white"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                    }`}
+
+          {/* Svietenie — animated in/out based on signType */}
+          <div
+            style={{
+              maxHeight: config.signType === "illuminated" ? "520px" : "0px",
+              opacity:   config.signType === "illuminated" ? 1 : 0,
+              overflow:  "hidden",
+              transition: "max-height 0.35s ease, opacity 0.25s ease",
+              pointerEvents: config.signType === "illuminated" ? undefined : "none",
+            }}
+          >
+            <div className="space-y-8">
+
+              {/* Light mode grid — visual glow previews, not abstract icons */}
+              <section>
+                <ControlLabel>Svietenie</ControlLabel>
+                {availableLightModes.length === 0 ? (
+                  <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                    Tento materiál nepodporuje svietenie.
+                  </p>
+                ) : (
+                  <div
+                    role="radiogroup"
+                    aria-label="Svietenie"
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-3"
                   >
-                    <LightingIcon
-                      id={opt.id}
-                      active={config.lighting === opt.id}
-                    />
-                  </button>
-                  {/* Tooltip */}
-                  <div className="pointer-events-none absolute bottom-16 left-1/2 z-20 w-52 -translate-x-1/2 rounded-xl bg-black px-4 py-3 text-center text-[11px] font-semibold leading-4 text-white opacity-0 shadow-xl transition group-hover:opacity-100">
-                    <strong
-                      className="mb-1 block text-[12px] font-black"
-                      style={{ color: "var(--accent)" }}
-                    >
-                      {opt.label}
-                    </strong>
-                    {opt.description}
+                    {availableLightModes.map((opt, i) => {
+                      const active = config.lightMode === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          ref={(el) => { modeTileRefs.current[i] = el; }}
+                          role="radio"
+                          aria-checked={active}
+                          tabIndex={active ? 0 : -1}
+                          onClick={() => setLightMode(opt.id)}
+                          onKeyDown={(e) => handleModeKeyDown(e, i)}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-center transition-all duration-200 hover:-translate-y-0.5"
+                          style={{
+                            background: "var(--color-surface)",
+                            boxShadow: active
+                              ? `0 0 0 2px var(--color-primary), inset 0 0 16px ${config.lightColor}2e`
+                              : "none",
+                            opacity: active ? 1 : 0.72,
+                          }}
+                        >
+                          <LightModeGlyphPreview
+                            direction={opt.direction}
+                            glowColor={config.lightColor}
+                            char={previewChar}
+                          />
+                          <span
+                            className="text-[11px] font-black"
+                            style={{ color: "var(--color-foreground)" }}
+                          >
+                            {opt.name}
+                          </span>
+                          <span
+                            className="text-[9px] leading-tight"
+                            style={{ color: "var(--color-muted)" }}
+                          >
+                            {opt.description}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
+                )}
+              </section>
+
+              {/* Farba svetla */}
+              <section>
+                <ControlLabel>Farba svetla</ControlLabel>
+                <div className="relative mb-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="359"
+                    value={lightHue}
+                    onChange={(e) => setLightColorFromSlider(Number(e.target.value))}
+                    className="range-hue w-full"
+                    style={{
+                      background:
+                        "linear-gradient(90deg,hsl(0,92%,58%),hsl(40,92%,58%),hsl(60,92%,58%),hsl(120,92%,58%),hsl(180,92%,58%),hsl(240,92%,58%),hsl(300,92%,58%),hsl(359,92%,58%))",
+                    }}
+                    aria-label="Odtieň farby svetla"
+                  />
                 </div>
-              ))}
-            </div>
-            {/* Active label */}
-            <p className="mt-2 text-center text-[10px] font-black uppercase text-neutral-400">
-              {lightingOptions.find((o) => o.id === config.lighting)?.label}
-            </p>
-          </section>
+                <div className="flex flex-wrap gap-2">
+                  {lightColors.map((color) => (
+                    <button
+                      key={color.id}
+                      onClick={() => setLightColorFromSwatch(color.id, color.value, color.hue)}
+                      title={color.label}
+                      aria-label={color.label}
+                      className={`h-6 w-6 rounded-full border-2 transition hover:scale-110 ${
+                        selectedSwatch === color.id
+                          ? "scale-110 border-(--color-foreground)"
+                          : "border-(--color-border)"
+                      }`}
+                      style={{
+                        background:
+                          color.id === "white"
+                            ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)"
+                            : color.value,
+                      }}
+                    />
+                  ))}
+                </div>
+              </section>
 
-          {/* Light color */}
+            </div>
+          </div>
+
+          {/* Farba písmena — always visible */}
           <section>
-            <ControlLabel>Farba svetla</ControlLabel>
-
-            {/* Hue slider */}
-            <div className="relative mb-3">
-              <input
-                type="range"
-                min="0"
-                max="359"
-                value={lightHue}
-                onChange={(e) => setLightColorFromSlider(Number(e.target.value))}
-                className="range-hue w-full"
-                style={{
-                  background:
-                    "linear-gradient(90deg,hsl(0,92%,58%),hsl(40,92%,58%),hsl(60,92%,58%),hsl(120,92%,58%),hsl(180,92%,58%),hsl(240,92%,58%),hsl(300,92%,58%),hsl(359,92%,58%))",
-                }}
-                aria-label="Odtieň farby svetla"
-              />
-            </div>
-
-            {/* Quick swatches */}
+            <ControlLabel>
+              {config.signType === "illuminated" ? "Farba tela" : "Farba materiálu"}
+            </ControlLabel>
             <div className="flex flex-wrap gap-2">
-              {lightColors.map((color) => (
+              {letterColorOptions.map((c) => (
                 <button
-                  key={color.id}
-                  onClick={() =>
-                    setLightColorFromSwatch(color.id, color.value, color.hue)
-                  }
-                  title={color.label}
-                  aria-label={color.label}
+                  key={c.id}
+                  onClick={() => setBodyColor(c.id, c.value)}
+                  title={c.label}
+                  aria-label={c.label}
                   className={`h-6 w-6 rounded-full border-2 transition hover:scale-110 ${
-                    selectedSwatch === color.id
-                      ? "border-black scale-110"
-                      : "border-neutral-200"
+                    selectedBodySwatch === c.id
+                      ? "scale-110 border-(--color-foreground)"
+                      : "border-(--color-border)"
                   }`}
-                  style={{
-                    background:
-                      color.id === "white"
-                        ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)"
-                        : color.value,
-                  }}
+                  style={{ background: c.value }}
                 />
               ))}
             </div>
+            <p
+              className="mt-1.5 text-[10px] font-black uppercase"
+              style={{ color: "var(--color-muted)" }}
+            >
+              {letterColorOptions.find((c) => c.id === selectedBodySwatch)?.label ?? ""}
+            </p>
           </section>
 
-          {/* Thickness */}
+          {/* Hrúbka — funguje rovnako pre každý font aj materiál */}
           <section>
             <div className="mb-2 flex items-baseline justify-between">
               <ControlLabel as="span">Hrúbka</ControlLabel>
-              <span className="text-[11px] font-black text-neutral-400">
+              <span className="text-[11px] font-black" style={{ color: "var(--color-muted)" }}>
                 {config.thickness} mm
               </span>
             </div>
             <input
               type="range"
-              min="4"
-              max="20"
+              min={MIN_DEPTH_MM}
+              max={MAX_DEPTH_MM}
               value={config.thickness}
-              onChange={(e) =>
-                setConfig({ ...config, thickness: Number(e.target.value) })
-              }
+              onChange={(e) => patch({ thickness: Number(e.target.value) })}
               className="range-clean w-full"
               aria-label="Hrúbka písma"
             />
-            <div className="mt-1 flex justify-between text-[9px] font-black uppercase text-neutral-300">
+            <div
+              className="mt-1 flex justify-between text-[9px] font-black uppercase"
+              style={{ color: "var(--color-muted)", opacity: 0.5 }}
+            >
               <span>Tenké</span>
               <span>Hrubé</span>
             </div>
           </section>
+
+          {/* Otáčanie */}
+          <section>
+            <div className="mb-2 flex items-baseline justify-between">
+              <ControlLabel as="span">Otáčanie</ControlLabel>
+              <span className="flex items-center gap-2">
+                <button
+                  onClick={() => setAutoRotate((v) => !v)}
+                  aria-label={autoRotate ? "Pozastaviť otáčanie" : "Spustiť automatické otáčanie"}
+                  aria-pressed={autoRotate}
+                  className="flex h-5 w-5 items-center justify-center rounded-full transition"
+                  style={{ background: "var(--color-surface-raised)", color: "var(--color-muted)" }}
+                >
+                  {autoRotate ? <Pause size={10} strokeWidth={3} /> : <Play size={10} strokeWidth={3} />}
+                </button>
+                <span className="text-[11px] font-black" style={{ color: "var(--color-muted)" }}>
+                  {Math.round(config.rotation)}°
+                </span>
+              </span>
+            </div>
+            <input
+              type="range"
+              min="-180"
+              max="180"
+              value={Math.round(config.rotation)}
+              onChange={(e) => {
+                handleRotationInteraction();
+                patch({ rotation: Number(e.target.value) });
+              }}
+              onPointerDown={handleRotationInteraction}
+              className="range-clean w-full"
+              aria-label="Otáčanie nápisu"
+            />
+          </section>
+
         </aside>
       </div>
 
-      {/* ── PRICE + ORDER ROW ── */}
-      <div className="mt-12 flex flex-col items-center justify-between gap-6 border-t border-neutral-200 pt-8 sm:flex-row">
+      {/* ── Price + Order row ───────────────────────────────────────────────── */}
+      <div
+        className="mt-12 flex flex-col items-center justify-between gap-6 border-t pt-8 sm:flex-row"
+        style={{ borderColor: "var(--color-border)" }}
+      >
         <div>
-          <p className="text-[11px] font-black uppercase tracking-widest text-neutral-400">
+          <p
+            className="text-[11px] font-black uppercase tracking-widest"
+            style={{ color: "var(--color-muted)" }}
+          >
             Orientačná cena
           </p>
-          <p className="mt-0.5 text-4xl font-black leading-none">{price} €</p>
-          <p className="mt-1 text-[11px] text-neutral-400">
+          <p className="mt-0.5 text-4xl font-black leading-none" style={{ color: "var(--color-foreground)" }}>
+            {price} €
+          </p>
+          <p className="mt-1 text-[11px]" style={{ color: "var(--color-muted)" }}>
             Záväznú cenu dostanete po overení parametrov.
           </p>
         </div>
 
         <button
           onClick={() => setOrderOpen(true)}
-          className="rounded-full px-14 py-4 text-sm font-black uppercase text-black transition hover:opacity-85 active:scale-[0.97]"
-          style={{ background: "var(--accent)" }}
+          className="rounded-full px-14 py-4 text-sm font-black uppercase transition hover:opacity-85 active:scale-[0.97]"
+          style={{ background: "var(--accent)", color: "#000" }}
         >
           Objednať
         </button>
@@ -355,7 +639,7 @@ export default function ConfiguratorStage() {
   );
 }
 
-/* ── Helpers ── */
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function ControlLabel({
   children,
@@ -365,9 +649,174 @@ function ControlLabel({
   as?: "h3" | "span";
 }) {
   return (
-    <Tag className="mb-2.5 block text-[11px] font-black uppercase tracking-widest text-neutral-400">
+    <Tag
+      className="mb-2.5 block text-[11px] font-black uppercase tracking-widest"
+      style={{ color: "var(--color-muted)" }}
+    >
       {children}
     </Tag>
+  );
+}
+
+// ── Font picker — carousel + expandable "all fonts" grid, grouped by category ──
+
+function FontPicker({
+  value,
+  onChange,
+  tileRefs,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+  tileRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const grouped = useMemo(
+    () =>
+      FONT_CATEGORY_ORDER
+        .map((cat) => ({ cat, fonts: fontOptions.filter((f) => f.category === cat) }))
+        .filter((g) => g.fonts.length > 0),
+    [],
+  );
+
+  function handleTileKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+    const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
+    if (!forward && !backward) return;
+    e.preventDefault();
+    const nextIndex = (index + (forward ? 1 : -1) + fontOptions.length) % fontOptions.length;
+    onChange(fontOptions[nextIndex].id);
+    tileRefs.current[nextIndex]?.focus();
+  }
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <ControlLabel>Font</ControlLabel>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-[10px] font-black uppercase tracking-widest transition hover:opacity-70"
+          style={{ color: "var(--color-muted)" }}
+        >
+          {expanded ? "Zbaliť" : "Všetky fonty"}
+        </button>
+      </div>
+
+      {!expanded ? (
+        <div role="radiogroup" aria-label="Font" className="flex gap-2.5 overflow-x-auto pb-2">
+          {fontOptions.map((f, i) => (
+            <FontTile
+              key={f.id}
+              font={f}
+              active={value === f.id}
+              index={i}
+              onClick={() => onChange(f.id)}
+              onKeyDown={handleTileKeyDown}
+              tileRef={(el) => { tileRefs.current[i] = el; }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {grouped.map(({ cat, fonts }) => (
+            <div key={cat}>
+              <p
+                className="mb-2 text-[10px] font-black uppercase tracking-widest"
+                style={{ color: "var(--color-muted)" }}
+              >
+                {FONT_CATEGORY_LABEL[cat]}
+              </p>
+              <div
+                role="radiogroup"
+                aria-label={FONT_CATEGORY_LABEL[cat]}
+                className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2.5"
+              >
+                {fonts.map((f) => {
+                  const i = fontOptions.indexOf(f);
+                  return (
+                    <FontTile
+                      key={f.id}
+                      font={f}
+                      active={value === f.id}
+                      index={i}
+                      onClick={() => onChange(f.id)}
+                      onKeyDown={handleTileKeyDown}
+                      tileRef={(el) => { tileRefs.current[i] = el; }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FontTile({
+  font,
+  active,
+  index,
+  onClick,
+  onKeyDown,
+  tileRef,
+}: {
+  font: FontOption;
+  active: boolean;
+  index: number;
+  onClick: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => void;
+  tileRef: (el: HTMLButtonElement | null) => void;
+}) {
+  return (
+    <button
+      type="button"
+      ref={tileRef}
+      role="radio"
+      aria-checked={active}
+      tabIndex={active ? 0 : -1}
+      onClick={onClick}
+      onKeyDown={(e) => onKeyDown(e, index)}
+      title={font.name}
+      className="flex min-w-[108px] shrink-0 flex-col items-center gap-1 rounded-2xl px-2.5 py-3 text-center transition-all duration-200 hover:-translate-y-1"
+      style={{
+        background: active ? "var(--color-surface-raised)" : "var(--color-surface)",
+        boxShadow: active
+          ? "0 0 0 2px var(--color-primary), 0 8px 20px -6px rgba(255,174,0,0.45)"
+          : "0 1px 2px rgba(0,0,0,0.04)",
+      }}
+    >
+      <span
+        className="text-[26px] leading-none"
+        style={{ fontFamily: font.name, fontWeight: 700, color: "var(--color-foreground)" }}
+      >
+        Aa
+      </span>
+      <span
+        className="w-full text-[11px] leading-snug break-words"
+        style={{ fontFamily: font.name, fontWeight: 600, color: "var(--color-foreground)" }}
+      >
+        {FONT_PREVIEW_SAMPLE}
+      </span>
+      <span
+        className="w-full text-[8px] font-black uppercase leading-tight tracking-wide"
+        style={{ color: active ? "var(--color-primary)" : "var(--color-muted)" }}
+      >
+        {font.name}
+      </span>
+    </button>
+  );
+}
+
+function LetterSceneSkeleton() {
+  return (
+    <div
+      className="h-full w-full animate-pulse rounded-2xl"
+      style={{ background: "var(--color-surface)" }}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -375,7 +824,7 @@ function useReducedMotion() {
   const [reduced, setReduced] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -386,66 +835,86 @@ function useReducedMotion() {
   return reduced;
 }
 
-/* ── Lighting icons (inline SVG) ── */
+// ── Light mode glyph preview (inline SVG) ─────────────────────────────────────
+// Shows WHERE the glow comes from on an actual letterform (the first character
+// of the current text) instead of an abstract icon. Colour tracks the live
+// FARBA slider; "muted" parts use currentColor so they inherit the tile's text
+// colour and stay readable in both the active and inactive tile states.
 
-function LightingIcon({ id, active }: { id: string; active: boolean }) {
-  const stroke = active ? "white" : "currentColor";
-  const fill = active ? "white" : "currentColor";
+function LightModeGlyphPreview({
+  direction,
+  glowColor,
+  char,
+}: {
+  direction: LightModeDirection;
+  glowColor: string;
+  char: string;
+}) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const tightId = `lmt-${uid}`;
+  const softId  = `lms-${uid}`;
+  const haloId  = `lmh-${uid}`;
 
-  switch (id) {
-    case "none":
-      return (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <rect x="4" y="8" width="20" height="12" rx="2" stroke={stroke} strokeWidth="1.5" />
-          <line x1="7" y1="11" x2="21" y2="17" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      );
-    case "front":
-      return (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <rect x="4" y="8" width="16" height="12" rx="2" stroke={stroke} strokeWidth="1.5" />
-          <rect x="4" y="8" width="16" height="12" rx="2" fill={fill} fillOpacity="0.25" />
-          <line x1="22" y1="11" x2="26" y2="10" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="22" y1="14" x2="26" y2="14" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="22" y1="17" x2="26" y2="18" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      );
-    case "halo":
-      return (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <ellipse cx="14" cy="14" rx="11" ry="8" fill={fill} fillOpacity="0.18" />
-          <rect x="5" y="9" width="18" height="10" rx="2" stroke={stroke} strokeWidth="1.5" />
-        </svg>
-      );
-    case "edge":
-      return (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <rect x="5" y="9" width="18" height="10" rx="2" stroke={stroke} strokeWidth="1.5" />
-          <line x1="5" y1="9" x2="5" y2="19" stroke={stroke} strokeWidth="3" strokeLinecap="round" />
-          <line x1="23" y1="9" x2="23" y2="19" stroke={stroke} strokeWidth="3" strokeLinecap="round" />
-        </svg>
-      );
-    case "full":
-      return (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <rect x="6" y="9" width="16" height="10" rx="2" fill={fill} fillOpacity="0.4" stroke={stroke} strokeWidth="1.5" />
-          <line x1="4" y1="7" x2="2" y2="5" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
-          <line x1="14" y1="6" x2="14" y2="3" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
-          <line x1="24" y1="7" x2="26" y2="5" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
-          <line x1="4" y1="21" x2="2" y2="23" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
-          <line x1="24" y1="21" x2="26" y2="23" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
-      );
-    case "open":
-      return (
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <rect x="4" y="8" width="20" height="12" rx="2" stroke={stroke} strokeWidth="1.5" />
-          <circle cx="10" cy="14" r="1.8" fill={fill} />
-          <circle cx="14" cy="14" r="1.8" fill={fill} />
-          <circle cx="18" cy="14" r="1.8" fill={fill} />
-        </svg>
-      );
-    default:
-      return null;
-  }
+  const glyph = { x: 32, y: 43, textAnchor: "middle" as const, fontSize: 42, fontWeight: 900 };
+  const needsMutedBase = direction === "back" || direction === "sides";
+
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      width={LIGHT_TILE_GLOW_SIZE}
+      height={LIGHT_TILE_GLOW_SIZE}
+      aria-hidden="true"
+    >
+      <defs>
+        <filter id={tightId} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation={LIGHT_TILE_BLUR_TIGHT} result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id={softId} x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation={LIGHT_TILE_BLUR_SOFT} />
+        </filter>
+        <filter id={haloId} x="-120%" y="-120%" width="340%" height="340%">
+          <feGaussianBlur stdDeviation={LIGHT_TILE_BLUR_HALO} />
+        </filter>
+      </defs>
+
+      {/* back / combined — diffuse halo behind the glyph */}
+      {(direction === "back" || direction === "both") && (
+        <text {...glyph} fill={glowColor} filter={`url(#${haloId})`} opacity={0.9}>{char}</text>
+      )}
+
+      {/* full — soft outer bloom behind the lit glyph */}
+      {direction === "full" && (
+        <text {...glyph} fill={glowColor} filter={`url(#${softId})`} opacity={0.55}>{char}</text>
+      )}
+
+      {/* dim base glyph so back/sides read as "letter with glow near it", not just an abstract shape */}
+      {needsMutedBase && (
+        <text {...glyph} fill="currentColor" opacity={0.4}>{char}</text>
+      )}
+
+      {/* sides — glow bars at the glyph's left/right edges */}
+      {direction === "sides" && (
+        <>
+          <rect x="8" y="12" width="6" height="40" rx="3" fill={glowColor} filter={`url(#${tightId})`} />
+          <rect x="50" y="12" width="6" height="40" rx="3" fill={glowColor} filter={`url(#${tightId})`} />
+        </>
+      )}
+
+      {/* outline — glowing contour, no fill */}
+      {direction === "outline" && (
+        <text {...glyph} fill="none" stroke={glowColor} strokeWidth={LIGHT_TILE_STROKE_WIDTH} filter={`url(#${tightId})`}>
+          {char}
+        </text>
+      )}
+
+      {/* front / full / combined — the glyph itself lit */}
+      {(direction === "front" || direction === "full" || direction === "both") && (
+        <text {...glyph} fill={glowColor} filter={`url(#${tightId})`}>{char}</text>
+      )}
+    </svg>
+  );
 }

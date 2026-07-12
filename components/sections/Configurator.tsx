@@ -4,26 +4,30 @@ import { useMemo, useState } from "react";
 import type { Config } from "@/lib/types";
 import {
   fontOptions,
-  materialOptions,
-  lightingOptions,
+  MATERIALS,
+  LIGHT_MODES,
   lightColors,
 } from "@/lib/options";
 import { calculatePrice } from "@/lib/pricing";
+import OrderModal from "@/components/configurator/OrderModal";
 
 export default function Configurator() {
   const [config, setConfig] = useState<Config>({
-    text: "VÁŠ TEXT",
-    font: "modern",
-    material: "alubond",
-    lighting: "full",
+    text:      "VÁŠ TEXT",
+    font:      "helvetiker-bold",
+    material:  "alubond",
+    signType:  "illuminated",
+    lightMode: "full",
     lightColor: "#00c8ff",
-    bodyColor: "#f0f0f0",
-    height: 35,
+    bodyColor:  "#f0f0f0",
+    height:    35,
     thickness: 8,
+    rotation:  0,
   });
   const [rotation, setRotation] = useState(34);
   const [lightHue, setLightHue] = useState(195);
   const [selectedSwatch, setSelectedSwatch] = useState("cyan");
+  const [orderOpen, setOrderOpen] = useState(false);
 
   function patch(update: Partial<Config>) {
     setConfig((prev) => ({ ...prev, ...update }));
@@ -43,19 +47,6 @@ export default function Configurator() {
 
   const price = useMemo(() => calculatePrice(config), [config]);
 
-  function handleOrder() {
-    const mat = materialOptions.find((m) => m.id === config.material);
-    const light = lightingOptions.find((l) => l.id === config.lighting);
-    console.log("=== Konfigurácia objednávky ===", {
-      text: config.text,
-      font: config.font,
-      material: mat?.label ?? config.material,
-      lighting: light?.label ?? config.lighting,
-      lightColor: config.lightColor,
-      thickness: `${config.thickness} mm`,
-      price: `${price} €`,
-    });
-  }
 
   return (
     <section id="konfigurator" className="py-16 md:py-24">
@@ -81,7 +72,7 @@ export default function Configurator() {
                         : "border-[var(--color-border)] bg-white text-[var(--color-muted)] hover:border-[var(--color-foreground)]",
                     ].join(" ")}
                   >
-                    <span className={`text-base leading-none ${font.className}`}>Aa</span>
+                    <span className="text-base leading-none" style={{ fontFamily: font.name }}>Aa</span>
                     <span className="mt-0.5 text-[9px] font-black uppercase leading-none opacity-50">
                       {font.name.slice(0, 5)}
                     </span>
@@ -94,7 +85,7 @@ export default function Configurator() {
             <div>
               <ControlLabel>Materiály</ControlLabel>
               <div className="space-y-1">
-                {materialOptions.map((mat) => (
+                {MATERIALS.map((mat) => (
                   <button
                     key={mat.id}
                     onClick={() => patch({ material: mat.id })}
@@ -105,8 +96,8 @@ export default function Configurator() {
                         : "bg-[var(--color-surface)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-raised)]",
                     ].join(" ")}
                   >
-                    <span className="text-[12px] font-black uppercase">{mat.label}</span>
-                    <span className="text-[10px] opacity-40">×{mat.multiplier}</span>
+                    <span className="text-[12px] font-black uppercase">{mat.displayName}</span>
+                    <span className="text-[10px] opacity-40">×{mat.priceMultiplier}</span>
                   </button>
                 ))}
               </div>
@@ -178,21 +169,21 @@ export default function Configurator() {
             <div>
               <ControlLabel>Svietenie</ControlLabel>
               <div className="grid grid-cols-3 gap-2">
-                {lightingOptions.map((opt) => (
+                {LIGHT_MODES.map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => patch({ lighting: opt.id })}
-                    aria-label={opt.label}
-                    aria-pressed={config.lighting === opt.id}
-                    title={opt.label}
+                    onClick={() => patch({ lightMode: opt.id })}
+                    aria-label={opt.name}
+                    aria-pressed={config.lightMode === opt.id}
+                    title={opt.name}
                     className={[
                       "flex h-14 w-full items-center justify-center rounded-xl transition",
-                      config.lighting === opt.id
+                      config.lightMode === opt.id
                         ? "bg-[var(--color-foreground)] text-white"
                         : "bg-[var(--color-surface)] text-[var(--color-muted)] hover:bg-[var(--color-surface-raised)]",
                     ].join(" ")}
                   >
-                    <LightingIcon id={opt.id} active={config.lighting === opt.id} />
+                    <LightingIcon id={opt.id} active={config.lightMode === opt.id} />
                   </button>
                 ))}
               </div>
@@ -200,7 +191,7 @@ export default function Configurator() {
                 className="mt-2 text-center text-[10px] font-black uppercase tracking-widest"
                 style={{ color: "var(--color-muted)" }}
               >
-                {lightingOptions.find((o) => o.id === config.lighting)?.label}
+                {LIGHT_MODES.find((o) => o.id === config.lightMode)?.name}
               </p>
             </div>
 
@@ -304,7 +295,7 @@ export default function Configurator() {
 
           {/* CTA */}
           <button
-            onClick={handleOrder}
+            onClick={() => setOrderOpen(true)}
             className="rounded-full border px-16 py-4 text-sm font-black uppercase tracking-widest transition hover:bg-[var(--color-foreground)] hover:text-white active:scale-[0.97]"
             style={{
               borderColor: "var(--color-foreground)",
@@ -315,6 +306,10 @@ export default function Configurator() {
           </button>
         </div>
       </div>
+
+      {orderOpen && (
+        <OrderModal config={config} onClose={() => setOrderOpen(false)} />
+      )}
     </section>
   );
 }

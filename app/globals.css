@@ -1,13 +1,50 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
+/* ─── Configurator font picker — live previews ────────────────────────────
+   Same TTFs the 3D scene extrudes (see /public/fonts, fetched by
+   scripts/fetch-fonts.mjs) registered here too, so each font-picker tile can
+   render its own name in its own font. Family names match FontOption.name
+   in lib/options.ts exactly. Variable-font files get a weight range; the
+   handful of single-static-weight files get one explicit weight. */
+@font-face { font-family: "Montserrat";       src: url("/fonts/montserrat.ttf")       format("truetype"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Poppins";          src: url("/fonts/poppins.ttf")          format("truetype"); font-weight: 700;     font-display: swap; }
+@font-face { font-family: "Inter";            src: url("/fonts/inter.ttf")            format("truetype"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Playfair Display"; src: url("/fonts/playfair-display.ttf") format("truetype"); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: "Merriweather";     src: url("/fonts/merriweather.ttf")     format("truetype"); font-weight: 300 900; font-display: swap; }
+@font-face { font-family: "Oswald";           src: url("/fonts/oswald.ttf")           format("truetype"); font-weight: 200 700; font-display: swap; }
+@font-face { font-family: "Archivo Black";    src: url("/fonts/archivo-black.ttf")    format("truetype"); font-weight: 400;     font-display: swap; }
+@font-face { font-family: "Pacifico";         src: url("/fonts/pacifico.ttf")         format("truetype"); font-weight: 400;     font-display: swap; }
+@font-face { font-family: "Dancing Script";   src: url("/fonts/dancing-script.ttf")   format("truetype"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Caveat";           src: url("/fonts/caveat.ttf")           format("truetype"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Great Vibes";      src: url("/fonts/great-vibes.ttf")      format("truetype"); font-weight: 400;     font-display: swap; }
+@font-face { font-family: "Baloo 2";          src: url("/fonts/baloo-2.ttf")          format("truetype"); font-weight: 400 800; font-display: swap; }
+@font-face { font-family: "Quicksand";        src: url("/fonts/quicksand.ttf")        format("truetype"); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: "Roboto Slab";      src: url("/fonts/roboto-slab.ttf")      format("truetype"); font-weight: 100 900; font-display: swap; }
+
+/* Enable dark: variant when <html> or any ancestor has class="dark" */
+@variant dark (&:where(.dark, .dark *));
+
 /* ─── Design tokens ─────────────────────────────────────────────────────── */
-/* Provisional palette — replace with brand colours in a later step.         */
+/* Palette unified with the sister site vytlacto3d.sk: black / white / yellow,
+   yellow used strictly as a striedmy (sparing) accent — never a large
+   background area. Exact accent hex (#FFAE00) taken from vytlacto3d's
+   components (Navbar/Footer/HowItWorks/FaqPreview/MaterialPricing all use it
+   as a literal `#FFAE00`, it isn't tokenised there either). */
 :root {
-  /* Primary (header blue accent) */
-  --color-primary:       #00c8ff;
-  --color-primary-dark:  #00a3d4;
-  --color-primary-light: #66dfff;
+  /* Primary / accent (yellow) */
+  --color-primary:       #FFAE00;
+  --color-primary-dark:  #CC8B00;
+  --color-primary-light: #FFC64D;
+
+  /* AA-safe darker amber for accent-coloured TEXT on light backgrounds —
+     #FFAE00 itself is ~1.9:1 on white, well under WCAG AA (4.5:1). Only use
+     --color-primary/--accent as a BACKGROUND (with black or white-on-dark
+     foreground) or for rings/underlines/icons, never as body text colour. */
+  --color-accent-text:   #B45309;
+
+  /* Foreground to use ON TOP of an accent-coloured background/fill */
+  --accent-foreground:   #000000;
 
   /* Neutrals */
   --color-background:    #ffffff;
@@ -23,11 +60,29 @@
   --color-border:        #e5e5e5;
   --color-border-strong: #d0d0d0;
 
-  /* Backward-compat aliases (used by existing components) */
+  /* Yellow accent — kept as an explicit alias so existing --color-yellow
+     usages (FAQ page, nav underline, icon glow) stay in lockstep with
+     --color-primary instead of drifting into a second accent colour. */
+  --color-yellow: var(--color-primary);
+  --color-yellow-dim: rgba(255,174,0,0.12);
+
+  /* Backward-compat aliases */
   --accent: var(--color-primary);
   --black:  var(--color-foreground);
   --muted:  var(--color-muted);
   --border: var(--color-border);
+}
+
+/* ─── Dark mode token overrides ──────────────────────────────────────────── */
+html.dark {
+  --color-background:    #090909;
+  --color-foreground:    #ededed;
+  --color-muted:         #888888;
+  --color-muted-light:   #666666;
+  --color-surface:       #141414;
+  --color-surface-raised:#1e1e1e;
+  --color-border:        #282828;
+  --color-border-strong: #3d3d3d;
 }
 
 /* ─── Base ───────────────────────────────────────────────────────────────── */
@@ -37,21 +92,23 @@
 
 html {
   scroll-behavior: smooth;
+  background: var(--color-background);
+  transition: background-color 0.4s ease;
 }
 
 body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-inter), var(--font-century-gothic), Arial, Helvetica, sans-serif;
+  transition: background-color 0.4s ease, color 0.3s ease;
 }
 
 /* ─── Typography ─────────────────────────────────────────────────────────── */
 .main-heading {
-  font-family: var(--font-anton), var(--font-century-gothic), Arial, Helvetica, sans-serif;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
+  font-weight: 900;
   text-transform: uppercase;
-  line-height: 0.92;
+  line-height: 1.05;
 }
 
 /* ─── Accessibility ──────────────────────────────────────────────────────── */
@@ -147,3 +204,127 @@ body {
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
+
+/* ─── Keyframes ──────────────────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+/* ─── Scroll reveal ──────────────────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-scale.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Stagger delays for grid children */
+.delay-1 { transition-delay: 0.06s; }
+.delay-2 { transition-delay: 0.12s; }
+.delay-3 { transition-delay: 0.18s; }
+.delay-4 { transition-delay: 0.24s; }
+.delay-5 { transition-delay: 0.30s; }
+.delay-6 { transition-delay: 0.36s; }
+
+/* ─── Card hover lift ─────────────────────────────────────────────────────── */
+.card-hover {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.13);
+}
+html.dark .card-hover:hover {
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ─── Icon pop ───────────────────────────────────────────────────────────── */
+.icon-pop {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease;
+}
+.icon-pop:hover,
+.step-card:hover .icon-pop {
+  transform: scale(1.18) rotate(-6deg);
+  box-shadow: 0 8px 24px rgba(255, 174, 0, 0.45);
+}
+
+/* ─── Step card hover ────────────────────────────────────────────────────── */
+.step-card {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 20px;
+  padding: 24px 16px;
+}
+.step-card:hover {
+  transform: translateY(-8px);
+}
+
+/* ─── Nav link yellow underline ──────────────────────────────────────────── */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  width: 0;
+  height: 2px;
+  background: var(--color-yellow);
+  border-radius: 99px;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* ─── Yellow glow pulse on icon badges ───────────────────────────────────── */
+@keyframes yellowPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,174,0,0.45); }
+  60%       { box-shadow: 0 0 0 10px rgba(255,174,0,0); }
+}
+.yellow-pulse:hover {
+  animation: yellowPulse 0.7s ease forwards;
+}
+
+/* ─── Smooth image scale inside cards ───────────────────────────────────── */
+.img-zoom {
+  overflow: hidden;
+}
+.img-zoom > * {
+  transition: transform 0.4s ease;
+}
+.img-zoom:hover > * {
+  transform: scale(1.06);
+}
+
+/* ─── Button press feel ──────────────────────────────────────────────────── */
+.btn-press {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.btn-press:hover  { opacity: 0.88; }
+.btn-press:active { transform: scale(0.96); }

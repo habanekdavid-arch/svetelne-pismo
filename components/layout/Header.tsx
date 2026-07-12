@@ -1,47 +1,164 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { Menu, X } from "lucide-react";
+
+const cgBlack: React.CSSProperties = {
+  fontFamily: "var(--font-century-gothic)",
+  fontWeight: 900,
+};
+
+const cgRegular: React.CSSProperties = {
+  fontFamily: "var(--font-century-gothic)",
+  fontWeight: 400,
+};
 
 export default function Header() {
+  const [open, setOpen] = useState(false);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
+    <header
+      className="sticky top-0 z-50 transition-colors duration-400"
+      style={{
+        background: "var(--color-background)",
+        borderBottom: "1px solid var(--color-border)",
+        boxShadow: "0 4px 24px 0 rgba(0,0,0,0.06)",
+      }}
+    >
+      <div className="mx-auto flex h-[100px] max-w-7xl items-center justify-between px-5">
         {/* Brand */}
         <Link
           href="/"
-          className="font-black tracking-tight"
-          style={{ fontFamily: "var(--font-anton), sans-serif", fontSize: "1.1rem" }}
+          className="whitespace-nowrap text-[22px] transition-opacity hover:opacity-70"
+          style={{ ...cgBlack, color: "var(--color-foreground)" }}
         >
-          rozsvieť<span style={{ color: "var(--accent)" }}>TO</span>
+          ROZSVIEŤTO
         </Link>
 
-        {/* Nav */}
+        {/* Nav — desktop only */}
         <nav
-          className="hidden items-center gap-8 text-[11px] font-black uppercase tracking-widest text-neutral-500 md:flex"
+          className="hidden items-center gap-10 text-[16px] md:flex"
+          style={cgRegular}
           aria-label="Hlavná navigácia"
         >
-          <a href="#konfigurator" className="transition hover:text-black">
-            3D písmo
+          <a
+            href="/#materialy"
+            className="nav-link whitespace-nowrap"
+            style={{ color: "var(--color-foreground)" }}
+          >
+            MATERIALY
           </a>
-          <a href="#materialy" className="transition hover:text-black">
-            Materiály
+          <a
+            href="/#konfigurator"
+            className="nav-link whitespace-nowrap"
+            style={{ color: "var(--color-foreground)" }}
+          >
+            CENY
           </a>
-          <a href="#ceny" className="transition hover:text-black">
-            Ceny
-          </a>
-          <a href="#faq" className="transition hover:text-black">
+          <Link
+            href="/faq"
+            className="nav-link whitespace-nowrap"
+            style={{ color: "var(--color-foreground)" }}
+          >
             FAQ
-          </a>
-          <a href="#blog" className="transition hover:text-black">
-            Blog
-          </a>
+          </Link>
+          <Link
+            href="/blog"
+            className="nav-link whitespace-nowrap"
+            style={{ color: "var(--color-foreground)" }}
+          >
+            BLOG
+          </Link>
         </nav>
 
-        {/* CTA */}
-        <a
-          href="#konfigurator"
-          className="rounded-full border border-black px-5 py-2 text-[11px] font-black uppercase tracking-widest text-black transition hover:bg-black hover:text-white"
+        {/* CTA — desktop only */}
+        <Link
+          href="/#konfigurator"
+          className="hidden whitespace-nowrap rounded-full px-6 py-2.5 text-[14px] transition hover:opacity-85 md:inline-block"
+          style={{
+            ...cgBlack,
+            background: "var(--accent)",
+            color: "#000",
+          }}
         >
-          Prihlásiť sa
-        </a>
+          PRIHLAS SA
+        </Link>
+
+        {/* Hamburger — mobile only */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex h-10 w-10 items-center justify-center rounded-full transition hover:opacity-70 md:hidden"
+          style={{ color: "var(--color-foreground)" }}
+          aria-label={open ? "Zavrieť menu" : "Otvoriť menu"}
+          aria-expanded={open}
+          aria-controls="mobile-nav"
+        >
+          {open ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </div>
+
+      {/* Mobile menu panel */}
+      <div
+        id="mobile-nav"
+        className="overflow-hidden transition-[max-height,opacity] duration-200 ease-out md:hidden"
+        style={{
+          maxHeight: open ? "320px" : "0px",
+          opacity: open ? 1 : 0,
+          borderTop: open ? "1px solid var(--color-border)" : "none",
+        }}
+      >
+        <nav
+          className="flex flex-col gap-1 px-5 py-4"
+          style={cgRegular}
+          aria-label="Mobilná navigácia"
+        >
+          <a
+            href="/#materialy"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
+            style={{ color: "var(--color-foreground)" }}
+          >
+            MATERIALY
+          </a>
+          <a
+            href="/#konfigurator"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
+            style={{ color: "var(--color-foreground)" }}
+          >
+            CENY
+          </a>
+          <Link
+            href="/faq"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
+            style={{ color: "var(--color-foreground)" }}
+          >
+            FAQ
+          </Link>
+          <Link
+            href="/blog"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
+            style={{ color: "var(--color-foreground)" }}
+          >
+            BLOG
+          </Link>
+          <Link
+            href="/#konfigurator"
+            onClick={() => setOpen(false)}
+            className="mt-2 whitespace-nowrap rounded-full px-6 py-3 text-center text-[14px]"
+            style={{
+              ...cgBlack,
+              background: "var(--accent)",
+              color: "#000",
+            }}
+          >
+            PRIHLAS SA
+          </Link>
+        </nav>
       </div>
     </header>
   );

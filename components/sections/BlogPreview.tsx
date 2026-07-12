@@ -19,17 +19,17 @@ const posts = [
 export default function BlogPreview() {
   return (
     <section className="py-20 md:py-28">
-      <div className="mx-auto max-w-6xl px-5">
+      <div className="mx-auto max-w-360 px-20">
 
         {/* Heading */}
         <div className="mx-auto mb-12 max-w-2xl text-center">
-          <h2 className="main-heading text-3xl md:text-5xl xl:text-6xl">
+          <h2 className="reveal main-heading text-[50px]">
             Prečítajte si viac
             <br />
             v našom blogu
           </h2>
           <p
-            className="mx-auto mt-5 max-w-sm text-sm leading-relaxed"
+            className="reveal delay-1 mx-auto mt-5 max-w-xl text-[20px] leading-relaxed"
             style={{ color: "var(--color-muted)" }}
           >
             Pokiaľ si neviete rady, v pár krokoch jednoducho
@@ -38,45 +38,37 @@ export default function BlogPreview() {
           </p>
         </div>
 
-        {/* Cards */}
+        {/* Cards — 401 px wide each, 284 px image, 10 px radius per Figma */}
         <ul className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post) => (
-            <li key={post.slug}>
+          {posts.map((post, i) => (
+            <li key={post.slug} className={`reveal delay-${i + 1}`}>
               <a
                 href="#"
                 aria-label={post.title}
-                className="group block outline-none focus-visible:ring-2"
-                style={
-                  { "--ring-color": "var(--color-primary)" } as React.CSSProperties
-                }
+                className="card-hover group block overflow-hidden rounded-[10px] outline-none"
+                style={{ border: "1px solid var(--color-border)" }}
               >
-                {/* Image placeholder */}
+                {/* Image placeholder — 284 px tall per Figma */}
                 <div
-                  className="w-full overflow-hidden rounded-xl"
-                  style={{
-                    aspectRatio: "4 / 3",
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                  }}
-                >
-                  <div
-                    className="h-full w-full transition-transform duration-300 ease-out group-hover:scale-[1.03]"
-                    style={{ background: "var(--color-surface-raised)" }}
-                    aria-hidden="true"
-                  />
-                </div>
+                  className="img-zoom h-71 w-full"
+                  style={{ background: "var(--color-surface-raised)" }}
+                  aria-hidden="true"
+                />
 
                 {/* Text */}
-                <div className="mt-4 px-1">
+                <div className="p-5">
                   <h3
-                    className="text-[12px] font-black uppercase tracking-widest transition-opacity group-hover:opacity-70"
-                    style={{ color: "var(--color-foreground)" }}
+                    className="text-[24px] font-black uppercase leading-tight"
+                    style={{
+                      fontFamily: "var(--font-century-gothic)",
+                      color: "var(--color-foreground)",
+                    }}
                   >
                     {post.title}
                   </h3>
                   <p
-                    className="mt-1.5 text-[13px] leading-5"
-                    style={{ color: "var(--color-muted)" }}
+                    className="mt-2 text-[13px]"
+                    style={{ color: "var(--color-muted)", lineHeight: 1.2 }}
                   >
                     {post.desc}
                   </p>
