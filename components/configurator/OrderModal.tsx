@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X, Check } from "lucide-react";
 import type { Config } from "@/lib/types";
 import { calculatePrice } from "@/lib/pricing";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
+import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 
 type Props = {
   config: Config;
@@ -16,6 +17,7 @@ export default function OrderModal({ config, onClose }: Props) {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const trackedRef = useRef(false);
 
   const price    = calculatePrice(config);
   const font     = fontOptions.find((f) => f.id === config.font);
@@ -40,6 +42,23 @@ export default function OrderModal({ config, onClose }: Props) {
     e.preventDefault();
     if (!validate()) return;
     setSubmitted(true);
+
+    if (!trackedRef.current) {
+      trackedRef.current = true;
+      trackPurchase({
+        transactionId: generateClientOrderId(),
+        value: price,
+        currency: "EUR",
+        items: [
+          {
+            item_name: `Svetelný nápis — ${material?.displayName ?? config.material} (${font?.name ?? config.font})`,
+            item_id: `${config.material}-${config.font}-${config.signType}`,
+            price,
+            quantity: 1,
+          },
+        ],
+      });
+    }
   }
 
   return (

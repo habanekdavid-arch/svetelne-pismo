@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Lightbulb, LightbulbOff, Pause, Play } from "lucide-react";
+import { Lightbulb, LightbulbOff } from "lucide-react";
 import OrderModal from "@/components/configurator/OrderModal";
 import type { Config, LightModeDirection, LightModeId, MaterialUseTag, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
@@ -30,7 +30,7 @@ const LetterScene = dynamic(() => import("@/components/three/LetterScene"), {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Light modes that trigger the dark-canvas preview automatically
-const NIGHT_MODES: LightModeId[] = ["halo", "combined", "full"];
+const NIGHT_MODES: LightModeId[] = ["halo", "full"];
 
 const USE_TAG_LABEL: Record<MaterialUseTag, string> = {
   interiér: "Interiér",
@@ -39,11 +39,9 @@ const USE_TAG_LABEL: Record<MaterialUseTag, string> = {
 };
 
 // ── Light mode glyph preview tunables ───────────────────────────────────────
-const LIGHT_TILE_GLOW_SIZE   = 42;  // px — svg square inside each mode tile
-const LIGHT_TILE_BLUR_TIGHT  = 2.5; // front/outline/sides — crisp glow
-const LIGHT_TILE_BLUR_SOFT   = 5;   // full — soft outer bloom
-const LIGHT_TILE_BLUR_HALO   = 7.5; // back/combined — diffuse halo behind the glyph
-const LIGHT_TILE_STROKE_WIDTH = 2.5;
+const LIGHT_TILE_GLOW_SIZE  = 42;  // px — svg square inside each mode tile
+const LIGHT_TILE_BLUR_TIGHT = 2.5; // front / full — crisp glow on the glyph
+const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
 
 // ── Font picker tunables ─────────────────────────────────────────────────────
 const FONT_CATEGORY_ORDER: FontCategory[] = ["sans", "serif", "display", "script", "rounded", "slab"];
@@ -59,8 +57,6 @@ export default function ConfiguratorStage() {
   const [selectedSwatch, setSelectedSwatch] = useState<string>("yellow");
   const [selectedBodySwatch, setSelectedBodySwatch] = useState<string>("black");
   const [orderOpen, setOrderOpen] = useState(false);
-  const [autoRotate, setAutoRotate] = useState(true);
-  const reducedMotion = useReducedMotion();
   const { setConfig: publishConfig } = useSharedConfig();
 
   // Remember the last active light mode so we can restore it when switching
@@ -71,7 +67,7 @@ export default function ConfiguratorStage() {
     // Plain black "VÁŠ TEXT" on load — a blank, legible canvas, visible the
     // instant the page loads. The user turns on Svetelné/colour themselves.
     text:       "VÁŠ TEXT",
-    font:       "montserrat",
+    font:       "archivo-black",
     material:   "plexi",
     signType:   "plain",
     lightMode:  "front",
@@ -81,7 +77,7 @@ export default function ConfiguratorStage() {
     bodyColor:  letterColorOptions.find((c) => c.id === "black")!.value,
     height:     35,
     thickness:  8,
-    rotation:   0,
+    rotation:   0, // sign no longer rotates — kept for the Config shape / pricing
   });
 
   // Keep ShowcaseSection in sync with every config change
@@ -110,24 +106,19 @@ export default function ConfiguratorStage() {
       ? "night"
       : "day";
 
-  const isNight   = previewMode === "night";
-  const pageDark  = manualMode === "night";
+  const isNight = previewMode === "night";
 
   // ── Side effects ─────────────────────────────────────────────────────────
+  // Note: Deň/Noc used to toggle a `dark` class on <html>, re-theming the
+  // whole site. That's gone — Noc now only darkens the visualisation panel
+  // itself (see the canvas wrapper's background below), nothing else on the
+  // page changes.
+  //
   // Note: --accent used to be reassigned here to mirror the chosen LED colour
   // (config.lightColor), which meant the OBJEDNAŤ button and every other
   // --accent-driven element sitewide (Footer brand, FAQ, steps…) shifted
   // colour to match whatever LED colour was last picked. Removed — the site
   // accent is now the fixed brand yellow everywhere, matching vytlacto3d.
-
-  useEffect(() => {
-    if (pageDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    return () => document.documentElement.classList.remove("dark");
-  }, [pageDark]);
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -172,10 +163,6 @@ export default function ConfiguratorStage() {
 
     // Thickness is free for every material — switching material never touches it.
     patch({ material: materialId, lightMode: validMode });
-  }
-
-  function handleRotationInteraction() {
-    setAutoRotate(false);
   }
 
   function setLightMode(id: LightModeId) {
@@ -330,8 +317,16 @@ export default function ConfiguratorStage() {
             ))}
           </div>
 
-          {/* Canvas — transparent, sign levitates */}
-          <div className="relative h-105 w-full">
+          {/* Canvas — its own day/night panel; Noc only darkens this box,
+              never the rest of the page. */}
+          <div
+            className="relative h-105 w-full overflow-hidden rounded-3xl transition-colors duration-500"
+            style={{
+              background: isNight
+                ? "radial-gradient(ellipse at 50% 38%, #1c1c22 0%, #0a0a0d 80%)"
+                : "transparent",
+            }}
+          >
             {isNight && (
               <div
                 className="pointer-events-none absolute inset-0"
@@ -351,11 +346,7 @@ export default function ConfiguratorStage() {
               signType={config.signType}
               lightMode={config.lightMode}
               height={config.height}
-              rotation={config.rotation}
-              autoRotate={autoRotate}
-              onRotationChange={(deg) => patch({ rotation: Math.round(deg) })}
               previewMode={previewMode}
-              reducedMotion={reducedMotion}
             />
           </div>
 
@@ -566,40 +557,6 @@ export default function ConfiguratorStage() {
             </div>
           </section>
 
-          {/* Otáčanie */}
-          <section>
-            <div className="mb-2 flex items-baseline justify-between">
-              <ControlLabel as="span">Otáčanie</ControlLabel>
-              <span className="flex items-center gap-2">
-                <button
-                  onClick={() => setAutoRotate((v) => !v)}
-                  aria-label={autoRotate ? "Pozastaviť otáčanie" : "Spustiť automatické otáčanie"}
-                  aria-pressed={autoRotate}
-                  className="flex h-5 w-5 items-center justify-center rounded-full transition"
-                  style={{ background: "var(--color-surface-raised)", color: "var(--color-muted)" }}
-                >
-                  {autoRotate ? <Pause size={10} strokeWidth={3} /> : <Play size={10} strokeWidth={3} />}
-                </button>
-                <span className="text-[11px] font-black" style={{ color: "var(--color-muted)" }}>
-                  {Math.round(config.rotation)}°
-                </span>
-              </span>
-            </div>
-            <input
-              type="range"
-              min="-180"
-              max="180"
-              value={Math.round(config.rotation)}
-              onChange={(e) => {
-                handleRotationInteraction();
-                patch({ rotation: Number(e.target.value) });
-              }}
-              onPointerDown={handleRotationInteraction}
-              className="range-clean w-full"
-              aria-label="Otáčanie nápisu"
-            />
-          </section>
-
         </aside>
       </div>
 
@@ -704,18 +661,30 @@ function FontPicker({
       </div>
 
       {!expanded ? (
-        <div role="radiogroup" aria-label="Font" className="flex gap-2.5 overflow-x-auto pb-2">
-          {fontOptions.map((f, i) => (
-            <FontTile
-              key={f.id}
-              font={f}
-              active={value === f.id}
-              index={i}
-              onClick={() => onChange(f.id)}
-              onKeyDown={handleTileKeyDown}
-              tileRef={(el) => { tileRefs.current[i] = el; }}
-            />
-          ))}
+        <div
+          className="relative"
+          style={{
+            maskImage: "linear-gradient(to right, black calc(100% - 28px), transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to right, black calc(100% - 28px), transparent 100%)",
+          }}
+        >
+          <div
+            role="radiogroup"
+            aria-label="Font"
+            className="no-scrollbar flex gap-2.5 overflow-x-auto scroll-px-1 pr-8"
+          >
+            {fontOptions.map((f, i) => (
+              <FontTile
+                key={f.id}
+                font={f}
+                active={value === f.id}
+                index={i}
+                onClick={() => onChange(f.id)}
+                onKeyDown={handleTileKeyDown}
+                tileRef={(el) => { tileRefs.current[i] = el; }}
+              />
+            ))}
+          </div>
         </div>
       ) : (
         <div className="space-y-6">
@@ -780,12 +749,9 @@ function FontTile({
       onClick={onClick}
       onKeyDown={(e) => onKeyDown(e, index)}
       title={font.name}
-      className="flex min-w-[108px] shrink-0 flex-col items-center gap-1 rounded-2xl px-2.5 py-3 text-center transition-all duration-200 hover:-translate-y-1"
+      className="font-tile flex min-w-27 shrink-0 flex-col items-center gap-1 rounded-2xl px-2.5 py-3 text-center"
       style={{
         background: active ? "var(--color-surface-raised)" : "var(--color-surface)",
-        boxShadow: active
-          ? "0 0 0 2px var(--color-primary), 0 8px 20px -6px rgba(255,174,0,0.45)"
-          : "0 1px 2px rgba(0,0,0,0.04)",
       }}
     >
       <span
@@ -820,21 +786,6 @@ function LetterSceneSkeleton() {
   );
 }
 
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return reduced;
-}
-
 // ── Light mode glyph preview (inline SVG) ─────────────────────────────────────
 // Shows WHERE the glow comes from on an actual letterform (the first character
 // of the current text) instead of an abstract icon. Colour tracks the live
@@ -852,11 +803,9 @@ function LightModeGlyphPreview({
 }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const tightId = `lmt-${uid}`;
-  const softId  = `lms-${uid}`;
   const haloId  = `lmh-${uid}`;
 
   const glyph = { x: 32, y: 43, textAnchor: "middle" as const, fontSize: 42, fontWeight: 900 };
-  const needsMutedBase = direction === "back" || direction === "sides";
 
   return (
     <svg
@@ -873,46 +822,26 @@ function LightModeGlyphPreview({
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <filter id={softId} x="-100%" y="-100%" width="300%" height="300%">
-          <feGaussianBlur stdDeviation={LIGHT_TILE_BLUR_SOFT} />
-        </filter>
         <filter id={haloId} x="-120%" y="-120%" width="340%" height="340%">
           <feGaussianBlur stdDeviation={LIGHT_TILE_BLUR_HALO} />
         </filter>
       </defs>
 
-      {/* back / combined — diffuse halo behind the glyph */}
-      {(direction === "back" || direction === "both") && (
-        <text {...glyph} fill={glowColor} filter={`url(#${haloId})`} opacity={0.9}>{char}</text>
+      {/* back — diffuse halo behind a dim glyph (glow on the wall) */}
+      {direction === "back" && (
+        <>
+          <text {...glyph} fill={glowColor} filter={`url(#${haloId})`} opacity={0.9}>{char}</text>
+          <text {...glyph} fill="currentColor" opacity={0.4}>{char}</text>
+        </>
       )}
 
       {/* full — soft outer bloom behind the lit glyph */}
       {direction === "full" && (
-        <text {...glyph} fill={glowColor} filter={`url(#${softId})`} opacity={0.55}>{char}</text>
+        <text {...glyph} fill={glowColor} filter={`url(#${haloId})`} opacity={0.5}>{char}</text>
       )}
 
-      {/* dim base glyph so back/sides read as "letter with glow near it", not just an abstract shape */}
-      {needsMutedBase && (
-        <text {...glyph} fill="currentColor" opacity={0.4}>{char}</text>
-      )}
-
-      {/* sides — glow bars at the glyph's left/right edges */}
-      {direction === "sides" && (
-        <>
-          <rect x="8" y="12" width="6" height="40" rx="3" fill={glowColor} filter={`url(#${tightId})`} />
-          <rect x="50" y="12" width="6" height="40" rx="3" fill={glowColor} filter={`url(#${tightId})`} />
-        </>
-      )}
-
-      {/* outline — glowing contour, no fill */}
-      {direction === "outline" && (
-        <text {...glyph} fill="none" stroke={glowColor} strokeWidth={LIGHT_TILE_STROKE_WIDTH} filter={`url(#${tightId})`}>
-          {char}
-        </text>
-      )}
-
-      {/* front / full / combined — the glyph itself lit */}
-      {(direction === "front" || direction === "full" || direction === "both") && (
+      {/* front / full — the glyph itself lit */}
+      {(direction === "front" || direction === "full") && (
         <text {...glyph} fill={glowColor} filter={`url(#${tightId})`}>{char}</text>
       )}
     </svg>

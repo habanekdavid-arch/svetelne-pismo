@@ -1,15 +1,6 @@
 import Link from "next/link";
 import { blogPosts } from "@/lib/blog-data";
 
-const categoryColors: Record<string, string> = {
-  "O nás": "#FFD600",
-  "Materiály": "#FFD600",
-  "Dizajn": "#FFD600",
-  "Návod": "#FFD600",
-  "Technológia": "#FFD600",
-  "Marketing": "#FFD600",
-};
-
 function CategoryIcon({ category }: { category: string }) {
   switch (category) {
     case "O nás":

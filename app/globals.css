@@ -168,6 +168,15 @@ body {
   cursor: pointer;
 }
 
+/* ─── Scrollable rail with no visible scrollbar (font-picker carousel) ───── */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ─── Hue range slider — transparent track (gradient applied inline) ─────── */
 .range-hue {
   appearance: none;
@@ -262,6 +271,31 @@ html.dark .card-hover:hover {
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
 }
 
+/* ─── Font-picker tile — smooth hover/select micro-interaction ───────────── */
+.font-tile {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease,
+              background-color 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.font-tile:hover {
+  transform: translateY(-5px) scale(1.045);
+  box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.18);
+}
+.font-tile:active {
+  transform: translateY(-1px) scale(0.97);
+}
+.font-tile[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--color-primary), 0 10px 26px -8px rgba(255, 174, 0, 0.5);
+}
+.font-tile[aria-checked="true"]:hover {
+  transform: translateY(-6px) scale(1.05);
+  box-shadow: 0 0 0 2px var(--color-primary), 0 16px 32px -8px rgba(255, 174, 0, 0.55);
+}
+html.dark .font-tile:hover {
+  box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.6);
+}
+
 /* ─── Icon pop ───────────────────────────────────────────────────────────── */
 .icon-pop {
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -328,3 +362,4 @@ html.dark .card-hover:hover {
 }
 .btn-press:hover  { opacity: 0.88; }
 .btn-press:active { transform: scale(0.96); }
+

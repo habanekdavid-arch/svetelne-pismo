@@ -64,7 +64,7 @@ export const MATERIALS: MaterialOption[] = [
     priceMultiplier: 1.25,
     supportsIlluminated: true,
     supportsPlain: true,
-    lightModes: ["front", "halo", "sides", "outline", "full", "combined"],
+    lightModes: ["front", "halo", "full"],
     pbr: {
       roughness: 0.0,
       metalness: 0,
@@ -87,7 +87,7 @@ export const MATERIALS: MaterialOption[] = [
     priceMultiplier: 1.0,
     supportsIlluminated: true,
     supportsPlain: true,
-    lightModes: ["front", "halo", "sides", "outline", "full", "combined"],
+    lightModes: ["front", "halo", "full"],
     pbr: {
       roughness: 0.52,
       metalness: 0,
@@ -105,7 +105,7 @@ export const MATERIALS: MaterialOption[] = [
     priceMultiplier: 1.15,
     supportsIlluminated: true,
     supportsPlain: true,
-    lightModes: ["halo", "sides", "outline"], // opaque metal — edge/back-lit only, face itself doesn't shine through
+    lightModes: ["front", "halo", "full"],
     pbr: {
       roughness: 0.08,
       metalness: 1.0,
@@ -132,8 +132,8 @@ export const MATERIALS: MaterialOption[] = [
 ];
 
 // ── Light modes ───────────────────────────────────────────────────────────────
-// "none" is removed — signType === 'plain' handles the no-light case
-// "sides" price is a placeholder (not specified) — picked between front/halo, to confirm.
+// Three simple options for the customer: front-lit face, halo behind the
+// letter, or the whole letter glowing. signType === 'plain' handles no-light.
 
 export const LIGHT_MODES: LightModeDef[] = [
   {
@@ -145,38 +145,17 @@ export const LIGHT_MODES: LightModeDef[] = [
   },
   {
     id: "halo",
-    name: "Zozadu (halo)",
-    description: "Žiara za písmenom na okolí",
+    name: "Zozadu",
+    description: "Žiara za písmenom na stene",
     direction: "back",
     price: 65,
   },
   {
-    id: "sides",
-    name: "Z bokov",
-    description: "Svetlo vychádza z hrán do strán",
-    direction: "sides",
-    price: 60, // placeholder — not specified, to confirm
-  },
-  {
-    id: "outline",
-    name: "Obrys",
-    description: "Svetelná kontúra po okraji písmena",
-    direction: "outline",
-    price: 75,
-  },
-  {
     id: "full",
-    name: "Plné",
+    name: "Celé",
     description: "Celé písmeno rovnomerne svieti",
     direction: "full",
     price: 95,
-  },
-  {
-    id: "combined",
-    name: "Spredu + zozadu",
-    description: "Kombinácia predného a halo svetla",
-    direction: "both",
-    price: 85,
   },
 ];
 

@@ -22,10 +22,10 @@ Sme slovenská firma so sídlom v Prievidzi, ktorá sa špecializuje na výrobu 
 ## Čo vyrábame
 
 Vyrábame reklamné a dekoračné nápisy z rôznych materiálov:
-- **Alubond** — prémiový sendvičový hliníkový plech
-- **Plexisklo** — čistý svetelný efekt s hladkým povrchom
-- **3D tlač** — tvarová voľnosť za dobrú cenu
-- **PVC** — ľahký a cenovo dostupný variant
+- **Odolné exteriérové** — hliníkový kompozit odolný voči počasiu
+- **Luxusné** — priehľadný akryl s prémiovým leskom a hĺbkou presvitu
+- **Interiérové** — 3D tlačený plast s jemným presvitom
+- **Cenovo dostupné** — ľahká penová doska, najúspornejšia voľba
 
 ## Ako to funguje
 
@@ -39,37 +39,37 @@ Každý nápis vyrábame ručne v našej dielni na Slovensku. Nepoužívame čí
   {
     slug: "aky-material",
     title: "Aký materiál si vybrať?",
-    desc: "Porovnanie Alubond, Plexiskla, 3D tlače a PVC — výhody a nevýhody každého materiálu.",
+    desc: "Porovnanie Odolného exteriérového, Luxusného, Interiérového a Cenovo dostupného materiálu — výhody a nevýhody každého z nich.",
     category: "Materiály",
     date: "2026-06-10",
     readMin: 5,
     content: `
 Výber materiálu je kľúčové rozhodnutie, ktoré ovplyvní výzor, trvanlivosť aj cenu vášho nápisu. Tu je prehľad všetkých možností.
 
-## Alubond
+## Odolné exteriérové
 
-Alubond je sendvičový materiál — dve hliníkové vrstvy s plastovým jadrom. Je **pevný, ľahký a odolný** voči počasiu, preto je ideálny pre vonkajšie použitie.
+Hliníkový kompozit — dve hliníkové vrstvy s plastovým jadrom. Je **pevný, ľahký a odolný** voči počasiu, preto je ideálny pre vonkajšie použitie.
 
 **Výhody:** prémiový vzhľad, dlhá životnosť, odolnosť voči UV žiareniu
 **Nevýhody:** vyššia cena
 
-## Plexisklo
+## Luxusné
 
-Plexisklo (PMMA) je priehľadný alebo farebný akrylát. **Vytvára krásny svetelný efekt**, pretože svetlo sa rovnomerne šíri cez celý materiál.
+Priehľadný akrylát (plexisklo) s prémiovým leskom. **Vytvára krásny svetelný efekt**, pretože svetlo sa rovnomerne šíri cez celý materiál.
 
 **Výhody:** čistý glow efekt, elegantný vzhľad, ľahká váha
 **Nevýhody:** krehkejšie ako kov, vyššia cena
 
-## 3D tlač
+## Interiérové
 
-Pomocou FDM alebo SLA tlačiarne vieme vytvoriť **takmer akýkoľvek tvar**. Ideálne pre logo s komplexnou geometriou.
+3D tlačený plast s jemným presvitom. Pomocou FDM alebo SLA tlačiarne vieme vytvoriť **takmer akýkoľvek tvar**. Ideálne pre logo s komplexnou geometriou.
 
 **Výhody:** tvarová voľnosť, rýchla výroba prototypov
 **Nevýhody:** viditeľné vrstvy pri lacnejšej tlači, menej odolné voči UV
 
-## PVC
+## Cenovo dostupné
 
-PVC je cenovo najdostupnejší materiál. Hodí sa pre **interiérové použitie** a krátkodobé akcie.
+Ľahká penová doska — cenovo najdostupnejší materiál. Hodí sa pre **interiérové použitie** a krátkodobé akcie.
 
 **Výhody:** najnižšia cena, ľahká manipulácia
 **Nevýhody:** nie je vhodné vonku, menej prémiový vzhľad
@@ -78,10 +78,10 @@ PVC je cenovo najdostupnejší materiál. Hodí sa pre **interiérové použitie
 
 | Použitie | Odporúčaný materiál |
 |---|---|
-| Vonkajší firemný nápis | Alubond |
-| Dekorácia interiéru s glow efektom | Plexisklo |
-| Logo s komplexným tvarom | 3D tlač |
-| Akcia / event / pop-up | PVC |
+| Vonkajší firemný nápis | Odolné exteriérové |
+| Dekorácia interiéru s glow efektom | Luxusné |
+| Logo s komplexným tvarom | Interiérové |
+| Akcia / event / pop-up | Cenovo dostupné |
     `.trim(),
   },
   {

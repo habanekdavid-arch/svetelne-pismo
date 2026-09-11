@@ -1,11 +1,11 @@
 export type SignType = "illuminated" | "plain";
 
-export type LightModeId = "front" | "halo" | "sides" | "outline" | "full" | "combined";
+export type LightModeId = "front" | "halo" | "full";
 
 // Where the glow visually reads as coming from — drives both the 3D emissive
 // mix (LetterScene.tsx FACE_EMISSIVE) and the flat glyph preview tiles
 // (ConfiguratorStage.tsx LightModeGlyphPreview).
-export type LightModeDirection = "front" | "back" | "sides" | "outline" | "full" | "both";
+export type LightModeDirection = "front" | "back" | "full";
 
 export type MaterialPbr = {
   roughness: number;

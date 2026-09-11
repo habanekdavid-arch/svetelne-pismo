@@ -131,6 +131,31 @@ function splitLidGroups(geometry: THREE.BufferGeometry) {
   }
 }
 
+// mergeGeometries(..., useGroups: true) does NOT preserve each source
+// geometry's own .groups — it assigns one brand-new incrementing
+// materialIndex per input geometry (see BufferGeometryUtils.js
+// addGroup(offset, count, i)), discarding the SIDE/BACK/FRONT split
+// splitLidGroups() just built. With >3 glyphs that produces materialIndex
+// values beyond the 3-entry material array, so three.js silently drops
+// those groups — only the first couple of glyphs would ever render.
+// Merging with useGroups: false concatenates attributes/index with no
+// groups at all, so the per-glyph SIDE/BACK/FRONT groups are re-added
+// manually here, offset into the merged index buffer.
+function mergeGlyphGeometries(geometries: THREE.BufferGeometry[]): THREE.BufferGeometry | null {
+  const merged = mergeGeometries(geometries, false);
+  if (!merged) return null;
+
+  let indexOffset = 0;
+  for (const geo of geometries) {
+    const count = geo.index ? geo.index.count : geo.attributes.position.count;
+    for (const g of geo.groups) {
+      merged.addGroup(indexOffset + g.start, g.count, g.materialIndex);
+    }
+    indexOffset += count;
+  }
+  return merged;
+}
+
 function extrudeShape(shape: THREE.Shape, depth: number, noBevel: boolean): THREE.BufferGeometry {
   const geometry = new THREE.ExtrudeGeometry(shape, {
     depth,
@@ -185,13 +210,21 @@ export function buildSolidLetterGeometry(
     return { geometry: null, failedCount };
   }
 
-  const merged = mergeGeometries(perGlyph, true);
+  const merged = mergeGlyphGeometries(perGlyph);
   for (const g of perGlyph) g.dispose();
 
   if (!merged) {
     console.warn("[letterGeometry] mergeGeometries failed — geometries were incompatible");
     return { geometry: null, failedCount: shapes.length };
   }
+
+  // Center the geometry's own local origin on its bounding-box centroid so
+  // the sign spins in place around its true middle when rotated, instead of
+  // orbiting around the left edge (where generateShapes' baseline origin
+  // sits by default). Doing this at the geometry level — rather than relying
+  // on drei's <Center> up in LetterScene — means the pivot is correct even
+  // before the wrapping <Suspense> boundary has resolved.
+  merged.center();
 
   return { geometry: merged, failedCount };
 }

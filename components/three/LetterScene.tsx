@@ -1,17 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import {
-  Center,
-  ContactShadows,
-  Environment,
-  Float,
-  OrbitControls,
-  useTexture,
-} from "@react-three/drei";
-import { EffectComposer, Bloom, N8AO, SMAA } from "@react-three/postprocessing";
+import { Canvas, useThree } from "@react-three/fiber";
+import { Center, Environment, OrbitControls, useTexture } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { MATERIALS, fontOptions } from "@/lib/options";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
@@ -40,9 +33,8 @@ const THREED_REPEAT   = 8;   // ribbed_corduroy — 8× simulates fine FDM layer
 const BLOOM_LUMINANCE_THRESHOLD = 0.85;
 const BLOOM_LUMINANCE_SMOOTHING = 0.4;
 const BLOOM_RADIUS              = 0.75;
-const BLOOM_INTENSITY_BASE      = 0.9;   // front / full / outline / sides
-const BLOOM_INTENSITY_HALO      = 1.6;   // halo / combined — "silnejší bloom"
-const AO_INTENSITY              = 1.4;
+const BLOOM_INTENSITY_BASE      = 0.9;   // front / full
+const BLOOM_INTENSITY_HALO      = 1.6;   // halo — stronger bloom for the wall glow
 
 // Depth (mm) → world-unit scale. One shared range for every material AND
 // every font now — see lib/options.ts MIN_DEPTH_MM/MAX_DEPTH_MM. At
@@ -54,23 +46,25 @@ const MIN_DEPTH_UNITS     = 0.05; // crash-safety floor only, not a visual desig
 
 const TEXT_DEBOUNCE_MS = 300; // only text/thickness are debounced — font switches are discrete clicks, not rapid-fire
 
-// Auto-rotation
-const AUTO_ROTATE_SPEED       = 0.12; // rad/s — slow, continuous
-const ROTATION_REPORT_INTERVAL = 0.2;  // s — how often the live angle is reported back to the slider
+// Default 3/4 view. The sign doesn't auto-rotate, but the viewer can drag
+// within a limited arc (see OrbitControls in SceneContent) to look around it.
+const CAMERA_POS: [number, number, number]    = [1.9, 0.78, 7.9];
+const CAMERA_TARGET: [number, number, number] = [0, 0.05, 0];
+const CAMERA_FOV = 30;
+const ORBIT_AZIMUTH = Math.PI / 4;   // ± horizontal drag range (45°)
+const VIEW_TILT = -0.04; // tiny forward pitch of the letter group (radians)
+
+// Smooth matte "wall" the letters are mounted on — a soft vertical gradient
+// plus a gentle vignette reads far better than a dead-flat fill.
+const WALL_GRADIENT_DAY: [string, string, string]   = ["#fbfaf8", "#efedea", "#ddd8d2"];
+const WALL_GRADIENT_NIGHT: [string, string, string] = ["#17171c", "#0d0d11", "#050506"];
 
 // Emissive scale per light mode, per face group (front cap / side wall / back cap).
-// "halo" has no wall to project onto — the back cap's own emission plus a
-// stronger bloom pass is what reads as a glow around the letter in the air.
-// "sides" and "outline" both drive the side-wall group — sides reads as a
-// broader lateral glow (a touch of front/back bleed), outline as a crisp
-// contour (side-only, front/back near zero).
+// front → lit face, halo → glow off the back onto the wall, full → whole letter.
 const FACE_EMISSIVE: Record<LightModeId, { front: number; side: number; back: number }> = {
-  front:    { front: 1.00, side: 0.06, back: 0.04 },
-  halo:     { front: 0.05, side: 0.20, back: 0.95 },
-  sides:    { front: 0.08, side: 1.00, back: 0.08 },
-  outline:  { front: 0.05, side: 0.95, back: 0.05 },
-  full:     { front: 1.00, side: 1.00, back: 1.00 },
-  combined: { front: 0.85, side: 0.20, back: 0.55 },
+  front: { front: 1.00, side: 0.06, back: 0.04 },
+  halo:  { front: 0.05, side: 0.20, back: 0.95 },
+  full:  { front: 1.00, side: 1.00, back: 1.00 },
 };
 const EMISSIVE_BASE_INTENSITY   = 3.2;
 const EMISSIVE_NIGHT_MULTIPLIER = 1.8;
@@ -262,7 +256,7 @@ type SolidLetterMeshProps = {
 };
 
 function SolidLetterMesh({ geometry, materials }: SolidLetterMeshProps) {
-  return <mesh geometry={geometry} material={materials} />;
+  return <mesh geometry={geometry} material={materials} castShadow receiveShadow />;
 }
 
 type TexLetterProps = {
@@ -376,81 +370,6 @@ function LetterGeometryHost({
   );
 }
 
-// Forces a render when frameloop="demand" (reducedMotion) and relevant state changes.
-function InvalidateOnChange({ deps }: { deps: React.DependencyList }) {
-  const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => {
-    invalidate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-  return null;
-}
-
-// Owns the letter group's Y rotation. While autoRotate is on it spins
-// continuously via useFrame (imperative ref mutation — no React re-render per
-// frame) and periodically reports the live angle back so the slider doesn't
-// go stale. While off, it's fully controlled by the `rotation` prop (degrees).
-function RotatingGroup({
-  rotation,
-  autoRotate,
-  onRotationChange,
-  children,
-}: {
-  rotation: number;
-  autoRotate: boolean;
-  onRotationChange?: (deg: number) => void;
-  children: React.ReactNode;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-  const initialized = useRef(false);
-
-  // Stable refs — the useFrame callback closes over these instead of the
-  // raw props, so its identity never has to change across renders.
-  const rotationRef = useRef(rotation);
-  const autoRotateRef = useRef(autoRotate);
-  const onRotationChangeRef = useRef(onRotationChange);
-  rotationRef.current = rotation;
-  autoRotateRef.current = autoRotate;
-  onRotationChangeRef.current = onRotationChange;
-
-  useLayoutEffect(() => {
-    if (groupRef.current && !initialized.current) {
-      groupRef.current.rotation.y = THREE.MathUtils.degToRad(rotation);
-      initialized.current = true;
-    }
-  }, [rotation]);
-
-  const frameCallback = useCallback((_: unknown, delta: number) => {
-    const g = groupRef.current;
-    if (!g) return;
-    if (autoRotateRef.current) {
-      g.rotation.y += AUTO_ROTATE_SPEED * delta;
-    } else {
-      g.rotation.y = THREE.MathUtils.degToRad(rotationRef.current);
-    }
-  }, []);
-
-  useFrame(frameCallback);
-
-  // Reporting the live angle back to the slider is deliberately NOT driven by
-  // useFrame — R3F's frame-loop subscription churned (re-subscribing) under
-  // Suspense-driven re-renders of sibling content, which produced bursts of
-  // setState calls far above the intended throttle and tripped React's
-  // "Maximum update depth exceeded". A plain setInterval, set up once via a
-  // mount-only effect and read through refs, has ordinary React cleanup
-  // guarantees and is immune to that class of bug.
-  useEffect(() => {
-    const id = setInterval(() => {
-      const g = groupRef.current;
-      if (!g || !autoRotateRef.current) return;
-      onRotationChangeRef.current?.(THREE.MathUtils.radToDeg(g.rotation.y) % 360);
-    }, ROTATION_REPORT_INTERVAL * 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return <group ref={groupRef}>{children}</group>;
-}
-
 // ── Component types ───────────────────────────────────────────────────────────
 
 type LetterSceneProps = {
@@ -463,30 +382,24 @@ type LetterSceneProps = {
   signType: SignType;
   lightMode: LightModeId;
   height: number;
-  rotation: number;               // manual group Y rotation, degrees — used when autoRotate is off
-  autoRotate?: boolean;           // default true
-  onRotationChange?: (deg: number) => void; // reports live angle while auto-rotating
   previewMode: "day" | "night";
-  reducedMotion?: boolean;
   onFailedGlyphs?: (count: number) => void;
 };
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function LetterScene(props: LetterSceneProps) {
-  const { signType, lightMode, reducedMotion = false } = props;
+  const { signType, lightMode } = props;
   const bloomActive = signType === "illuminated";
-  const bloomIntensity = bloomActive
-    ? ((lightMode === "halo" || lightMode === "combined") ? BLOOM_INTENSITY_HALO : BLOOM_INTENSITY_BASE)
-    : 0;
+  const bloomIntensity = lightMode === "halo" ? BLOOM_INTENSITY_HALO : BLOOM_INTENSITY_BASE;
 
   return (
     <div className="relative h-full w-full">
       <Canvas
-        camera={{ position: [0, 0.8, 7.5], fov: 35 }}
+        camera={{ position: CAMERA_POS, fov: CAMERA_FOV }}
         gl={{ antialias: true, alpha: true }}
         dpr={[1, 2]}
-        frameloop={reducedMotion ? "demand" : "always"}
+        shadows
         onCreated={({ gl }) => {
           gl.toneMapping         = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = TONEMAP_EXPOSURE;
@@ -498,20 +411,59 @@ export default function LetterScene(props: LetterSceneProps) {
           <SceneContent {...props} />
         </Suspense>
 
-        <EffectComposer frameBufferType={THREE.HalfFloatType}>
-          <N8AO aoRadius={0.35} intensity={AO_INTENSITY} quality="medium" />
-          <Bloom
-            mipmapBlur
-            luminanceThreshold={bloomActive ? BLOOM_LUMINANCE_THRESHOLD : 10}
-            luminanceSmoothing={BLOOM_LUMINANCE_SMOOTHING}
-            intensity={bloomIntensity}
-            radius={BLOOM_RADIUS}
-          />
-          <SMAA />
-        </EffectComposer>
+        {/* Bloom is the only post-processing pass now, and only while the sign is lit. */}
+        {bloomActive && (
+          <EffectComposer frameBufferType={THREE.HalfFloatType}>
+            <Bloom
+              mipmapBlur
+              luminanceThreshold={BLOOM_LUMINANCE_THRESHOLD}
+              luminanceSmoothing={BLOOM_LUMINANCE_SMOOTHING}
+              intensity={bloomIntensity}
+              radius={BLOOM_RADIUS}
+            />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   );
+}
+
+// ── Wall backdrop texture ────────────────────────────────────────────────────
+// A painted-in vertical gradient + soft vignette on a canvas, used as the wall
+// material's map. Cheap, deterministic, and reads far better than a flat colour.
+
+function useWallTexture(stops: [string, string, string]): THREE.CanvasTexture | null {
+  const tex = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const size = 256;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const grad = ctx.createLinearGradient(0, 0, 0, size);
+    grad.addColorStop(0, stops[0]);
+    grad.addColorStop(0.55, stops[1]);
+    grad.addColorStop(1, stops[2]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+
+    const vignette = ctx.createRadialGradient(
+      size / 2, size * 0.42, size * 0.12,
+      size / 2, size / 2, size * 0.72,
+    );
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(1, "rgba(0,0,0,0.22)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, size, size);
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, [stops]);
+
+  useEffect(() => () => tex?.dispose(), [tex]);
+  return tex;
 }
 
 // ── Scene content ─────────────────────────────────────────────────────────────
@@ -526,11 +478,7 @@ function SceneContent({
   signType,
   lightMode,
   height,
-  rotation,
-  autoRotate = true,
-  onRotationChange,
   previewMode,
-  reducedMotion = false,
   onFailedGlyphs,
 }: LetterSceneProps) {
   const safeText  = text?.trim() || "VÁŠ TEXT";
@@ -554,7 +502,6 @@ function SceneContent({
   const heightScale = Math.min(1.15, Math.max(0.78, height / 45));
   const lenScale    = Math.min(1, 6.5 / Math.max(safeText.length, 6));
   const finalScale  = heightScale * lenScale;
-  const effectiveAutoRotate = autoRotate && !reducedMotion;
 
   // Resolve MaterialOption — falls back to first material if id unknown
   const matOpt = useMemo(
@@ -582,47 +529,69 @@ function SceneContent({
     return () => disposeMaterialTriple(fallbackTriple);
   }, [fallbackTriple]);
 
+  // Park the wall just behind the sign's back face so the letters read as
+  // surface-mounted (the small gap = a realistic stand-off mount).
+  const wallZ = -(depthUnits * finalScale) / 2 - 0.06;
+  const wallStops = isNight ? WALL_GRADIENT_NIGHT : WALL_GRADIENT_DAY;
+  const wallTexture = useWallTexture(wallStops);
+
   return (
     <>
-      {/* ── Ambient + directional fill — visibility/reflections only, no light mode drives these ── */}
-      <ambientLight intensity={isNight ? 0.35 : 1.4} />
-      <directionalLight position={[3, 5, 4]}   intensity={isNight ? 1.0 : 2.6} castShadow />
-      <directionalLight position={[-3, 2, -3]}  intensity={isNight ? 0.25 : 0.8} />
+      {/* ── Lighting — even studio fill + one key light that throws the
+          letters' shadow onto the wall behind them ── */}
+      <ambientLight intensity={isNight ? 0.35 : 1.15} />
+      <directionalLight
+        position={[3.2, 4.2, 3.5]}
+        intensity={isNight ? 0.7 : 2.2}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.02}
+        shadow-camera-near={0.1}
+        shadow-camera-far={26}
+        shadow-camera-left={-6}
+        shadow-camera-right={6}
+        shadow-camera-top={6}
+        shadow-camera-bottom={-6}
+      />
+      <directionalLight position={[-4, 1.5, 2.5]} intensity={isNight ? 0.12 : 0.55} />
 
-      {/* ── Sign geometry ── */}
-      <Float
-        speed={reducedMotion ? 0 : 1}
-        rotationIntensity={reducedMotion ? 0 : 0.07}
-        floatIntensity={reducedMotion ? 0 : 0.04}
-      >
-        <RotatingGroup rotation={rotation} autoRotate={effectiveAutoRotate} onRotationChange={onRotationChange}>
-          <Center position={[0, 0.35, 0]} scale={finalScale}>
-            <group rotation={[-0.08, 0, 0]}>
+      {/* ── Smooth matte wall the sign is mounted on ── */}
+      <mesh position={[0, 0, wallZ]} receiveShadow>
+        <planeGeometry args={[60, 34]} />
+        <meshStandardMaterial
+          map={wallTexture ?? undefined}
+          color={wallTexture ? "#ffffff" : wallStops[1]}
+          roughness={1}
+          metalness={0}
+        />
+      </mesh>
 
-              {/* Own Suspense boundary — switching fonts only hides the letters
-                  while their TTF loads, never the lights/HDRI/controls. */}
-              <Suspense fallback={null}>
-                <LetterGeometryHost
-                  fontFile={fontOpt.file}
-                  text={debouncedText}
-                  depth={depthUnits}
-                  material={material}
-                  matOpt={matOpt}
-                  baseColor={baseColor}
-                  glowColor={glowColor}
-                  ls={ls}
-                  isIlluminated={isIlluminated}
-                  fallbackTriple={fallbackTriple}
-                  onFailedGlyphs={onFailedGlyphs}
-                />
-              </Suspense>
+      {/* ── Sign geometry — mounted flat on the wall; the viewer can drag
+          within a limited arc (OrbitControls below) ── */}
+      <Center position={[0, 0.08, 0]} scale={finalScale}>
+        <group rotation={[VIEW_TILT, 0, 0]}>
+          {/* Own Suspense boundary — switching fonts only hides the letters
+              while their TTF loads, never the wall/lights/HDRI. */}
+          <Suspense fallback={null}>
+            <LetterGeometryHost
+              fontFile={fontOpt.file}
+              text={debouncedText}
+              depth={depthUnits}
+              material={material}
+              matOpt={matOpt}
+              baseColor={baseColor}
+              glowColor={glowColor}
+              ls={ls}
+              isIlluminated={isIlluminated}
+              fallbackTriple={fallbackTriple}
+              onFailedGlyphs={onFailedGlyphs}
+            />
+          </Suspense>
+        </group>
+      </Center>
 
-            </group>
-          </Center>
-        </RotatingGroup>
-      </Float>
-
-      {/* ── Image-based lighting — own Suspense so 6 MB HDRI fetch doesn't block text ── */}
+      {/* ── Image-based lighting — own Suspense so the HDRI fetch doesn't block text ── */}
       <Suspense fallback={null}>
         <Environment
           files={ENV_HDR_PATH}
@@ -631,17 +600,18 @@ function SceneContent({
         />
       </Suspense>
 
-      <ContactShadows position={[0, -1.35, 0]} opacity={0.3} blur={2.4} far={2.2} resolution={512} />
-
+      {/* Drag to look around the sign — locked to a tasteful arc, no zoom/pan. */}
       <OrbitControls
+        makeDefault
+        target={CAMERA_TARGET}
         enableZoom={false}
         enablePan={false}
-        minPolarAngle={Math.PI / 2.5}
-        maxPolarAngle={Math.PI / 2.05}
-      />
-
-      <InvalidateOnChange
-        deps={[text, font, lightColor, letterColor, thickness, material, signType, lightMode, height, rotation, autoRotate, previewMode]}
+        enableDamping
+        dampingFactor={0.08}
+        minPolarAngle={Math.PI / 2 - 0.32}
+        maxPolarAngle={Math.PI / 2 + 0.12}
+        minAzimuthAngle={-ORBIT_AZIMUTH}
+        maxAzimuthAngle={ORBIT_AZIMUTH}
       />
     </>
   );
