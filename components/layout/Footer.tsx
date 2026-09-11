@@ -62,13 +62,16 @@ export default function Footer() {
         {/* Company */}
         <div>
           <FooterLabel>Výroba</FooterLabel>
-          <address
-            className="not-italic"
-            style={{ color: "var(--color-muted)" }}
-          >
-            <p className="text-[13px] font-black" style={{ color: "var(--color-foreground)" }}>
-              4from media, s.r.o.
-            </p>
+          <address className="not-italic" style={{ color: "var(--color-muted)" }}>
+            <a
+              href="https://www.4frommedia.sk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-[13px] font-black tracking-tight transition hover:opacity-70"
+              style={{ color: "var(--color-foreground)" }}
+            >
+              4from<span style={{ color: "var(--color-primary)" }}>media</span>
+            </a>
             <p className="mt-0.5 text-[13px] leading-5">
               M. Hodžu 393/5
               <br />
@@ -88,7 +91,15 @@ export default function Footer() {
             className="text-[11px]"
             style={{ color: "var(--color-muted)" }}
           >
-            © {new Date().getFullYear()} rozsvieťTO — Projekt spoločnosti 4from media, s.r.o.
+            © {new Date().getFullYear()} rozsvieťTO — Projekt spoločnosti{" "}
+            <a
+              href="https://www.4frommedia.sk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:opacity-70"
+            >
+              4from media, s.r.o.
+            </a>
           </p>
 
           <nav aria-label="Právne dokumenty">

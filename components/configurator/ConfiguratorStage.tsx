@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Lightbulb, LightbulbOff } from "lucide-react";
+import { Lightbulb, LightbulbOff, ArrowDown } from "lucide-react";
 import OrderModal from "@/components/configurator/OrderModal";
+import EyebrowPill from "@/components/ui/EyebrowPill";
 import type { Config, LightModeDirection, LightModeId, MaterialUseTag, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { calculatePrice } from "@/lib/pricing";
@@ -200,6 +201,20 @@ export default function ConfiguratorStage() {
 
   return (
     <div className="mx-auto mt-14 max-w-6xl">
+
+      {/* ── Section heading — frames the panel below, independent of the
+          page-level H1 above it ─────────────────────────────────────────── */}
+      <div className="mb-10 text-center">
+        <div className="mb-3 flex justify-center">
+          <EyebrowPill>Krok 1</EyebrowPill>
+        </div>
+        <h2 className="main-heading text-2xl md:text-3xl" style={{ color: "var(--color-foreground)" }}>
+          Nastav si nápis
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-6" style={{ color: "var(--color-muted)" }}>
+          Font, materiál, farby a svietenie — cena vpravo dole sa prepočíta okamžite.
+        </p>
+      </div>
 
       {/* ── SignType toggle ─────────────────────────────────────────────── */}
       <div className="mb-10 flex justify-center">
@@ -584,6 +599,41 @@ export default function ConfiguratorStage() {
           style={{ background: "var(--accent)", color: "#000" }}
         >
           Objednať
+        </button>
+      </div>
+
+      {/* ── Arrow to the most relevant realization ──────────────────────── */}
+      <a
+        href="#realizacie"
+        className="mt-8 flex flex-col items-center gap-1.5 text-center transition hover:opacity-70"
+      >
+        <span className="text-[11px] font-black uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+          Pozri realizáciu, ktorá najviac sedí s tvojím výberom
+        </span>
+        <ArrowDown size={16} className="animate-bounce" style={{ color: "var(--accent)" }} />
+      </a>
+
+      {/* ── Floating price widget — stays visible while scrolling the page ── */}
+      <div className="pointer-events-none fixed bottom-5 left-5 z-40 hidden sm:block">
+        <button
+          onClick={() => setOrderOpen(true)}
+          className="pointer-events-auto flex items-center gap-3 rounded-full py-2 pl-5 pr-2 shadow-2xl transition hover:opacity-90 active:scale-[0.97]"
+          style={{ background: "var(--color-foreground)" }}
+        >
+          <span>
+            <span className="block text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--color-background)", opacity: 0.6 }}>
+              Orientačná cena
+            </span>
+            <span className="block text-lg font-black leading-tight" style={{ color: "var(--color-background)" }}>
+              {price} €
+            </span>
+          </span>
+          <span
+            className="rounded-full px-4 py-2 text-[11px] font-black uppercase"
+            style={{ background: "var(--accent)", color: "#000" }}
+          >
+            Objednať
+          </span>
         </button>
       </div>
 

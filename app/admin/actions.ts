@@ -1,17 +1,15 @@
 "use server";
 
-import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { isAdminEmail } from "@/lib/admin";
+import { getAdminSession } from "@/lib/admin-auth";
 import { updateOrderStatus, type OrderStatus } from "@/lib/orders";
 
-// Re-checks the ADMIN_EMAILS allowlist inside the action itself — the
-// page-level gate in app/admin/page.tsx keeps non-admins from ever seeing
-// the UI, but a Server Action is its own callable endpoint, so it must not
-// rely solely on that.
+// Re-checks the admin session inside the action itself — a Server Action is
+// its own callable endpoint, so it must not rely solely on the page-level
+// gate in app/admin/page.tsx.
 export async function setOrderStatus(orderId: number, status: OrderStatus) {
-  const user = await currentUser();
-  if (!user || !isAdminEmail(user.primaryEmailAddress?.emailAddress)) {
+  const session = await getAdminSession();
+  if (!session) {
     throw new Error("Nemáte oprávnenie na túto akciu.");
   }
   await updateOrderStatus(orderId, status);

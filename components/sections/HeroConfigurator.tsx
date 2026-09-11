@@ -1,4 +1,5 @@
 import ConfiguratorStage from "@/components/configurator/ConfiguratorStage";
+import EyebrowPill from "@/components/ui/EyebrowPill";
 
 export default function HeroConfigurator() {
   return (
@@ -9,12 +10,9 @@ export default function HeroConfigurator() {
     >
       <div className="mx-auto max-w-7xl px-5">
         <div className="mx-auto max-w-3xl text-center">
-          <p
-            className="reveal mb-4 text-[10px] font-black uppercase tracking-[0.35em]"
-            style={{ color: "var(--color-muted)" }}
-          >
-            Konfigurátor
-          </p>
+          <div className="reveal mb-4 flex justify-center">
+            <EyebrowPill>Konfigurátor</EyebrowPill>
+          </div>
 
           <h1
             className="reveal delay-1 main-heading text-4xl md:text-6xl"

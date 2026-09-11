@@ -7,6 +7,7 @@ import { realizations } from "@/data/realizations";
 import { matchRealization } from "@/lib/matchRealization";
 import type { Realization } from "@/data/realizations";
 import type { Config } from "@/lib/types";
+import EyebrowPill from "@/components/ui/EyebrowPill";
 
 // ── Default config used before the configurator publishes its first state ─────
 const DEFAULT_CONFIG: Pick<Config, "signType" | "material"> = {
@@ -32,6 +33,7 @@ export default function ShowcaseSection() {
 
   return (
     <section
+      id="realizacie"
       className="py-24"
       style={{ background: "var(--color-background)" }}
     >
@@ -39,12 +41,9 @@ export default function ShowcaseSection() {
 
         {/* ── Heading ─────────────────────────────────────────────────────── */}
         <div className="mx-auto mb-12 max-w-2xl text-center">
-          <p
-            className="mb-4 text-[10px] font-black uppercase tracking-[0.35em]"
-            style={{ color: "var(--color-muted)" }}
-          >
-            Realizácie
-          </p>
+          <div className="mb-4 flex justify-center">
+            <EyebrowPill>Realizácie</EyebrowPill>
+          </div>
           <h2
             className="main-heading text-3xl md:text-5xl"
             style={{ color: "var(--color-foreground)" }}

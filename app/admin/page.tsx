@@ -1,46 +1,96 @@
 import type { Metadata } from "next";
-import { currentUser } from "@clerk/nextjs/server";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdminEmail } from "@/lib/admin";
-import { listAllOrders } from "@/lib/orders";
+import { getAdminSession } from "@/lib/admin-auth";
+import { listAllOrders, ORDER_STATUSES, ORDER_STATUS_LABEL } from "@/lib/orders";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
 import StatusSelect from "@/components/orders/StatusSelect";
+import LogoutButton from "@/components/admin/LogoutButton";
 
 export const metadata: Metadata = {
   title: "Administratíva objednávok | rozsvieťTO",
   robots: { index: false, follow: false },
 };
 
-// Gate #1 (must be signed in) lives in middleware.ts. Gate #2 (must be on
-// the ADMIN_EMAILS allowlist) needs the full Clerk user object — that only
-// comes from currentUser(), not the session claims middleware sees — so it
-// happens here, plain e-mail check, no Clerk roles/organizations involved.
+// Own password-based login (Prisma AdminUser + bcrypt), deliberately
+// separate from Clerk — see lib/admin-auth.ts and app/admin/prihlasenie.
 export default async function AdminPage() {
-  const user = await currentUser();
-  const email = user?.primaryEmailAddress?.emailAddress;
-  if (!user || !isAdminEmail(email)) {
-    redirect("/");
-  }
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/prihlasenie");
 
   const orders = await listAllOrders();
 
+  const counts: Record<string, number> = { all: orders.length };
+  let revenue = 0;
+  for (const o of orders) {
+    counts[o.status] = (counts[o.status] ?? 0) + 1;
+    if (o.status !== "cancelled") revenue += o.price;
+  }
+
+  const tiles = [
+    { key: "all", label: "Všetky", count: counts.all },
+    ...ORDER_STATUSES.map((s) => ({ key: s, label: ORDER_STATUS_LABEL[s], count: counts[s] ?? 0 })),
+  ];
+
   return (
     <main style={{ background: "var(--color-background)" }}>
-      <section className="pb-8 pt-20">
+      <section className="pb-6 pt-16">
         <div className="mx-auto max-w-5xl px-5">
-          <p
-            className="mb-3 text-[10px] font-black uppercase tracking-[0.35em]"
-            style={{ color: "var(--color-muted)" }}
-          >
-            Administratíva
-          </p>
-          <h1 className="main-heading text-3xl md:text-4xl" style={{ color: "var(--color-foreground)" }}>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <p
+              className="text-[10px] font-black uppercase tracking-[0.35em]"
+              style={{ color: "var(--color-muted)" }}
+            >
+              Administratíva
+            </p>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-wide transition hover:opacity-80"
+                style={{ color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
+              >
+                Späť na web
+              </Link>
+              <LogoutButton />
+            </div>
+          </div>
+
+          <h1 className="main-heading mb-6 text-3xl md:text-4xl" style={{ color: "var(--color-foreground)" }}>
             Objednávky
           </h1>
+
+          {/* Stat tiles — counts per status + total revenue, at a glance */}
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-6">
+            {tiles.map((t) => (
+              <div
+                key={t.key}
+                className="rounded-2xl p-4"
+                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+              >
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+                  {t.label}
+                </p>
+                <p className="mt-1 text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
+                  {t.count}
+                </p>
+              </div>
+            ))}
+            <div
+              className="rounded-2xl p-4"
+              style={{ background: "var(--color-primary)" }}
+            >
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "#000", opacity: 0.7 }}>
+                Tržby
+              </p>
+              <p className="mt-1 text-2xl font-black" style={{ color: "#000" }}>
+                {revenue} €
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="pb-24">
+      <section className="pb-24 pt-4">
         <div className="mx-auto max-w-5xl px-5">
           {orders.length === 0 ? (
             <p style={{ color: "var(--color-muted)" }}>Zatiaľ žiadne objednávky.</p>
