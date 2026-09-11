@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Anton, Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -61,11 +62,21 @@ export default function RootLayout({
       <body
         className={`${centuryGothic.variable} ${anton.variable} ${inter.variable}`}
       >
-        <Header />
-        {children}
-        <Footer />
-        <ScrollReveal />
-        <CookieConsent />
+        {/* ClerkProvider goes inside <body>, not wrapping <html> — see
+            components/layout/Header.tsx for sign-in/out UI. */}
+        <ClerkProvider
+          signInUrl="/prihlasenie"
+          signUpUrl="/registracia"
+          signInFallbackRedirectUrl="/moje-objednavky"
+          signUpFallbackRedirectUrl="/moje-objednavky"
+          afterSignOutUrl="/"
+        >
+          <Header />
+          {children}
+          <Footer />
+          <ScrollReveal />
+          <CookieConsent />
+        </ClerkProvider>
       </body>
     </html>
   );

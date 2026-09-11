@@ -43,5 +43,9 @@ next-env.d.ts
 # claude local settings (contains secrets)
 .claude/settings.local.json
 
-.vercel
-.env*
+# agent-skill docs auto-installed by `vercel integration add` (Clerk/Neon) —
+# local reference tooling, not project source; regenerate via the same
+# `vercel integration add` command if needed.
+.agents/
+.claude/skills/
+skills-lock.json

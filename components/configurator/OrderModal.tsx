@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { X, Check } from "lucide-react";
+import { Show, SignInButton, useUser } from "@clerk/nextjs";
+import { X, Check, Lock } from "lucide-react";
 import type { Config } from "@/lib/types";
 import { calculatePrice } from "@/lib/pricing";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
@@ -13,9 +14,16 @@ type Props = {
 };
 
 export default function OrderModal({ config, onClose }: Props) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const { user } = useUser();
+  // Prefilled once from the signed-in Clerk profile, read at mount time —
+  // the modal is only mounted after the visitor opens it (well after Clerk
+  // has loaded), and the customer can still edit either field afterwards
+  // (e.g. ordering for someone else).
+  const [name, setName] = useState(() => [user?.firstName, user?.lastName].filter(Boolean).join(" "));
+  const [email, setEmail] = useState(() => user?.primaryEmailAddress?.emailAddress ?? "");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const trackedRef = useRef(false);
 
@@ -38,26 +46,41 @@ export default function OrderModal({ config, onClose }: Props) {
     return Object.keys(e).length === 0;
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
-    setSubmitted(true);
+    if (!validate() || submitting) return;
 
-    if (!trackedRef.current) {
-      trackedRef.current = true;
-      trackPurchase({
-        transactionId: generateClientOrderId(),
-        value: price,
-        currency: "EUR",
-        items: [
-          {
-            item_name: `Svetelný nápis — ${material?.displayName ?? config.material} (${font?.name ?? config.font})`,
-            item_id: `${config.material}-${config.font}-${config.signType}`,
-            price,
-            quantity: 1,
-          },
-        ],
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config, name, email }),
       });
+      if (!res.ok) throw new Error(`request failed: ${res.status}`);
+
+      setSubmitted(true);
+      if (!trackedRef.current) {
+        trackedRef.current = true;
+        trackPurchase({
+          transactionId: generateClientOrderId(),
+          value: price,
+          currency: "EUR",
+          items: [
+            {
+              item_name: `Svetelný nápis — ${material?.displayName ?? config.material} (${font?.name ?? config.font})`,
+              item_id: `${config.material}-${config.font}-${config.signType}`,
+              price,
+              quantity: 1,
+            },
+          ],
+        });
+      }
+    } catch {
+      setSubmitError("Objednávku sa nepodarilo odoslať. Skúste to prosím znova.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -165,7 +188,38 @@ export default function OrderModal({ config, onClose }: Props) {
               </div>
             </div>
 
+            {/* Objednávka sa viaže na účet zákazníka (aby ju videl v Moje
+                objednávky) — bez prihlásenia zobrazíme len výzvu na prihlásenie. */}
+            <Show when="signed-out">
+              <div
+                className="flex flex-col items-center gap-3 rounded-xl p-6 text-center"
+                style={{ background: "var(--color-surface)" }}
+              >
+                <span
+                  className="flex h-10 w-10 items-center justify-center rounded-full"
+                  style={{ background: "var(--color-surface-raised)", color: "var(--color-muted)" }}
+                >
+                  <Lock size={16} />
+                </span>
+                <p className="text-sm leading-6" style={{ color: "var(--color-muted)" }}>
+                  Pre odoslanie objednávky sa prosím prihláste alebo si
+                  vytvorte účet — objednávku tak uvidíte aj neskôr v „Moje
+                  objednávky“.
+                </p>
+                <SignInButton mode="modal">
+                  <button
+                    type="button"
+                    className="mt-1 rounded-full px-8 py-3 text-xs font-black uppercase transition hover:opacity-90"
+                    style={{ background: "var(--accent)", color: "#000" }}
+                  >
+                    Prihlásiť sa / Registrovať
+                  </button>
+                </SignInButton>
+              </div>
+            </Show>
+
             {/* Form */}
+            <Show when="signed-in">
             <form onSubmit={handleSubmit} noValidate>
               <div className="mb-4">
                 <label
@@ -225,14 +279,20 @@ export default function OrderModal({ config, onClose }: Props) {
                 )}
               </div>
 
+              {submitError && (
+                <p className="mb-3 text-[12px] text-red-400">{submitError}</p>
+              )}
+
               <button
                 type="submit"
-                className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 active:scale-[0.98]"
+                disabled={submitting}
+                className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
                 style={{ background: "var(--accent)", color: "#000" }}
               >
-                Odoslať objednávku
+                {submitting ? "Odosielam…" : "Odoslať objednávku"}
               </button>
             </form>
+            </Show>
           </>
         )}
       </div>

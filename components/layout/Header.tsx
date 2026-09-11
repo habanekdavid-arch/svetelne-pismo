@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
+import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 
 const cgBlack: React.CSSProperties = {
   fontFamily: "var(--font-century-gothic)",
@@ -70,20 +71,34 @@ export default function Header() {
           >
             BLOG
           </Link>
+          <Show when="signed-in">
+            <Link
+              href="/moje-objednavky"
+              className="nav-link whitespace-nowrap"
+              style={{ color: "var(--color-foreground)" }}
+            >
+              MOJE OBJEDNÁVKY
+            </Link>
+          </Show>
         </nav>
 
-        {/* CTA — desktop only */}
-        <Link
-          href="/#konfigurator"
-          className="hidden whitespace-nowrap rounded-full px-6 py-2.5 text-[14px] transition hover:opacity-85 md:inline-block"
-          style={{
-            ...cgBlack,
-            background: "var(--accent)",
-            color: "#000",
-          }}
-        >
-          PRIHLAS SA
-        </Link>
+        {/* Account — desktop only */}
+        <div className="hidden items-center md:flex">
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                className="whitespace-nowrap rounded-full px-6 py-2.5 text-[14px] transition hover:opacity-85"
+                style={{ ...cgBlack, background: "var(--accent)", color: "#000" }}
+              >
+                PRIHLÁSIŤ SA
+              </button>
+            </SignInButton>
+          </Show>
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
+        </div>
 
         {/* Hamburger — mobile only */}
         <button
@@ -146,18 +161,37 @@ export default function Header() {
           >
             BLOG
           </Link>
-          <Link
-            href="/#konfigurator"
-            onClick={() => setOpen(false)}
-            className="mt-2 whitespace-nowrap rounded-full px-6 py-3 text-center text-[14px]"
-            style={{
-              ...cgBlack,
-              background: "var(--accent)",
-              color: "#000",
-            }}
-          >
-            PRIHLAS SA
-          </Link>
+          <Show when="signed-in">
+            <Link
+              href="/moje-objednavky"
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
+              style={{ color: "var(--color-foreground)" }}
+            >
+              MOJE OBJEDNÁVKY
+            </Link>
+          </Show>
+
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="mt-2 whitespace-nowrap rounded-full px-6 py-3 text-center text-[14px]"
+                style={{ ...cgBlack, background: "var(--accent)", color: "#000" }}
+              >
+                PRIHLÁSIŤ SA
+              </button>
+            </SignInButton>
+          </Show>
+          <Show when="signed-in">
+            <div className="mt-2 flex items-center gap-3 px-3">
+              <UserButton />
+              <span className="text-[13px]" style={{ color: "var(--color-muted)" }}>
+                Váš účet
+              </span>
+            </div>
+          </Show>
         </nav>
       </div>
     </header>
