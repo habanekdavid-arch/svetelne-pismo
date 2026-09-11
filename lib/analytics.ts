@@ -1,6 +1,12 @@
 // GA4 ecommerce tracking via GTM's dataLayer. No GTM container is installed
 // on the site yet (see app/layout.tsx) — these pushes are inert until one is
 // added, but are ready to fire the moment it is.
+//
+// Gated on cookie consent (lib/consent.ts) — trackPurchase is a no-op until
+// the visitor has accepted analytics cookies via the CookieConsent banner
+// or the /cookies settings page.
+
+import { hasAnalyticsConsent } from "@/lib/consent";
 
 declare global {
   interface Window {
@@ -31,6 +37,8 @@ export function generateClientOrderId(): string {
 }
 
 export function trackPurchase(payload: PurchasePayload) {
+  if (!hasAnalyticsConsent()) return;
+
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ ecommerce: null }); // clear previous ecommerce object first, per GA4/GTM convention
   window.dataLayer.push({

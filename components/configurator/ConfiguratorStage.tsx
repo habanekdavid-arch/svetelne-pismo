@@ -9,7 +9,6 @@ import { useSharedConfig } from "@/lib/config-context";
 import { calculatePrice } from "@/lib/pricing";
 import {
   fontOptions,
-  FONT_CATEGORY_LABEL,
   lightColors,
   letterColorOptions,
   MATERIALS,
@@ -17,7 +16,7 @@ import {
   MAX_DEPTH_MM,
   LIGHT_MODES,
 } from "@/lib/options";
-import type { FontCategory, FontOption } from "@/lib/options";
+import type { FontOption } from "@/lib/options";
 
 // 3D preview needs WebGL — never render it on the server. Suspense shows a
 // skeleton until the chunk loads; the scene itself renders instantly on top
@@ -44,7 +43,6 @@ const LIGHT_TILE_BLUR_TIGHT = 2.5; // front / full — crisp glow on the glyph
 const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
 
 // ── Font picker tunables ─────────────────────────────────────────────────────
-const FONT_CATEGORY_ORDER: FontCategory[] = ["sans", "serif", "display", "script", "rounded", "slab"];
 const FONT_PREVIEW_SAMPLE = "Žiarivé písmo"; // diacritic sample — shows at a glance whether a font "has" č/š/ž etc.
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -615,7 +613,9 @@ function ControlLabel({
   );
 }
 
-// ── Font picker — carousel + expandable "all fonts" grid, grouped by category ──
+// ── Font picker — one flat, always-visible grid. Fewer fonts (see
+// lib/options.ts fontOptions) means no carousel and no "show all" toggle are
+// needed anymore — every choice is a single click away. ─────────────────────
 
 function FontPicker({
   value,
@@ -626,16 +626,6 @@ function FontPicker({
   onChange: (id: string) => void;
   tileRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
-  const grouped = useMemo(
-    () =>
-      FONT_CATEGORY_ORDER
-        .map((cat) => ({ cat, fonts: fontOptions.filter((f) => f.category === cat) }))
-        .filter((g) => g.fonts.length > 0),
-    [],
-  );
-
   function handleTileKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
     const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
     const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
@@ -648,78 +638,24 @@ function FontPicker({
 
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between">
-        <ControlLabel>Font</ControlLabel>
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="text-[10px] font-black uppercase tracking-widest transition hover:opacity-70"
-          style={{ color: "var(--color-muted)" }}
-        >
-          {expanded ? "Zbaliť" : "Všetky fonty"}
-        </button>
+      <ControlLabel>Font</ControlLabel>
+      <div
+        role="radiogroup"
+        aria-label="Font"
+        className="grid grid-cols-2 gap-2"
+      >
+        {fontOptions.map((f, i) => (
+          <FontTile
+            key={f.id}
+            font={f}
+            active={value === f.id}
+            index={i}
+            onClick={() => onChange(f.id)}
+            onKeyDown={handleTileKeyDown}
+            tileRef={(el) => { tileRefs.current[i] = el; }}
+          />
+        ))}
       </div>
-
-      {!expanded ? (
-        <div
-          className="relative"
-          style={{
-            maskImage: "linear-gradient(to right, black calc(100% - 28px), transparent 100%)",
-            WebkitMaskImage: "linear-gradient(to right, black calc(100% - 28px), transparent 100%)",
-          }}
-        >
-          <div
-            role="radiogroup"
-            aria-label="Font"
-            className="no-scrollbar flex gap-2.5 overflow-x-auto scroll-px-1 pr-8"
-          >
-            {fontOptions.map((f, i) => (
-              <FontTile
-                key={f.id}
-                font={f}
-                active={value === f.id}
-                index={i}
-                onClick={() => onChange(f.id)}
-                onKeyDown={handleTileKeyDown}
-                tileRef={(el) => { tileRefs.current[i] = el; }}
-              />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {grouped.map(({ cat, fonts }) => (
-            <div key={cat}>
-              <p
-                className="mb-2 text-[10px] font-black uppercase tracking-widest"
-                style={{ color: "var(--color-muted)" }}
-              >
-                {FONT_CATEGORY_LABEL[cat]}
-              </p>
-              <div
-                role="radiogroup"
-                aria-label={FONT_CATEGORY_LABEL[cat]}
-                className="grid grid-cols-[repeat(auto-fill,minmax(108px,1fr))] gap-2.5"
-              >
-                {fonts.map((f) => {
-                  const i = fontOptions.indexOf(f);
-                  return (
-                    <FontTile
-                      key={f.id}
-                      font={f}
-                      active={value === f.id}
-                      index={i}
-                      onClick={() => onChange(f.id)}
-                      onKeyDown={handleTileKeyDown}
-                      tileRef={(el) => { tileRefs.current[i] = el; }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
@@ -749,7 +685,7 @@ function FontTile({
       onClick={onClick}
       onKeyDown={(e) => onKeyDown(e, index)}
       title={font.name}
-      className="font-tile flex min-w-27 shrink-0 flex-col items-center gap-1 rounded-2xl px-2.5 py-3 text-center"
+      className="font-tile flex w-full flex-col items-center gap-1 rounded-2xl px-2.5 py-3 text-center"
       style={{
         background: active ? "var(--color-surface-raised)" : "var(--color-surface)",
       }}

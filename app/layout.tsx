@@ -5,6 +5,7 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ScrollReveal from "@/components/layout/ScrollReveal";
+import CookieConsent from "@/components/layout/CookieConsent";
 
 const centuryGothic = localFont({
   src: [
@@ -64,6 +65,7 @@ export default function RootLayout({
         {children}
         <Footer />
         <ScrollReveal />
+        <CookieConsent />
       </body>
     </html>
   );

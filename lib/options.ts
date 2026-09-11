@@ -7,16 +7,7 @@ import type { MaterialOption, LightModeDef } from "@/lib/types";
 // script fonts). `name` doubles as the @font-face family name registered in
 // globals.css, used for the live font-picker preview.
 
-export type FontCategory = "sans" | "serif" | "display" | "script" | "rounded" | "slab";
-
-export const FONT_CATEGORY_LABEL: Record<FontCategory, string> = {
-  sans:    "Sans",
-  serif:   "Serif",
-  display: "Display",
-  script:  "Písané",
-  rounded: "Zaoblené",
-  slab:    "Slab",
-};
+export type FontCategory = "sans" | "serif" | "display" | "script" | "rounded";
 
 export type FontOption = {
   id: string;
@@ -26,21 +17,18 @@ export type FontOption = {
   multiplier: number;      // pricing multiplier
 };
 
+// Curated down to 8 — one clean, always-visible grid in the configurator
+// instead of a scrollable carousel + "show all" grouped by category. Fewer,
+// stronger choices are easier for a customer to click through.
 export const fontOptions: FontOption[] = [
   { id: "montserrat",       name: "Montserrat",       category: "sans",    file: "/fonts/montserrat.ttf",       multiplier: 1.0  },
-  { id: "poppins",          name: "Poppins",          category: "sans",    file: "/fonts/poppins.ttf",          multiplier: 1.0  },
-  { id: "inter",            name: "Inter",            category: "sans",    file: "/fonts/inter.ttf",            multiplier: 0.98 },
-  { id: "playfair-display", name: "Playfair Display", category: "serif",   file: "/fonts/playfair-display.ttf", multiplier: 1.12 },
-  { id: "merriweather",     name: "Merriweather",     category: "serif",   file: "/fonts/merriweather.ttf",     multiplier: 1.1  },
-  { id: "oswald",           name: "Oswald",           category: "display", file: "/fonts/oswald.ttf",           multiplier: 1.05 },
   { id: "archivo-black",    name: "Archivo Black",    category: "display", file: "/fonts/archivo-black.ttf",    multiplier: 1.08 },
+  { id: "oswald",           name: "Oswald",           category: "display", file: "/fonts/oswald.ttf",           multiplier: 1.05 },
+  { id: "playfair-display", name: "Playfair Display", category: "serif",   file: "/fonts/playfair-display.ttf", multiplier: 1.12 },
   { id: "pacifico",         name: "Pacifico",         category: "script",  file: "/fonts/pacifico.ttf",         multiplier: 1.2  },
   { id: "dancing-script",   name: "Dancing Script",   category: "script",  file: "/fonts/dancing-script.ttf",   multiplier: 1.25 },
-  { id: "caveat",           name: "Caveat",           category: "script",  file: "/fonts/caveat.ttf",           multiplier: 1.18 },
   { id: "great-vibes",      name: "Great Vibes",      category: "script",  file: "/fonts/great-vibes.ttf",      multiplier: 1.3  },
   { id: "baloo-2",          name: "Baloo 2",          category: "rounded", file: "/fonts/baloo-2.ttf",          multiplier: 1.06 },
-  { id: "quicksand",        name: "Quicksand",        category: "rounded", file: "/fonts/quicksand.ttf",        multiplier: 1.04 },
-  { id: "roboto-slab",      name: "Roboto Slab",      category: "slab",    file: "/fonts/roboto-slab.ttf",      multiplier: 1.1  },
 ];
 
 // ── Thickness range (mm) ────────────────────────────────────────────────────

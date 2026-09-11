@@ -1,9 +1,10 @@
 import Link from "next/link";
 
 const links = [
-  { label: "GDPR", href: "#" },
-  { label: "Obchodné podmienky", href: "#" },
-  { label: "Kontakt", href: "#" },
+  { label: "GDPR", href: "/gdpr" },
+  { label: "Obchodné podmienky", href: "/obchodne-podmienky" },
+  { label: "Cookies", href: "/cookies" },
+  { label: "Kontakt", href: "mailto:info@4frommedia.sk" },
 ] as const;
 
 export default function Footer() {
