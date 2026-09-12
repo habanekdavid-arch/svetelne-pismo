@@ -58,11 +58,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="sk">
+      {/* Body chrome mirrors vytlacto3d's <body>: a min-height flex column with
+          the content area flexing, so short pages push the footer to the
+          bottom of the viewport instead of leaving it mid-screen. */}
       <body
-        className={`${centuryGothic.variable} ${anton.variable} ${inter.variable}`}
+        className={`${centuryGothic.variable} ${anton.variable} ${inter.variable} flex min-h-screen flex-col antialiased`}
       >
         <Header />
-        {children}
+        {/* A plain div, not <main>: every page already renders its own <main>,
+            and nesting them is invalid HTML. */}
+        <div className="flex-1">{children}</div>
         <Footer />
         <ScrollReveal />
         <CookieConsent />
