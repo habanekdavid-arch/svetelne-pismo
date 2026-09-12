@@ -33,12 +33,9 @@ const LetterScene = dynamic(() => import("@/components/three/LetterScene"), {
 const NIGHT_MODES: LightModeId[] = ["halo", "full"];
 
 // ── Light mode glyph preview tunables ───────────────────────────────────────
-const LIGHT_TILE_GLOW_SIZE  = 36;  // px — svg square inside each mode tile
+const LIGHT_TILE_GLOW_SIZE  = 32;  // px — svg square inside each mode tile
 const LIGHT_TILE_BLUR_TIGHT = 2.5; // front / full — crisp glow on the glyph
 const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
-
-// ── Font picker tunables ─────────────────────────────────────────────────────
-const FONT_PREVIEW_SAMPLE = "Žiarivé písmo"; // diacritic sample — shows at a glance whether a font "has" č/š/ž etc.
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -193,12 +190,12 @@ export default function ConfiguratorStage() {
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
-  // Layout: one full-width text card, the 3D preview, then every other
-  // parameter as its own small card in a grid — everything visible at once,
-  // nothing tucked into a sidebar or an accordion.
+  // Layout: preview column (Svetelné/Nesvetelné above it, Text below it) on
+  // the left, every other parameter as a small card stacked beside it on the
+  // right — most of the configurator lives next to the preview, not below it.
 
   return (
-    <div className="mx-auto mt-14 max-w-4xl">
+    <div className="mx-auto mt-14 max-w-5xl">
 
       {/* ── Section heading ──────────────────────────────────────────────── */}
       <div className="mb-8 text-center">
@@ -209,276 +206,280 @@ export default function ConfiguratorStage() {
           Nastav si nápis
         </h2>
         <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-5" style={{ color: "var(--color-muted)" }}>
-          Vyplň parametre nižšie — náhľad aj cena sa menia okamžite.
+          Vyplň parametre — náhľad aj cena sa menia okamžite.
         </p>
       </div>
 
-      {/* ── SignType toggle ─────────────────────────────────────────────── */}
-      <div className="mb-6 flex justify-center">
-        <div className="flex gap-1 rounded-full p-1" style={{ background: "var(--color-surface)" }}>
-          {(
-            [
-              { type: "illuminated" as SignType, label: "Svetelné",   Icon: Lightbulb    },
-              { type: "plain"       as SignType, label: "Nesvetelné", Icon: LightbulbOff },
-            ] as const
-          ).map(({ type, label, Icon }) => {
-            const active = config.signType === type;
-            return (
-              <button
-                key={type}
-                onClick={() => handleSignTypeChange(type)}
-                className="flex items-center gap-1.5 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-wide transition-all"
-                style={
-                  active
-                    ? { background: "var(--color-foreground)", color: "var(--color-background)" }
-                    : { color: "var(--color-muted)" }
-                }
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_300px]">
+
+        {/* ── LEFT: toggle above, preview, text below ──────────────────── */}
+        <div>
+          <div className="mb-3 flex justify-center lg:justify-start">
+            <div className="flex gap-1 rounded-full p-1" style={{ background: "var(--color-surface)" }}>
+              {(
+                [
+                  { type: "illuminated" as SignType, label: "Svetelné",   Icon: Lightbulb    },
+                  { type: "plain"       as SignType, label: "Nesvetelné", Icon: LightbulbOff },
+                ] as const
+              ).map(({ type, label, Icon }) => {
+                const active = config.signType === type;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => handleSignTypeChange(type)}
+                    className="flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-medium transition-all"
+                    style={
+                      active
+                        ? { background: "var(--color-foreground)", color: "var(--color-background)" }
+                        : { color: "var(--color-muted)" }
+                    }
+                  >
+                    <Icon size={13} strokeWidth={2.25} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3D preview */}
+          <div className="rounded-2xl p-4" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[12px] font-semibold" style={{ color: "var(--color-foreground)" }}>Náhľad</p>
+              <div
+                className="flex items-center rounded-full p-1 transition-opacity duration-300"
+                style={{
+                  background: "var(--color-background)",
+                  opacity: isIlluminated ? 1 : 0.3,
+                  pointerEvents: isIlluminated ? undefined : "none",
+                }}
               >
-                <Icon size={12} strokeWidth={2.5} />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Text — the one field that always comes first, kept narrow and
-          centered rather than stretched full-width ──────────────────────── */}
-      <div className="mx-auto mb-4 max-w-sm">
-        <FieldCard title="Text" description="Text, ktorý sa zobrazí na nápise.">
-          <input
-            value={config.text}
-            onChange={(e) => patch({ text: e.target.value })}
-            maxLength={30}
-            className="w-full rounded-full px-5 py-2.5 text-center text-sm font-black uppercase tracking-wide outline-none transition-colors"
-            style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
-            placeholder="Napíšte váš text…"
-            aria-label="Text na nápis"
-          />
-        </FieldCard>
-      </div>
-
-      {/* ── 3D preview ───────────────────────────────────────────────────── */}
-      <div className="mb-4 rounded-2xl p-4" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[12.5px] font-black" style={{ color: "var(--color-foreground)" }}>Náhľad</p>
-          <div
-            className="flex items-center rounded-full p-1 transition-opacity duration-300"
-            style={{
-              background: "var(--color-background)",
-              opacity: isIlluminated ? 1 : 0.3,
-              pointerEvents: isIlluminated ? undefined : "none",
-            }}
-          >
-            {(["day", "night"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setManualMode(mode)}
-                className="rounded-full px-3 py-1.5 text-[9px] font-black uppercase transition-all"
-                style={
-                  previewMode === mode
-                    ? { background: "var(--color-foreground)", color: "var(--color-background)" }
-                    : { color: "var(--color-muted)" }
-                }
-              >
-                {mode === "day" ? "☀ Deň" : "☾ Noc"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className="relative h-90 w-full overflow-hidden rounded-xl transition-colors duration-500"
-          style={{
-            background: isNight
-              ? "radial-gradient(ellipse at 50% 38%, #1c1c22 0%, #0a0a0d 80%)"
-              : "var(--color-background)",
-          }}
-        >
-          {isNight && (
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{ background: `radial-gradient(ellipse at 50% 44%, ${config.lightColor}30 0%, transparent 65%)` }}
-            />
-          )}
-
-          <LetterScene
-            text={config.text}
-            font={config.font}
-            lightColor={config.lightColor}
-            letterColor={config.bodyColor}
-            thickness={config.thickness}
-            material={config.material}
-            signType={config.signType}
-            lightMode={config.lightMode}
-            height={config.height}
-            previewMode={previewMode}
-          />
-        </div>
-      </div>
-
-      {/* ── Parameter cards — everything visible at once, no sidebars ───── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-
-        <FieldCard title="Font" description="Vyber písmo pre svoj nápis.">
-          <FontPicker
-            value={config.font}
-            onChange={(id) => patch({ font: id })}
-            tileRefs={fontTileRefs}
-          />
-        </FieldCard>
-
-        <FieldCard title="Materiál" description="Ovplyvňuje vzhľad aj cenu.">
-          <div className="grid grid-cols-2 gap-1.5">
-            {filteredMaterials.map((mat) => {
-              const active = config.material === mat.id;
-              return (
-                <button
-                  key={mat.id}
-                  onClick={() => handleMaterialChange(mat.id)}
-                  className="rounded-lg px-2 py-2.5 text-center text-[10px] font-bold uppercase leading-tight transition"
-                  style={{
-                    background: active ? "var(--color-primary)" : "var(--color-background)",
-                    color: active ? "#000" : "var(--color-foreground)",
-                    border: active ? "none" : "1px solid var(--color-border)",
-                  }}
-                >
-                  {mat.displayName}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-[9.5px] leading-4" style={{ color: "var(--color-muted)" }}>
-            {currentMat.subtitle}
-          </p>
-        </FieldCard>
-
-        <FieldCard title={isIlluminated ? "Farba tela" : "Farba materiálu"} description="Farba samotného písmena.">
-          <div className="flex flex-wrap gap-2">
-            {letterColorOptions.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setBodyColor(c.id, c.value)}
-                title={c.label}
-                aria-label={c.label}
-                className={`h-6 w-6 rounded-full border-2 transition hover:scale-110 ${
-                  selectedBodySwatch === c.id ? "scale-110 border-(--color-foreground)" : "border-(--color-border)"
-                }`}
-                style={{ background: c.value }}
-              />
-            ))}
-          </div>
-          <p className="mt-2 text-[10px] font-black uppercase" style={{ color: "var(--color-muted)" }}>
-            {letterColorOptions.find((c) => c.id === selectedBodySwatch)?.label ?? ""}
-          </p>
-        </FieldCard>
-
-        <FieldCard title="Výška" description="Výška písmen v centimetroch.">
-          <div className="mb-1.5 flex justify-between text-[10px] font-black uppercase" style={{ color: "var(--color-muted)" }}>
-            <span>15 cm</span>
-            <span style={{ color: "var(--color-foreground)" }}>{config.height} cm</span>
-            <span>55 cm</span>
-          </div>
-          <input
-            type="range"
-            min="15"
-            max="55"
-            value={config.height}
-            onChange={(e) => patch({ height: Number(e.target.value) })}
-            className="range-clean w-full"
-            aria-label="Výška písmen"
-          />
-        </FieldCard>
-
-        <FieldCard title="Hrúbka" description="Hrúbka ovplyvňuje reliéf aj cenu.">
-          <div className="mb-1.5 flex justify-between text-[10px] font-black uppercase" style={{ color: "var(--color-muted)" }}>
-            <span>Tenké</span>
-            <span style={{ color: "var(--color-foreground)" }}>{config.thickness} mm</span>
-            <span>Hrubé</span>
-          </div>
-          <input
-            type="range"
-            min={MIN_DEPTH_MM}
-            max={MAX_DEPTH_MM}
-            value={config.thickness}
-            onChange={(e) => patch({ thickness: Number(e.target.value) })}
-            className="range-clean w-full"
-            aria-label="Hrúbka písma"
-          />
-        </FieldCard>
-
-        {isIlluminated && (
-          <FieldCard title="Svietenie" description="Odkiaľ vychádza svetlo.">
-            {availableLightModes.length === 0 ? (
-              <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
-                Tento materiál nepodporuje svietenie.
-              </p>
-            ) : (
-              <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-1.5">
-                {availableLightModes.map((opt, i) => {
-                  const active = config.lightMode === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      ref={(el) => { modeTileRefs.current[i] = el; }}
-                      role="radio"
-                      aria-checked={active}
-                      tabIndex={active ? 0 : -1}
-                      onClick={() => setLightMode(opt.id)}
-                      onKeyDown={(e) => handleModeKeyDown(e, i)}
-                      className="flex flex-col items-center gap-1 rounded-xl px-1.5 py-2 text-center transition-all duration-200 hover:-translate-y-0.5"
-                      style={{
-                        background: "var(--color-background)",
-                        boxShadow: active ? `0 0 0 2px var(--color-primary), inset 0 0 12px ${config.lightColor}2e` : "none",
-                        opacity: active ? 1 : 0.72,
-                      }}
-                    >
-                      <LightModeGlyphPreview direction={opt.direction} glowColor={config.lightColor} char={previewChar} />
-                      <span className="text-[9.5px] font-black" style={{ color: "var(--color-foreground)" }}>
-                        {opt.name}
-                      </span>
-                    </button>
-                  );
-                })}
+                {(["day", "night"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setManualMode(mode)}
+                    className="rounded-full px-3 py-1.5 text-[10px] font-medium transition-all"
+                    style={
+                      previewMode === mode
+                        ? { background: "var(--color-foreground)", color: "var(--color-background)" }
+                        : { color: "var(--color-muted)" }
+                    }
+                  >
+                    {mode === "day" ? "☀ Deň" : "☾ Noc"}
+                  </button>
+                ))}
               </div>
-            )}
-          </FieldCard>
-        )}
+            </div>
 
-        {isIlluminated && (
-          <FieldCard title="Farba svetla" description="Farba LED podsvietenia.">
-            <input
-              type="range"
-              min="0"
-              max="359"
-              value={lightHue}
-              onChange={(e) => setLightColorFromSlider(Number(e.target.value))}
-              className="range-hue mb-3 w-full"
+            <div
+              className="relative h-105 w-full overflow-hidden rounded-xl transition-colors duration-500"
               style={{
-                background:
-                  "linear-gradient(90deg,hsl(0,92%,58%),hsl(40,92%,58%),hsl(60,92%,58%),hsl(120,92%,58%),hsl(180,92%,58%),hsl(240,92%,58%),hsl(300,92%,58%),hsl(359,92%,58%))",
+                background: isNight
+                  ? "radial-gradient(ellipse at 50% 38%, #1c1c22 0%, #0a0a0d 80%)"
+                  : "var(--color-background)",
               }}
-              aria-label="Odtieň farby svetla"
+            >
+              {isNight && (
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{ background: `radial-gradient(ellipse at 50% 44%, ${config.lightColor}30 0%, transparent 65%)` }}
+                />
+              )}
+
+              <LetterScene
+                text={config.text}
+                font={config.font}
+                lightColor={config.lightColor}
+                letterColor={config.bodyColor}
+                thickness={config.thickness}
+                material={config.material}
+                signType={config.signType}
+                lightMode={config.lightMode}
+                height={config.height}
+                previewMode={previewMode}
+              />
+            </div>
+          </div>
+
+          {/* Text — the only thing below the preview */}
+          <div className="mx-auto mt-4 max-w-sm">
+            <FieldCard title="Text" description="Text, ktorý sa zobrazí na nápise.">
+              <input
+                value={config.text}
+                onChange={(e) => patch({ text: e.target.value })}
+                maxLength={30}
+                className="w-full rounded-full px-5 py-2.5 text-center text-sm font-semibold outline-none transition-colors"
+                style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
+                placeholder="Napíšte váš text…"
+                aria-label="Text na nápis"
+              />
+            </FieldCard>
+          </div>
+        </div>
+
+        {/* ── RIGHT: everything else, stacked beside the preview ───────── */}
+        <div className="space-y-3">
+
+          <FieldCard title="Font" description="Vyber písmo — potiahni pre viac.">
+            <FontPicker
+              value={config.font}
+              onChange={(id) => patch({ font: id })}
+              tileRefs={fontTileRefs}
             />
+          </FieldCard>
+
+          <FieldCard title="Materiál" description="Ovplyvňuje vzhľad aj cenu.">
+            <div className="grid grid-cols-2 gap-1.5">
+              {filteredMaterials.map((mat) => {
+                const active = config.material === mat.id;
+                return (
+                  <button
+                    key={mat.id}
+                    onClick={() => handleMaterialChange(mat.id)}
+                    className="rounded-lg px-2 py-2 text-center text-[11px] font-medium leading-tight transition"
+                    style={{
+                      background: active ? "var(--color-primary)" : "var(--color-background)",
+                      color: active ? "#000" : "var(--color-foreground)",
+                      border: active ? "none" : "1px solid var(--color-border)",
+                    }}
+                  >
+                    {mat.displayName}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[10px] leading-4" style={{ color: "var(--color-muted)" }}>
+              {currentMat.subtitle}
+            </p>
+          </FieldCard>
+
+          <FieldCard title={isIlluminated ? "Farba tela" : "Farba materiálu"} description="Farba samotného písmena.">
             <div className="flex flex-wrap gap-2">
-              {lightColors.map((color) => (
+              {letterColorOptions.map((c) => (
                 <button
-                  key={color.id}
-                  onClick={() => setLightColorFromSwatch(color.id, color.value, color.hue)}
-                  title={color.label}
-                  aria-label={color.label}
+                  key={c.id}
+                  onClick={() => setBodyColor(c.id, c.value)}
+                  title={c.label}
+                  aria-label={c.label}
                   className={`h-6 w-6 rounded-full border-2 transition hover:scale-110 ${
-                    selectedSwatch === color.id ? "scale-110 border-(--color-foreground)" : "border-(--color-border)"
+                    selectedBodySwatch === c.id ? "scale-110 border-(--color-foreground)" : "border-(--color-border)"
                   }`}
-                  style={{
-                    background: color.id === "white" ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)" : color.value,
-                  }}
+                  style={{ background: c.value }}
                 />
               ))}
             </div>
+            <p className="mt-2 text-[10px]" style={{ color: "var(--color-muted)" }}>
+              {letterColorOptions.find((c) => c.id === selectedBodySwatch)?.label ?? ""}
+            </p>
           </FieldCard>
-        )}
 
+          <FieldCard title="Výška" description="Výška písmen v centimetroch.">
+            <div className="mb-1.5 flex justify-between text-[10px]" style={{ color: "var(--color-muted)" }}>
+              <span>15 cm</span>
+              <span className="font-semibold" style={{ color: "var(--color-foreground)" }}>{config.height} cm</span>
+              <span>55 cm</span>
+            </div>
+            <input
+              type="range"
+              min="15"
+              max="55"
+              value={config.height}
+              onChange={(e) => patch({ height: Number(e.target.value) })}
+              className="range-clean w-full"
+              aria-label="Výška písmen"
+            />
+          </FieldCard>
+
+          <FieldCard title="Hrúbka" description="Hrúbka ovplyvňuje reliéf aj cenu.">
+            <div className="mb-1.5 flex justify-between text-[10px]" style={{ color: "var(--color-muted)" }}>
+              <span>Tenké</span>
+              <span className="font-semibold" style={{ color: "var(--color-foreground)" }}>{config.thickness} mm</span>
+              <span>Hrubé</span>
+            </div>
+            <input
+              type="range"
+              min={MIN_DEPTH_MM}
+              max={MAX_DEPTH_MM}
+              value={config.thickness}
+              onChange={(e) => patch({ thickness: Number(e.target.value) })}
+              className="range-clean w-full"
+              aria-label="Hrúbka písma"
+            />
+          </FieldCard>
+
+          {isIlluminated && (
+            <FieldCard title="Svietenie" description="Odkiaľ vychádza svetlo.">
+              {availableLightModes.length === 0 ? (
+                <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                  Tento materiál nepodporuje svietenie.
+                </p>
+              ) : (
+                <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-1.5">
+                  {availableLightModes.map((opt, i) => {
+                    const active = config.lightMode === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        ref={(el) => { modeTileRefs.current[i] = el; }}
+                        role="radio"
+                        aria-checked={active}
+                        tabIndex={active ? 0 : -1}
+                        onClick={() => setLightMode(opt.id)}
+                        onKeyDown={(e) => handleModeKeyDown(e, i)}
+                        className="flex flex-col items-center gap-1 rounded-xl px-1.5 py-2 text-center transition-all duration-200 hover:-translate-y-0.5"
+                        style={{
+                          background: "var(--color-background)",
+                          boxShadow: active ? `0 0 0 2px var(--color-primary), inset 0 0 12px ${config.lightColor}2e` : "none",
+                          opacity: active ? 1 : 0.72,
+                        }}
+                      >
+                        <LightModeGlyphPreview direction={opt.direction} glowColor={config.lightColor} char={previewChar} />
+                        <span className="text-[9.5px] font-medium" style={{ color: "var(--color-foreground)" }}>
+                          {opt.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </FieldCard>
+          )}
+
+          {isIlluminated && (
+            <FieldCard title="Farba svetla" description="Farba LED podsvietenia.">
+              <input
+                type="range"
+                min="0"
+                max="359"
+                value={lightHue}
+                onChange={(e) => setLightColorFromSlider(Number(e.target.value))}
+                className="range-hue mb-3 w-full"
+                style={{
+                  background:
+                    "linear-gradient(90deg,hsl(0,92%,58%),hsl(40,92%,58%),hsl(60,92%,58%),hsl(120,92%,58%),hsl(180,92%,58%),hsl(240,92%,58%),hsl(300,92%,58%),hsl(359,92%,58%))",
+                }}
+                aria-label="Odtieň farby svetla"
+              />
+              <div className="flex flex-wrap gap-2">
+                {lightColors.map((color) => (
+                  <button
+                    key={color.id}
+                    onClick={() => setLightColorFromSwatch(color.id, color.value, color.hue)}
+                    title={color.label}
+                    aria-label={color.label}
+                    className={`h-6 w-6 rounded-full border-2 transition hover:scale-110 ${
+                      selectedSwatch === color.id ? "scale-110 border-(--color-foreground)" : "border-(--color-border)"
+                    }`}
+                    style={{
+                      background: color.id === "white" ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)" : color.value,
+                    }}
+                  />
+                ))}
+              </div>
+            </FieldCard>
+          )}
+
+        </div>
       </div>
 
       {/* ── Closing line — same text + font as the hero heading above, so the
@@ -496,7 +497,7 @@ export default function ConfiguratorStage() {
         style={{ borderColor: "var(--color-border)" }}
       >
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+          <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
             Orientačná cena
           </p>
           <p className="mt-0.5 text-3xl font-black leading-none" style={{ color: "var(--color-foreground)" }}>
@@ -521,7 +522,7 @@ export default function ConfiguratorStage() {
         href="#realizacie"
         className="mt-8 flex flex-col items-center gap-1.5 text-center transition hover:opacity-70"
       >
-        <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+        <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
           Pozri realizáciu, ktorá najviac sedí s tvojím výberom
         </span>
         <ArrowDown size={16} className="animate-bounce" style={{ color: "var(--accent)" }} />
@@ -535,7 +536,7 @@ export default function ConfiguratorStage() {
           style={{ background: "var(--color-foreground)" }}
         >
           <span>
-            <span className="block text-[9px] font-black uppercase tracking-widest" style={{ color: "var(--color-background)", opacity: 0.6 }}>
+            <span className="block text-[9px] font-medium uppercase tracking-widest" style={{ color: "var(--color-background)", opacity: 0.6 }}>
               Orientačná cena
             </span>
             <span className="block text-lg font-black leading-tight" style={{ color: "var(--color-background)" }}>
@@ -575,7 +576,7 @@ function FieldCard({
       className={`rounded-xl p-3.5 ${className}`}
       style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
     >
-      <p className="text-[11.5px] font-bold" style={{ color: "var(--color-foreground)" }}>{title}</p>
+      <p className="text-[12px] font-semibold" style={{ color: "var(--color-foreground)" }}>{title}</p>
       {description && (
         <p className="mt-0.5 text-[10px] leading-4" style={{ color: "var(--color-muted)" }}>{description}</p>
       )}
@@ -584,9 +585,9 @@ function FieldCard({
   );
 }
 
-// ── Font picker — one flat, always-visible grid. Fewer fonts (see
-// lib/options.ts fontOptions) means no carousel and no "show all" toggle are
-// needed anymore — every choice is a single click away. ─────────────────────
+// ── Font picker — a horizontal scroll strip (drag/swipe through the fonts),
+// each tile showing only the font's own name set in its own typeface —
+// no separate "Aa" glyph line, no all-caps label. ───────────────────────────
 
 function FontPicker({
   value,
@@ -608,18 +609,26 @@ function FontPicker({
   }
 
   return (
-    <div role="radiogroup" aria-label="Font" className="grid grid-cols-2 gap-1.5">
-      {fontOptions.map((f, i) => (
-        <FontTile
-          key={f.id}
-          font={f}
-          active={value === f.id}
-          index={i}
-          onClick={() => onChange(f.id)}
-          onKeyDown={handleTileKeyDown}
-          tileRef={(el) => { tileRefs.current[i] = el; }}
-        />
-      ))}
+    <div
+      className="relative -mx-3.5 px-3.5"
+      style={{
+        maskImage: "linear-gradient(to right, transparent, black 12px, black calc(100% - 20px), transparent)",
+        WebkitMaskImage: "linear-gradient(to right, transparent, black 12px, black calc(100% - 20px), transparent)",
+      }}
+    >
+      <div role="radiogroup" aria-label="Font" className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
+        {fontOptions.map((f, i) => (
+          <FontTile
+            key={f.id}
+            font={f}
+            active={value === f.id}
+            index={i}
+            onClick={() => onChange(f.id)}
+            onKeyDown={handleTileKeyDown}
+            tileRef={(el) => { tileRefs.current[i] = el; }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -648,27 +657,15 @@ function FontTile({
       tabIndex={active ? 0 : -1}
       onClick={onClick}
       onKeyDown={(e) => onKeyDown(e, index)}
-      title={font.name}
-      className="font-tile flex w-full flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-center"
+      className="shrink-0 whitespace-nowrap rounded-lg px-3.5 py-2.5 text-center transition"
       style={{
-        background: active ? "var(--color-surface-raised)" : "var(--color-background)",
+        background: active ? "var(--color-primary)" : "var(--color-background)",
+        border: active ? "none" : "1px solid var(--color-border)",
       }}
     >
       <span
-        className="text-[20px] leading-none"
-        style={{ fontFamily: font.name, fontWeight: 700, color: "var(--color-foreground)" }}
-      >
-        Aa
-      </span>
-      <span
-        className="w-full truncate text-[9.5px] leading-snug"
-        style={{ fontFamily: font.name, fontWeight: 600, color: "var(--color-foreground)" }}
-      >
-        {FONT_PREVIEW_SAMPLE}
-      </span>
-      <span
-        className="w-full truncate text-[7.5px] font-black uppercase leading-tight tracking-wide"
-        style={{ color: active ? "var(--color-primary)" : "var(--color-muted)" }}
+        className="text-[13px]"
+        style={{ fontFamily: font.name, fontWeight: 600, color: active ? "#000" : "var(--color-foreground)" }}
       >
         {font.name}
       </span>

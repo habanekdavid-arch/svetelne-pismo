@@ -162,6 +162,15 @@ body {
   cursor: pointer;
 }
 
+/* ─── Scrollable rail with no visible scrollbar (font-picker carousel) ───── */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ─── Hue range slider — transparent track (gradient applied inline) ─────── */
 .range-hue {
   appearance: none;
