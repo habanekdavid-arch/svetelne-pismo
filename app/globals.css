@@ -290,6 +290,60 @@ html.dark .font-tile:hover {
   box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.6);
 }
 
+/* ─── Configurator shell + field cards ───────────────────────────────────────
+   Same visual language as the sister site vytlacto3d: one large rounded panel
+   holding the whole configurator, parameters as white cards that lift and pick
+   up an amber edge on hover. Colours come from the tokens above so both light
+   and dark mode stay correct. */
+.config-shell {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.07);
+}
+html.dark .config-shell {
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+}
+
+.field-card {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease,
+              border-color 0.3s ease;
+}
+.field-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 174, 0, 0.5);
+  box-shadow: 0 16px 38px -18px rgba(255, 174, 0, 0.5),
+              0 4px 12px rgba(0, 0, 0, 0.06);
+}
+html.dark .field-card:hover {
+  box-shadow: 0 16px 38px -18px rgba(255, 174, 0, 0.35),
+              0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Quick-pick chip under a slider — the vytlacto3d SliderBox pattern. */
+.chip {
+  transition: transform 0.2s ease, background-color 0.2s ease,
+              border-color 0.2s ease, color 0.2s ease;
+}
+.chip:hover {
+  transform: translateY(-1px);
+}
+
+/* Price card — lifts toward the accent, mirroring vytlacto3d's price block. */
+.price-card {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+}
+.price-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 174, 0, 0.4);
+  box-shadow: 0 24px 60px rgba(255, 174, 0, 0.16);
+}
+
 /* ─── Icon pop ───────────────────────────────────────────────────────────── */
 .icon-pop {
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
