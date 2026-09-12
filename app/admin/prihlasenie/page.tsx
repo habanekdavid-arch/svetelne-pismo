@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
         >
           Administratíva
         </p>
-        <h1 className="main-heading mb-6 text-2xl" style={{ color: "var(--color-foreground)" }}>
+        <h1 className="mb-6 text-lg font-bold" style={{ color: "var(--color-foreground)" }}>
           Prihlásenie
         </h1>
 

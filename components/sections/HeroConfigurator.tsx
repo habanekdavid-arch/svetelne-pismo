@@ -23,7 +23,7 @@ export default function HeroConfigurator() {
           >
             Poď si s nami
             <br />
-            vytvoriť tvoj svetelný text
+            <span style={{ color: "var(--color-primary)" }}>vytvoriť tvoj svetelný text</span>
           </h1>
 
           <p

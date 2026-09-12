@@ -17,7 +17,7 @@ export default function StatusSelect({ orderId, status }: { orderId: number; sta
           setOrderStatus(orderId, next);
         });
       }}
-      className="rounded-lg px-2.5 py-1.5 text-[11px] font-black uppercase tracking-wide outline-none disabled:opacity-50"
+      className="rounded-lg px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide outline-none disabled:opacity-50"
       style={{
         background: "var(--color-surface-raised)",
         color: "var(--color-foreground)",

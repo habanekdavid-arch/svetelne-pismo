@@ -411,18 +411,20 @@ export default function LetterScene(props: LetterSceneProps) {
           <SceneContent {...props} />
         </Suspense>
 
-        {/* Bloom is the only post-processing pass now, and only while the sign is lit. */}
-        {bloomActive && (
-          <EffectComposer frameBufferType={THREE.HalfFloatType}>
-            <Bloom
-              mipmapBlur
-              luminanceThreshold={BLOOM_LUMINANCE_THRESHOLD}
-              luminanceSmoothing={BLOOM_LUMINANCE_SMOOTHING}
-              intensity={bloomIntensity}
-              radius={BLOOM_RADIUS}
-            />
-          </EffectComposer>
-        )}
+        {/* Bloom is the only post-processing pass. Always mounted (intensity
+            drops to 0 when the sign is off) rather than conditionally
+            mounted/unmounted — (un)mounting EffectComposer re-initialises its
+            render targets, which read as a one-frame flicker/lag exactly
+            when switching Svetelné/Nesvetelné or Deň/Noc. */}
+        <EffectComposer frameBufferType={THREE.HalfFloatType}>
+          <Bloom
+            mipmapBlur
+            luminanceThreshold={BLOOM_LUMINANCE_THRESHOLD}
+            luminanceSmoothing={BLOOM_LUMINANCE_SMOOTHING}
+            intensity={bloomActive ? bloomIntensity : 0}
+            radius={BLOOM_RADIUS}
+          />
+        </EffectComposer>
       </Canvas>
     </div>
   );
@@ -449,11 +451,11 @@ function useWallTexture(stops: [string, string, string]): THREE.CanvasTexture | 
     ctx.fillRect(0, 0, size, size);
 
     const vignette = ctx.createRadialGradient(
-      size / 2, size * 0.42, size * 0.12,
-      size / 2, size / 2, size * 0.72,
+      size / 2, size * 0.42, size * 0.2,
+      size / 2, size / 2, size * 0.95,
     );
     vignette.addColorStop(0, "rgba(0,0,0,0)");
-    vignette.addColorStop(1, "rgba(0,0,0,0.22)");
+    vignette.addColorStop(1, "rgba(0,0,0,0.12)");
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, size, size);
 
@@ -558,7 +560,7 @@ function SceneContent({
 
       {/* ── Smooth matte wall the sign is mounted on ── */}
       <mesh position={[0, 0, wallZ]} receiveShadow>
-        <planeGeometry args={[60, 34]} />
+        <planeGeometry args={[110, 60]} />
         <meshStandardMaterial
           map={wallTexture ?? undefined}
           color={wallTexture ? "#ffffff" : wallStops[1]}

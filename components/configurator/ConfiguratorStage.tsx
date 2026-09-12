@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Lightbulb, LightbulbOff, ArrowDown } from "lucide-react";
 import OrderModal from "@/components/configurator/OrderModal";
 import EyebrowPill from "@/components/ui/EyebrowPill";
-import type { Config, LightModeDirection, LightModeId, MaterialUseTag, SignType } from "@/lib/types";
+import type { Config, LightModeDirection, LightModeId, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { calculatePrice } from "@/lib/pricing";
 import {
@@ -31,12 +31,6 @@ const LetterScene = dynamic(() => import("@/components/three/LetterScene"), {
 
 // Light modes that trigger the dark-canvas preview automatically
 const NIGHT_MODES: LightModeId[] = ["halo", "full"];
-
-const USE_TAG_LABEL: Record<MaterialUseTag, string> = {
-  interiér: "Interiér",
-  exteriér: "Exteriér",
-  oboje:    "Interiér aj exteriér",
-};
 
 // ── Light mode glyph preview tunables ───────────────────────────────────────
 const LIGHT_TILE_GLOW_SIZE  = 36;  // px — svg square inside each mode tile
@@ -204,7 +198,7 @@ export default function ConfiguratorStage() {
   // nothing tucked into a sidebar or an accordion.
 
   return (
-    <div className="mx-auto mt-14 max-w-5xl">
+    <div className="mx-auto mt-14 max-w-4xl">
 
       {/* ── Section heading ──────────────────────────────────────────────── */}
       <div className="mb-8 text-center">
@@ -248,18 +242,21 @@ export default function ConfiguratorStage() {
         </div>
       </div>
 
-      {/* ── Text — the one field that always comes first ────────────────── */}
-      <FieldCard title="Text" description="Text, ktorý sa zobrazí na nápise." className="mb-4">
-        <input
-          value={config.text}
-          onChange={(e) => patch({ text: e.target.value })}
-          maxLength={30}
-          className="w-full rounded-full px-5 py-3 text-center text-sm font-black uppercase tracking-wide outline-none transition-colors"
-          style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
-          placeholder="Napíšte váš text…"
-          aria-label="Text na nápis"
-        />
-      </FieldCard>
+      {/* ── Text — the one field that always comes first, kept narrow and
+          centered rather than stretched full-width ──────────────────────── */}
+      <div className="mx-auto mb-4 max-w-sm">
+        <FieldCard title="Text" description="Text, ktorý sa zobrazí na nápise.">
+          <input
+            value={config.text}
+            onChange={(e) => patch({ text: e.target.value })}
+            maxLength={30}
+            className="w-full rounded-full px-5 py-2.5 text-center text-sm font-black uppercase tracking-wide outline-none transition-colors"
+            style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
+            placeholder="Napíšte váš text…"
+            aria-label="Text na nápis"
+          />
+        </FieldCard>
+      </div>
 
       {/* ── 3D preview ───────────────────────────────────────────────────── */}
       <div className="mb-4 rounded-2xl p-4" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
@@ -321,7 +318,7 @@ export default function ConfiguratorStage() {
       </div>
 
       {/* ── Parameter cards — everything visible at once, no sidebars ───── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
         <FieldCard title="Font" description="Vyber písmo pre svoj nápis.">
           <FontPicker
@@ -332,38 +329,28 @@ export default function ConfiguratorStage() {
         </FieldCard>
 
         <FieldCard title="Materiál" description="Ovplyvňuje vzhľad aj cenu.">
-          <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {filteredMaterials.map((mat) => {
               const active = config.material === mat.id;
               return (
                 <button
                   key={mat.id}
                   onClick={() => handleMaterialChange(mat.id)}
-                  className={`flex w-full flex-col rounded-lg px-3 py-2 text-left transition ${
-                    active
-                      ? "bg-(--color-foreground) text-(--color-background)"
-                      : "bg-(--color-background) text-(--color-foreground) hover:bg-(--color-surface-raised)"
-                  }`}
+                  className="rounded-lg px-2 py-2.5 text-center text-[10px] font-bold uppercase leading-tight transition"
+                  style={{
+                    background: active ? "var(--color-primary)" : "var(--color-background)",
+                    color: active ? "#000" : "var(--color-foreground)",
+                    border: active ? "none" : "1px solid var(--color-border)",
+                  }}
                 >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-black uppercase">{mat.displayName}</span>
-                    <span
-                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide"
-                      style={{
-                        background: active ? "rgba(255,255,255,0.18)" : "var(--color-surface-raised)",
-                        color: active ? "var(--color-background)" : "var(--color-muted)",
-                      }}
-                    >
-                      {USE_TAG_LABEL[mat.useTag]}
-                    </span>
-                  </span>
-                  <span className="mt-0.5 text-[9.5px] leading-4" style={{ opacity: active ? 0.75 : 0.6 }}>
-                    {mat.subtitle}
-                  </span>
+                  {mat.displayName}
                 </button>
               );
             })}
           </div>
+          <p className="mt-2 text-[9.5px] leading-4" style={{ color: "var(--color-muted)" }}>
+            {currentMat.subtitle}
+          </p>
         </FieldCard>
 
         <FieldCard title={isIlluminated ? "Farba tela" : "Farba materiálu"} description="Farba samotného písmena.">
@@ -494,9 +481,18 @@ export default function ConfiguratorStage() {
 
       </div>
 
+      {/* ── Closing line — same text + font as the hero heading above, so the
+          page opens and closes on the same line ────────────────────────── */}
+      <p
+        className="main-heading mt-10 text-center text-lg md:text-xl"
+        style={{ color: "var(--color-primary)" }}
+      >
+        Poď si s nami vytvoriť tvoj svetelný text
+      </p>
+
       {/* ── Price + Order row ───────────────────────────────────────────────── */}
       <div
-        className="mt-8 flex flex-col items-center justify-between gap-6 border-t pt-6 sm:flex-row"
+        className="mt-4 flex flex-col items-center justify-between gap-6 border-t pt-6 sm:flex-row"
         style={{ borderColor: "var(--color-border)" }}
       >
         <div>
@@ -576,14 +572,14 @@ function FieldCard({
 }) {
   return (
     <div
-      className={`rounded-2xl p-4 ${className}`}
+      className={`rounded-xl p-3.5 ${className}`}
       style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
     >
-      <p className="text-[12.5px] font-black" style={{ color: "var(--color-foreground)" }}>{title}</p>
+      <p className="text-[11.5px] font-bold" style={{ color: "var(--color-foreground)" }}>{title}</p>
       {description && (
-        <p className="mt-0.5 text-[10.5px] leading-4" style={{ color: "var(--color-muted)" }}>{description}</p>
+        <p className="mt-0.5 text-[10px] leading-4" style={{ color: "var(--color-muted)" }}>{description}</p>
       )}
-      <div className="mt-3">{children}</div>
+      <div className="mt-2.5">{children}</div>
     </div>
   );
 }
