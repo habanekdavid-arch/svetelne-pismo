@@ -27,11 +27,11 @@ export default function Header() {
         boxShadow: "0 4px 24px 0 rgba(0,0,0,0.06)",
       }}
     >
-      <div className="mx-auto flex h-[100px] max-w-7xl items-center justify-between px-5">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5">
         {/* Brand */}
         <Link
           href="/"
-          className="whitespace-nowrap text-[22px] transition-opacity hover:opacity-70"
+          className="whitespace-nowrap text-[20px] transition-opacity hover:opacity-70"
           style={{ ...cgBlack, color: "var(--color-foreground)" }}
         >
           ROZSVIEŤTO
@@ -39,38 +39,31 @@ export default function Header() {
 
         {/* Nav — desktop only */}
         <nav
-          className="hidden items-center gap-10 text-[16px] md:flex"
+          className="hidden items-center gap-8 text-[14px] md:flex"
           style={cgRegular}
           aria-label="Hlavná navigácia"
         >
-          <a
-            href="/#materialy"
-            className="nav-link whitespace-nowrap"
-            style={{ color: "var(--color-foreground)" }}
-          >
-            MATERIALY
-          </a>
-          <a
-            href="/#konfigurator"
-            className="nav-link whitespace-nowrap"
-            style={{ color: "var(--color-foreground)" }}
-          >
+          <Link href="/#materialy" className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
+            MATERIÁLY
+          </Link>
+          <Link href="/#konfigurator" className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
             CENY
-          </a>
-          <Link
-            href="/faq"
-            className="nav-link whitespace-nowrap"
-            style={{ color: "var(--color-foreground)" }}
-          >
+          </Link>
+          <Link href="/faq" className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
             FAQ
           </Link>
-          <Link
-            href="/blog"
-            className="nav-link whitespace-nowrap"
-            style={{ color: "var(--color-foreground)" }}
-          >
+          <Link href="/blog" className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
             BLOG
           </Link>
+          <a
+            href="https://www.4frommedia.sk"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="nav-link whitespace-nowrap"
+            style={{ color: "var(--color-muted)" }}
+          >
+            4FROM MEDIA
+          </a>
           <Show when="signed-in">
             <Link
               href="/moje-objednavky"
@@ -88,7 +81,7 @@ export default function Header() {
             <SignInButton mode="modal">
               <button
                 type="button"
-                className="whitespace-nowrap rounded-full px-6 py-2.5 text-[14px] transition hover:opacity-85"
+                className="whitespace-nowrap rounded-full px-6 py-2.5 text-[13px] transition hover:opacity-85"
                 style={{ ...cgBlack, background: "var(--accent)", color: "#000" }}
               >
                 PRIHLÁSIŤ SA
@@ -96,7 +89,15 @@ export default function Header() {
             </SignInButton>
           </Show>
           <Show when="signed-in">
-            <UserButton />
+            <div
+              className="flex items-center gap-2.5 rounded-full py-1.5 pl-1.5 pr-4"
+              style={{ background: "var(--color-surface)" }}
+            >
+              <UserButton />
+              <span className="text-[12px] font-black uppercase tracking-wide" style={{ color: "var(--color-foreground)" }}>
+                Môj účet
+              </span>
+            </div>
           </Show>
         </div>
 
@@ -119,7 +120,7 @@ export default function Header() {
         id="mobile-nav"
         className="overflow-hidden transition-[max-height,opacity] duration-200 ease-out md:hidden"
         style={{
-          maxHeight: open ? "320px" : "0px",
+          maxHeight: open ? "420px" : "0px",
           opacity: open ? 1 : 0,
           borderTop: open ? "1px solid var(--color-border)" : "none",
         }}
@@ -129,22 +130,22 @@ export default function Header() {
           style={cgRegular}
           aria-label="Mobilná navigácia"
         >
-          <a
+          <Link
             href="/#materialy"
             onClick={() => setOpen(false)}
             className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
             style={{ color: "var(--color-foreground)" }}
           >
-            MATERIALY
-          </a>
-          <a
+            MATERIÁLY
+          </Link>
+          <Link
             href="/#konfigurator"
             onClick={() => setOpen(false)}
             className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
             style={{ color: "var(--color-foreground)" }}
           >
             CENY
-          </a>
+          </Link>
           <Link
             href="/faq"
             onClick={() => setOpen(false)}
@@ -161,6 +162,16 @@ export default function Header() {
           >
             BLOG
           </Link>
+          <a
+            href="https://www.4frommedia.sk"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
+            style={{ color: "var(--color-muted)" }}
+          >
+            4from media
+          </a>
           <Show when="signed-in">
             <Link
               href="/moje-objednavky"
