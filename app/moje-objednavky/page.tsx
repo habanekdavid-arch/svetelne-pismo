@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { getUserSession } from "@/lib/user-auth";
 import { listOrdersForUser } from "@/lib/orders";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
 import StatusBadge from "@/components/orders/StatusBadge";
@@ -10,13 +10,13 @@ export const metadata: Metadata = {
   title: "Moje objednávky | rozsvieťTO",
 };
 
-// Protected by middleware.ts (redirects anonymous visitors to /prihlasenie
-// before this ever renders) — the auth() check here is just the data query.
+// No middleware involved — same pattern as app/admin/page.tsx: read our own
+// session cookie (lib/user-auth.ts) and redirect here if it's missing.
 export default async function MyOrdersPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/prihlasenie");
+  const session = await getUserSession();
+  if (!session) redirect("/prihlasenie");
 
-  const orders = await listOrdersForUser(userId);
+  const orders = await listOrdersForUser(session.userId);
 
   return (
     <main style={{ background: "var(--color-background)" }}>

@@ -1,6 +1,9 @@
 import ConfiguratorStage from "@/components/configurator/ConfiguratorStage";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 
+// Deliberately NOT reading the session here (no getUserSession()/cookies())
+// — that would force this page to opt out of static rendering. OrderModal
+// fetches /api/auth/me itself, client-side, only once it's actually opened.
 export default function HeroConfigurator() {
   return (
     <section

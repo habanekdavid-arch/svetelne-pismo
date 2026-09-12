@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { getUserSession } from "@/lib/user-auth";
 import { createOrder } from "@/lib/orders";
 import { calculatePrice } from "@/lib/pricing";
 import type { Config } from "@/lib/types";
 
 // Called from components/configurator/OrderModal.tsx once the customer is
-// signed in (Clerk) and submits the order form.
+// signed in (our own Prisma-backed session, see lib/user-auth.ts) and
+// submits the order form.
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const session = await getUserSession();
+  if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -18,26 +19,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_config" }, { status: 400 });
   }
 
-  const user = await currentUser();
-  const email =
-    (typeof body?.email === "string" && body.email.trim()) ||
-    user?.primaryEmailAddress?.emailAddress ||
-    "";
-  const name =
-    (typeof body?.name === "string" && body.name.trim()) ||
-    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
-    "Zákazník";
-
-  if (!email) {
-    return NextResponse.json({ error: "missing_email" }, { status: 400 });
-  }
+  const email = (typeof body?.email === "string" && body.email.trim()) || session.email;
+  const name = (typeof body?.name === "string" && body.name.trim()) || session.name || "Zákazník";
 
   // Never trust a client-submitted price — recompute it server-side from
   // the same pricing rules the configurator UI uses.
   const price = calculatePrice(config);
 
   const order = await createOrder({
-    clerkUserId: userId,
+    userId: session.userId,
     customerName: name,
     customerEmail: email,
     config,

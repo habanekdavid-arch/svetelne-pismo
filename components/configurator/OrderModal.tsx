@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Show, SignInButton, useUser } from "@clerk/nextjs";
+import { useEffect, useRef, useState } from "react";
 import { X, Check, Lock } from "lucide-react";
 import type { Config } from "@/lib/types";
 import { calculatePrice } from "@/lib/pricing";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
+import { notifySessionChange } from "@/lib/session-client";
+
+type SessionUser = { name: string; email: string };
 
 type Props = {
   config: Config;
@@ -14,13 +16,30 @@ type Props = {
 };
 
 export default function OrderModal({ config, onClose }: Props) {
-  const { user } = useUser();
-  // Prefilled once from the signed-in Clerk profile, read at mount time —
-  // the modal is only mounted after the visitor opens it (well after Clerk
-  // has loaded), and the customer can still edit either field afterwards
-  // (e.g. ordering for someone else).
-  const [name, setName] = useState(() => [user?.firstName, user?.lastName].filter(Boolean).join(" "));
-  const [email, setEmail] = useState(() => user?.primaryEmailAddress?.emailAddress ?? "");
+  // undefined = still checking /api/auth/me, null = confirmed signed out,
+  // SessionUser = signed in. Fetched here (not passed as a prop from a
+  // server-rendered ancestor) so the pages that render this stay static —
+  // see app/api/auth/me/route.ts.
+  const [authedUser, setAuthedUser] = useState<SessionUser | null | undefined>(undefined);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setAuthedUser(data.user);
+        if (data.user) {
+          setName((prev) => prev || data.user.name);
+          setEmail((prev) => prev || data.user.email);
+        }
+      })
+      .catch(() => { if (!cancelled) setAuthedUser(null); });
+    return () => { cancelled = true; };
+  }, []);
+
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -33,6 +52,13 @@ export default function OrderModal({ config, onClose }: Props) {
   const lighting = config.signType === "illuminated"
     ? LIGHT_MODES.find((l) => l.id === config.lightMode)
     : null;
+
+  function handleAuthenticated(u: SessionUser) {
+    setAuthedUser(u);
+    setName((prev) => prev || u.name);
+    setEmail((prev) => prev || u.email);
+    notifySessionChange(); // syncs Header's account UI too
+  }
 
   function validate() {
     const e: { name?: string; email?: string } = {};
@@ -189,113 +215,213 @@ export default function OrderModal({ config, onClose }: Props) {
             </div>
 
             {/* Objednávka sa viaže na účet zákazníka (aby ju videl v Moje
-                objednávky) — bez prihlásenia zobrazíme len výzvu na prihlásenie. */}
-            <Show when="signed-out">
-              <div
-                className="flex flex-col items-center gap-3 rounded-xl p-6 text-center"
-                style={{ background: "var(--color-surface)" }}
-              >
-                <span
-                  className="flex h-10 w-10 items-center justify-center rounded-full"
-                  style={{ background: "var(--color-surface-raised)", color: "var(--color-muted)" }}
-                >
-                  <Lock size={16} />
-                </span>
-                <p className="text-sm leading-6" style={{ color: "var(--color-muted)" }}>
-                  Pre odoslanie objednávky sa prosím prihláste alebo si
-                  vytvorte účet — objednávku tak uvidíte aj neskôr v „Moje
-                  objednávky“.
-                </p>
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    className="mt-1 rounded-full px-8 py-3 text-xs font-black uppercase transition hover:opacity-90"
-                    style={{ background: "var(--accent)", color: "#000" }}
+                objednávky) — bez prihlásenia ponúkneme prihlásenie/registráciu
+                priamo tu, nech neopúšťa rozostavaný nápis. */}
+            {authedUser === undefined ? (
+              <div className="h-40 animate-pulse rounded-xl" style={{ background: "var(--color-surface)" }} aria-hidden="true" />
+            ) : !authedUser ? (
+              <AuthGate onAuthenticated={handleAuthenticated} />
+            ) : (
+              <form onSubmit={handleSubmit} noValidate>
+                <div className="mb-4">
+                  <label
+                    className="mb-1.5 block text-[11px] font-black uppercase tracking-wide"
+                    style={{ color: "var(--color-foreground)" }}
                   >
-                    Prihlásiť sa / Registrovať
-                  </button>
-                </SignInButton>
-              </div>
-            </Show>
+                    Meno a priezvisko
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ján Novák"
+                    autoComplete="name"
+                    className="w-full rounded-lg px-4 py-3 text-sm outline-none transition"
+                    style={{
+                      background: errors.name ? "rgba(239,68,68,0.08)" : "var(--color-surface)",
+                      border: `1px solid ${errors.name ? "#f87171" : "var(--color-border)"}`,
+                      color: "var(--color-foreground)",
+                    }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-foreground)")}
+                    onBlur={(e) =>
+                      (e.currentTarget.style.borderColor = errors.name ? "#f87171" : "var(--color-border)")
+                    }
+                  />
+                  {errors.name && (
+                    <p className="mt-1 text-[11px] text-red-400">{errors.name}</p>
+                  )}
+                </div>
 
-            {/* Form */}
-            <Show when="signed-in">
-            <form onSubmit={handleSubmit} noValidate>
-              <div className="mb-4">
-                <label
-                  className="mb-1.5 block text-[11px] font-black uppercase tracking-wide"
-                  style={{ color: "var(--color-foreground)" }}
-                >
-                  Meno a priezvisko
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ján Novák"
-                  autoComplete="name"
-                  className="w-full rounded-lg px-4 py-3 text-sm outline-none transition"
-                  style={{
-                    background: errors.name ? "rgba(239,68,68,0.08)" : "var(--color-surface)",
-                    border: `1px solid ${errors.name ? "#f87171" : "var(--color-border)"}`,
-                    color: "var(--color-foreground)",
-                  }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-foreground)")}
-                  onBlur={(e) =>
-                    (e.currentTarget.style.borderColor = errors.name ? "#f87171" : "var(--color-border)")
-                  }
-                />
-                {errors.name && (
-                  <p className="mt-1 text-[11px] text-red-400">{errors.name}</p>
+                <div className="mb-6">
+                  <label
+                    className="mb-1.5 block text-[11px] font-black uppercase tracking-wide"
+                    style={{ color: "var(--color-foreground)" }}
+                  >
+                    E-mail
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="jan@email.sk"
+                    autoComplete="email"
+                    className="w-full rounded-lg px-4 py-3 text-sm outline-none transition"
+                    style={{
+                      background: errors.email ? "rgba(239,68,68,0.08)" : "var(--color-surface)",
+                      border: `1px solid ${errors.email ? "#f87171" : "var(--color-border)"}`,
+                      color: "var(--color-foreground)",
+                    }}
+                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-foreground)")}
+                    onBlur={(e) =>
+                      (e.currentTarget.style.borderColor = errors.email ? "#f87171" : "var(--color-border)")
+                    }
+                  />
+                  {errors.email && (
+                    <p className="mt-1 text-[11px] text-red-400">{errors.email}</p>
+                  )}
+                </div>
+
+                {submitError && (
+                  <p className="mb-3 text-[12px] text-red-400">{submitError}</p>
                 )}
-              </div>
 
-              <div className="mb-6">
-                <label
-                  className="mb-1.5 block text-[11px] font-black uppercase tracking-wide"
-                  style={{ color: "var(--color-foreground)" }}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+                  style={{ background: "var(--accent)", color: "#000" }}
                 >
-                  E-mail
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="jan@email.sk"
-                  autoComplete="email"
-                  className="w-full rounded-lg px-4 py-3 text-sm outline-none transition"
-                  style={{
-                    background: errors.email ? "rgba(239,68,68,0.08)" : "var(--color-surface)",
-                    border: `1px solid ${errors.email ? "#f87171" : "var(--color-border)"}`,
-                    color: "var(--color-foreground)",
-                  }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-foreground)")}
-                  onBlur={(e) =>
-                    (e.currentTarget.style.borderColor = errors.email ? "#f87171" : "var(--color-border)")
-                  }
-                />
-                {errors.email && (
-                  <p className="mt-1 text-[11px] text-red-400">{errors.email}</p>
-                )}
-              </div>
-
-              {submitError && (
-                <p className="mb-3 text-[12px] text-red-400">{submitError}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
-                style={{ background: "var(--accent)", color: "#000" }}
-              >
-                {submitting ? "Odosielam…" : "Odoslať objednávku"}
-              </button>
-            </form>
-            </Show>
+                  {submitting ? "Odosielam…" : "Odoslať objednávku"}
+                </button>
+              </form>
+            )}
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Inline sign-in / sign-up gate ────────────────────────────────────────────
+// Posts straight to our own Prisma-backed auth API (lib/user-auth.ts) — no
+// navigation away from the configurator, no Clerk modal.
+
+function AuthGate({ onAuthenticated }: { onAuthenticated: (user: SessionUser) => void }) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(mode === "login" ? "/api/auth/login" : "/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mode === "login" ? { email, password } : { name, email, password }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        if (body?.error === "email_taken") setError("Tento e-mail už má vytvorený účet.");
+        else if (body?.error === "weak_password") setError("Heslo musí mať aspoň 8 znakov.");
+        else if (mode === "login") setError("Nesprávny e-mail alebo heslo.");
+        else setError("Skontrolujte údaje a skúste znova.");
+        return;
+      }
+      onAuthenticated(body.user as SessionUser);
+    } catch {
+      setError("Niečo sa pokazilo. Skúste to prosím znova.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl p-6" style={{ background: "var(--color-surface)" }}>
+      <div className="mb-5 flex flex-col items-center gap-2 text-center">
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ background: "var(--color-surface-raised)", color: "var(--color-muted)" }}
+        >
+          <Lock size={16} />
+        </span>
+        <p className="text-sm leading-6" style={{ color: "var(--color-muted)" }}>
+          Pre odoslanie objednávky sa prosím prihláste alebo si vytvorte
+          účet — objednávku tak uvidíte aj neskôr v „Moje objednávky“.
+        </p>
+      </div>
+
+      {/* Mode tabs */}
+      <div className="mb-4 flex gap-1 rounded-full p-1" style={{ background: "var(--color-surface-raised)" }}>
+        {(["login", "register"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => { setMode(m); setError(null); }}
+            className="flex-1 rounded-full py-2 text-[11px] font-black uppercase tracking-wide transition"
+            style={
+              mode === m
+                ? { background: "var(--color-foreground)", color: "var(--color-background)" }
+                : { color: "var(--color-muted)" }
+            }
+          >
+            {m === "login" ? "Prihlásiť sa" : "Vytvoriť účet"}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={handleSubmit} noValidate className="space-y-3">
+        {mode === "register" && (
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Meno"
+            autoComplete="name"
+            required
+            className="w-full rounded-lg px-4 py-3 text-sm outline-none"
+            style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+          />
+        )}
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="jan@email.sk"
+          autoComplete="username"
+          required
+          className="w-full rounded-lg px-4 py-3 text-sm outline-none"
+          style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Heslo"
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+          minLength={mode === "register" ? 8 : undefined}
+          required
+          className="w-full rounded-lg px-4 py-3 text-sm outline-none"
+          style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+        />
+
+        {error && <p className="text-[12px] text-red-400">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 disabled:opacity-60"
+          style={{ background: "var(--accent)", color: "#000" }}
+        >
+          {submitting
+            ? "Chvíľu…"
+            : mode === "login" ? "Prihlásiť sa" : "Vytvoriť účet"}
+        </button>
+      </form>
     </div>
   );
 }

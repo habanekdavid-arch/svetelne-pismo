@@ -1,8 +1,10 @@
-// Prisma is used only for the admin login (AdminUser) — a deliberate,
-// separate auth system from Clerk (which stays for customer accounts). See
-// lib/admin-auth.ts. Orders keep using lib/db.ts / lib/orders.ts (raw SQL
-// via @neondatabase/serverless) — both point at the same Neon DATABASE_URL,
-// Postgres doesn't care which client wrote which table.
+// Prisma is the one auth system for the whole site — no Clerk anywhere.
+// AdminUser (app/admin) and User (customer accounts, app/prihlasenie +
+// app/registracia) are separate tables/sessions on purpose: an admin login
+// should never double as a customer account. Orders keep using
+// lib/db.ts / lib/orders.ts (raw SQL via @neondatabase/serverless) — both
+// point at the same Neon DATABASE_URL, Postgres doesn't care which client
+// wrote which table.
 
 generator client {
   provider = "prisma-client-js"
@@ -22,4 +24,15 @@ model AdminUser {
   createdAt    DateTime @default(now())
 
   @@map("admin_users")
+}
+
+// Customer accounts — orders.user_id (lib/db.ts) references User.id.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  @@map("users")
 }

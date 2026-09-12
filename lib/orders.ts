@@ -14,7 +14,7 @@ export const ORDER_STATUSES: OrderStatus[] = ["new", "in_progress", "done", "can
 
 export type Order = {
   id: number;
-  clerkUserId: string;
+  userId: string;
   customerName: string;
   customerEmail: string;
   config: Config;
@@ -32,7 +32,7 @@ type Row = Record<string, any>;
 function mapRow(row: Row): Order {
   return {
     id: Number(row.id),
-    clerkUserId: row.clerk_user_id,
+    userId: row.user_id,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
     // Neon's HTTP driver already parses jsonb into an object, but guard
@@ -45,7 +45,7 @@ function mapRow(row: Row): Order {
 }
 
 export async function createOrder(input: {
-  clerkUserId: string;
+  userId: string;
   customerName: string;
   customerEmail: string;
   config: Config;
@@ -53,9 +53,9 @@ export async function createOrder(input: {
 }): Promise<Order> {
   const sql = await getDb();
   const rows = (await sql`
-    INSERT INTO orders (clerk_user_id, customer_name, customer_email, config, price)
+    INSERT INTO orders (user_id, customer_name, customer_email, config, price)
     VALUES (
-      ${input.clerkUserId},
+      ${input.userId},
       ${input.customerName},
       ${input.customerEmail},
       ${JSON.stringify(input.config)}::jsonb,
@@ -66,10 +66,10 @@ export async function createOrder(input: {
   return mapRow(rows[0]);
 }
 
-export async function listOrdersForUser(clerkUserId: string): Promise<Order[]> {
+export async function listOrdersForUser(userId: string): Promise<Order[]> {
   const sql = await getDb();
   const rows = (await sql`
-    SELECT * FROM orders WHERE clerk_user_id = ${clerkUserId} ORDER BY created_at DESC
+    SELECT * FROM orders WHERE user_id = ${userId} ORDER BY created_at DESC
   `) as Row[];
   return rows.map(mapRow);
 }

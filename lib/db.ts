@@ -23,7 +23,7 @@ function ensureSchema(): Promise<void> {
       await sql`
         CREATE TABLE IF NOT EXISTS orders (
           id BIGSERIAL PRIMARY KEY,
-          clerk_user_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
           customer_name TEXT NOT NULL,
           customer_email TEXT NOT NULL,
           config JSONB NOT NULL,
@@ -32,10 +32,20 @@ function ensureSchema(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
       `;
+
+      // One-time migration for installs created back when this column was
+      // named clerk_user_id (pre-Prisma-accounts). No-ops on a fresh table.
+      try {
+        await sql`ALTER TABLE orders RENAME COLUMN clerk_user_id TO user_id`;
+      } catch (err) {
+        if (!(err instanceof Error) || !/does not exist/i.test(err.message)) throw err;
+      }
+
       await sql`
-        CREATE INDEX IF NOT EXISTS orders_clerk_user_id_idx
-        ON orders (clerk_user_id)
+        CREATE INDEX IF NOT EXISTS orders_user_id_idx
+        ON orders (user_id)
       `;
+      await sql`DROP INDEX IF EXISTS orders_clerk_user_id_idx`;
     })();
   }
   return schemaReady;
