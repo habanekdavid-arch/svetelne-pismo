@@ -32,6 +32,7 @@ type Ctx = {
   total: number;
   isOpen: boolean;
   add: (config: Config) => void;
+  checkout: (config: Config) => void;
   remove: (id: string) => void;
   clear: () => void;
   open: () => void;
@@ -42,7 +43,7 @@ const STORAGE_KEY = "rozsvietto.cart.v1";
 
 const CartContext = createContext<Ctx>({
   items: [], count: 0, total: 0, isOpen: false,
-  add: () => {}, remove: () => {}, clear: () => {}, open: () => {}, close: () => {},
+  add: () => {}, checkout: () => {}, remove: () => {}, clear: () => {}, open: () => {}, close: () => {},
 });
 
 function makeId(): string {
@@ -50,6 +51,23 @@ function makeId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// Two configurations describe the same sign when every ordered property
+// matches. `rotation` is excluded on purpose: it only turns the sign in the 3D
+// preview and is not something the workshop makes differently.
+function sameConfig(a: Config, b: Config): boolean {
+  return (
+    a.text === b.text &&
+    a.font === b.font &&
+    a.material === b.material &&
+    a.signType === b.signType &&
+    a.lightMode === b.lightMode &&
+    a.lightColor === b.lightColor &&
+    a.bodyColor === b.bodyColor &&
+    a.height === b.height &&
+    a.thickness === b.thickness
+  );
 }
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -118,6 +136,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setIsOpen(true);
   }, [setItems]);
 
+  // "Objednať" in the configurator. It opens the cart rather than a checkout
+  // of its own, so the sign being configured has to be in the cart first —
+  // otherwise the customer would land in an empty drawer. Adding it again when
+  // it is already there would just duplicate the line, so an identical sign
+  // only opens the cart. (Ordering two identical signs is still possible: use
+  // "Pridať do košíka" twice, which never deduplicates.)
+  const checkout = useCallback((config: Config) => {
+    setItems((prev) =>
+      prev.some((i) => sameConfig(i.config, config))
+        ? prev
+        : [...prev, { id: makeId(), config, price: calculatePrice(config), addedAt: Date.now() }],
+    );
+    setIsOpen(true);
+  }, [setItems]);
+
   const remove = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, [setItems]);
@@ -129,8 +162,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const total = useMemo(() => items.reduce((s, i) => s + i.price, 0), [items]);
 
   const value = useMemo<Ctx>(
-    () => ({ items, count: items.length, total, isOpen, add, remove, clear, open, close }),
-    [items, total, isOpen, add, remove, clear, open, close],
+    () => ({ items, count: items.length, total, isOpen, add, checkout, remove, clear, open, close }),
+    [items, total, isOpen, add, checkout, remove, clear, open, close],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

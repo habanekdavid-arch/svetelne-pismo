@@ -11,25 +11,18 @@ import { notifySessionChange } from "@/lib/session-client";
 
 type SessionUser = { name: string; email: string };
 
-// Either a single configured sign (the configurator's own "Objednať" button)
-// or a whole cart (the cart drawer's checkout). Exactly one is passed.
+// The last step of checkout, opened from the cart drawer. Every order goes
+// through the cart now — the configurator's "Objednať" puts the sign there
+// first — so this always works from a list of cart items.
 type Props = {
-  config?: Config;
-  cartItems?: CartItem[];
+  cartItems: CartItem[];
   onClose: () => void;
 };
 
-export default function OrderModal({ config, cartItems, onClose }: Props) {
+export default function OrderModal({ cartItems, onClose }: Props) {
   const { clear: clearCart } = useCart();
 
-  // Normalise both entry points to one list, so everything below — pricing,
-  // the summary, the request body, analytics — has a single shape to work with.
-  const configs: Config[] = cartItems?.length
-    ? cartItems.map((i) => i.config)
-    : config
-      ? [config]
-      : [];
-  const isCart = !!cartItems?.length;
+  const configs: Config[] = cartItems.map((i) => i.config);
   // undefined = still checking /api/auth/me, null = confirmed signed out,
   // SessionUser = signed in. Fetched here (not passed as a prop from a
   // server-rendered ancestor) so the pages that render this stay static —
@@ -105,7 +98,7 @@ export default function OrderModal({ config, cartItems, onClose }: Props) {
       if (!res.ok) throw new Error(`request failed: ${res.status}`);
 
       setSubmitted(true);
-      if (isCart) clearCart();
+      clearCart();
       if (!trackedRef.current) {
         trackedRef.current = true;
         trackPurchase({

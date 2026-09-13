@@ -3,7 +3,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Lightbulb, LightbulbOff, ArrowDown } from "lucide-react";
-import OrderModal from "@/components/configurator/OrderModal";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import type { Config, LightModeDirection, LightModeId, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
@@ -55,9 +54,8 @@ export default function ConfiguratorStage() {
   const [lightHue, setLightHue] = useState(41);
   const [selectedSwatch, setSelectedSwatch] = useState<string>("yellow");
   const [selectedBodySwatch, setSelectedBodySwatch] = useState<string>("black");
-  const [orderOpen, setOrderOpen] = useState(false);
   const { setConfig: publishConfig } = useSharedConfig();
-  const { add: addToCart } = useCart();
+  const { add: addToCart, checkout } = useCart();
 
   // Remember the last active light mode so we can restore it when switching
   // back from plain → illuminated
@@ -614,8 +612,11 @@ export default function ConfiguratorStage() {
               Pridať do košíka
             </button>
 
+            {/* Objednať opens the cart rather than a checkout of its own: the
+                order is always placed from there, so a customer who configured
+                two signs does not lose one of them by ordering the other. */}
             <button
-              onClick={() => setOrderOpen(true)}
+              onClick={() => checkout(config)}
               className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
               style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
             >
@@ -646,9 +647,6 @@ export default function ConfiguratorStage() {
         <ArrowDown size={16} className="animate-bounce" style={{ color: "var(--accent)" }} />
       </a>
 
-      {orderOpen && (
-        <OrderModal config={config} onClose={() => setOrderOpen(false)} />
-      )}
     </div>
   );
 }
