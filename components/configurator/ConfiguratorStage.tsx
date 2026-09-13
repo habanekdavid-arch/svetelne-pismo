@@ -15,6 +15,7 @@ import {
   letterColorOptions,
   MATERIALS,
   MIN_DEPTH_MM,
+  MAX_DEPTH_MM_FRONT_EXTERIOR,
   maxDepthMm,
   MIN_HEIGHT_CM,
   MAX_HEIGHT_CM,
@@ -49,6 +50,8 @@ const HEIGHT_CHIPS = [10, 20, 30, 40, 55];
 // is a sheet, a lit letter is a box deep enough for the LEDs.
 const THICKNESS_CHIPS_PLAIN       = [4, 6, 8, 10];
 const THICKNESS_CHIPS_ILLUMINATED = [10, 20, 30, 40, 50];
+// Only the face-lit exterior build reaches this far — see maxDepthMm().
+const THICKNESS_CHIPS_DEEP        = [10, 25, 50, 100, 150, 200];
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -118,7 +121,7 @@ export default function ConfiguratorStage() {
 
   const isNight = previewMode === "night";
   const isIlluminated = config.signType === "illuminated";
-  const maxThickness  = maxDepthMm(config.signType);
+  const maxThickness  = maxDepthMm(config.signType, config.lightMode, config.material);
 
   const currentFont = fontOptions.find((f) => f.id === config.font);
   const currentLightMode = LIGHT_MODES.find((l) => l.id === config.lightMode);
@@ -148,7 +151,16 @@ export default function ConfiguratorStage() {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function patch(update: Partial<Config>) {
-    setConfig((prev) => ({ ...prev, ...update }));
+    setConfig((prev) => {
+      const next = { ...prev, ...update };
+      // The thickness cap depends on the whole build (type, light direction,
+      // material), so it can drop under a change made anywhere in the
+      // configurator — switching away from the deep face-lit exterior build,
+      // for one. Clamping here means every control gets it, instead of each
+      // handler having to remember.
+      const cap = maxDepthMm(next.signType, next.lightMode, next.material);
+      return next.thickness > cap ? { ...next, thickness: cap } : next;
+    });
   }
 
   function handleSignTypeChange(type: SignType) {
@@ -156,10 +168,7 @@ export default function ConfiguratorStage() {
       // Remember current lightMode before hiding the panel
       lastLightModeRef.current = config.lightMode;
       setManualMode(null); // clear forced night when switching to plain
-      // A cut letter is a thin sheet, so a 40 mm body from the lit variant
-      // has to come back inside the plain range instead of quoting a sign
-      // the workshop would not make.
-      patch({ signType: type, thickness: Math.min(config.thickness, maxDepthMm("plain")) });
+      patch({ signType: type });
       return;
     }
 
@@ -537,7 +546,11 @@ export default function ConfiguratorStage() {
                 min={MIN_DEPTH_MM}
                 max={maxThickness}
                 suffix=" mm"
-                chips={isIlluminated ? THICKNESS_CHIPS_ILLUMINATED : THICKNESS_CHIPS_PLAIN}
+                chips={
+                  maxThickness === MAX_DEPTH_MM_FRONT_EXTERIOR ? THICKNESS_CHIPS_DEEP
+                  : isIlluminated ? THICKNESS_CHIPS_ILLUMINATED
+                  : THICKNESS_CHIPS_PLAIN
+                }
                 onChange={(v) => patch({ thickness: v })}
                 ariaLabel="Hrúbka písma"
               />

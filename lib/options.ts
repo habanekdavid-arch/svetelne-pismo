@@ -1,4 +1,4 @@
-import type { MaterialOption, LightModeDef, SignType } from "@/lib/types";
+import type { MaterialOption, LightModeDef, SignType, LightModeId } from "@/lib/types";
 
 // ── Font options ──────────────────────────────────────────────────────────────
 // Every font is a real TTF (see /public/fonts, fetched by scripts/fetch-fonts.mjs)
@@ -44,10 +44,18 @@ export const MAX_HEIGHT_CM = 55;
 export const MIN_DEPTH_MM = 4;
 export const MAX_DEPTH_MM_PLAIN       = 10;
 export const MAX_DEPTH_MM_ILLUMINATED = 50;
+// The one deep build: a face-lit letter in the exterior composite is a real
+// box with the LEDs far enough behind the face to light it evenly, so it goes
+// up to 200 mm. No other combination does — a halo letter sits close to the
+// wall, and a cut letter is a sheet.
+export const MAX_DEPTH_MM_FRONT_EXTERIOR = 200;
+const DEEP_BUILD_MATERIAL = "kompozit";
 
-/** Thickness cap for a sign of this type. */
-export function maxDepthMm(signType: SignType): number {
-  return signType === "illuminated" ? MAX_DEPTH_MM_ILLUMINATED : MAX_DEPTH_MM_PLAIN;
+/** Thickness cap for this exact build — type, direction of light and material. */
+export function maxDepthMm(signType: SignType, lightMode?: LightModeId, materialId?: string): number {
+  if (signType !== "illuminated") return MAX_DEPTH_MM_PLAIN;
+  if (lightMode === "front" && materialId === DEEP_BUILD_MATERIAL) return MAX_DEPTH_MM_FRONT_EXTERIOR;
+  return MAX_DEPTH_MM_ILLUMINATED;
 }
 
 // ── Materials ─────────────────────────────────────────────────────────────────
