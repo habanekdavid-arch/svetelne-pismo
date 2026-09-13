@@ -413,6 +413,19 @@ html.dark .field-card:hover {
               0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
+/* Account pill in the header — vytlacto3d's AccountButton shell:
+   white, hairline border, and a faint grey wash on hover. A class rather than
+   inline styles because the hover state needs a real CSS rule. */
+.account-pill {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground);
+  white-space: nowrap;
+}
+.account-pill:hover {
+  background: var(--color-surface);
+}
+
 /* Quick-pick chip under a slider — the vytlacto3d SliderBox pattern. */
 .chip {
   transition: transform 0.2s ease, background-color 0.2s ease,
