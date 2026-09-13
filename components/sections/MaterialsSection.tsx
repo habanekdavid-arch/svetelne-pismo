@@ -1,10 +1,53 @@
 import EyebrowPill from "@/components/ui/EyebrowPill";
 
+// Glyphs are FILLED, not stroked — solid white shapes sitting on the same
+// solid amber badge the HowItWorks steps use, so the two sections read as one
+// system rather than two icon styles.
+
+function ShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="white" aria-hidden="true">
+      <path d="M12 2 3 6v6c0 5.2 3.7 9.9 9 11 5.3-1.1 9-5.8 9-11V6l-9-4Z" />
+    </svg>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="white" aria-hidden="true">
+      <path d="M12 2c.4 3.6 1.9 5.6 5.5 6.2C13.9 8.8 12.4 10.8 12 14.4c-.4-3.6-1.9-5.6-5.5-6.2C10.1 7.6 11.6 5.6 12 2Z" />
+      <path d="M18.5 13.5c.2 1.9 1 2.9 2.9 3.2-1.9.3-2.7 1.3-2.9 3.2-.2-1.9-1-2.9-2.9-3.2 1.9-.3 2.7-1.3 2.9-3.2Z" />
+      <path d="M6 15c.2 1.6.9 2.4 2.5 2.7C6.9 18 6.2 18.8 6 20.4c-.2-1.6-.9-2.4-2.5-2.7C5.1 17.4 5.8 16.6 6 15Z" />
+    </svg>
+  );
+}
+
+function LayersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="white" aria-hidden="true">
+      <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+      <path d="M2 12.5 12 17.5l10-5-2.4-1.2L12 15.1 4.4 11.3 2 12.5Z" />
+      <path d="M2 17.3 12 22.3l10-5-2.4-1.2L12 19.9 4.4 16.1 2 17.3Z" />
+    </svg>
+  );
+}
+
+function TagIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="white" aria-hidden="true">
+      <path d="M11.6 2H4a2 2 0 0 0-2 2v7.6c0 .5.2 1 .6 1.4l8.4 8.4a2 2 0 0 0 2.8 0l7.6-7.6a2 2 0 0 0 0-2.8L13 2.6c-.4-.4-.9-.6-1.4-.6ZM7 8.5A1.5 1.5 0 1 1 7 5.5a1.5 1.5 0 0 1 0 3Z" />
+    </svg>
+  );
+}
+
+// Names and one-line descriptions mirror lib/options.ts MATERIALS so the
+// catalogue and this section never disagree. The bullets and icons are
+// presentation-only and live here.
 type Material = {
   name: string;
   tagline: string;
   description: string;
-  features: string[];
+  bullets: string[];
   icon: React.ReactNode;
 };
 
@@ -13,58 +56,39 @@ const MATERIALS: Material[] = [
     name: "Odolné exteriérové",
     tagline: "Prémiový exteriér",
     description: "Hliníkový kompozit odolný voči počasiu — pevný aj v náročných podmienkach.",
-    features: ["Odolný", "Exteriér"],
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7L12 2z" />
-      </svg>
-    ),
+    bullets: ["Hliníkový kompozit", "Odolný dažďu aj mrazu", "Fasády a vonkajšie pútače"],
+    icon: <ShieldIcon />,
   },
   {
     name: "Luxusné",
     tagline: "Čistý svetelný efekt",
-    description: "Priehľadný akryl s prémiovým leskom a hĺbkou presvitu — do interiéru aj exteriéru.",
-    features: ["Čistý efekt", "Interiér aj exteriér"],
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-      </svg>
-    ),
+    description: "Priehľadný akryl s prémiovým leskom a hĺbkou presvitu.",
+    bullets: ["Priehľadné plexisklo", "Prémiový lesk a presvit", "Interiér aj exteriér"],
+    icon: <SparkleIcon />,
   },
   {
     name: "Interiérové",
     tagline: "Tvarová voľnosť",
-    description: "3D tlačený plast s jemným presvitom — ideálny pre detailné tvary dovnútra.",
-    features: ["Tvarová voľnosť", "Interiér"],
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 2 7 12 12 22 7 12 2" />
-        <polyline points="2 17 12 22 22 17" />
-        <polyline points="2 12 12 17 22 12" />
-      </svg>
-    ),
+    description: "3D tlačený plast s jemným presvitom — ideálny pre detailné tvary.",
+    bullets: ["3D tlačený plast", "Jemný, mäkký presvit", "Aj členité tvary a logá"],
+    icon: <LayersIcon />,
   },
   {
     name: "Cenovo dostupné",
     tagline: "Praktický interiér",
-    description: "Ľahká penová doska — najúspornejšia voľba pre jednoduché interiérové nápisy.",
-    features: ["Ľahký", "Dostupná cena"],
-    icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-        <circle cx="7" cy="7" r="1" fill="currentColor" />
-      </svg>
-    ),
+    description: "Ľahká penová doska — najúspornejšia voľba pre jednoduché nápisy.",
+    bullets: ["Ľahká penová doska", "Najnižšia cena z ponuky", "Bez podsvietenia, do interiéru"],
+    icon: <TagIcon />,
   },
 ];
 
 export default function MaterialsSection() {
   return (
-    <section id="materialy" className="py-24 md:py-32" style={{ background: "var(--color-background)" }}>
-      <div className="mx-auto max-w-7xl px-5">
+    <section id="materialy" className="px-6 py-20 md:py-28" style={{ background: "var(--color-background)" }}>
+      <div className="mx-auto max-w-7xl">
 
         {/* Heading */}
-        <div className="mx-auto mb-12 max-w-2xl text-center">
+        <div className="mx-auto mb-14 max-w-2xl text-center">
           <div className="mb-4 flex justify-center">
             <EyebrowPill>Materiály</EyebrowPill>
           </div>
@@ -83,32 +107,25 @@ export default function MaterialsSection() {
         </div>
 
         {/* Cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {/* .field-card is the shared vytlacto3d parameter-card behaviour —
-              lift plus an amber edge on hover. It replaces the inset 2px accent
-              ring this section drew, which is not an idiom the sister site
-              uses anywhere. */}
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {MATERIALS.map((mat) => (
             <article
               key={mat.name}
-              className="field-card group relative flex flex-col rounded-field p-6"
+              className="field-card material-card group flex flex-col rounded-field p-6"
             >
-              {/* Icon — subtly yellow-tinted at rest, full accent on hover */}
-              <div
-                className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl transition-colors duration-300 group-hover:bg-(--accent)"
-                style={{ background: "color-mix(in srgb, var(--accent) 12%, var(--color-background))" }}
+              {/* Solid amber badge with a blurred bloom behind it on hover —
+                  the same treatment as the HowItWorks step badges. */}
+              <div className="relative mb-5 flex h-16 w-16 items-center justify-center rounded-full shadow-sm transition-all duration-500 ease-out group-hover:rotate-3 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[#FFAE00]/30"
+                style={{ background: "var(--accent)" }}
               >
-                <span
-                  className="transition-colors duration-300 group-hover:text-black"
-                  style={{ color: "var(--color-foreground)" }}
-                >
-                  {mat.icon}
-                </span>
+                <div
+                  className="absolute inset-0 rounded-full opacity-0 blur-xl transition-all duration-500 group-hover:scale-125 group-hover:opacity-40"
+                  style={{ background: "var(--accent)" }}
+                  aria-hidden="true"
+                />
+                <span className="relative z-10">{mat.icon}</span>
               </div>
 
-              {/* Tagline — --color-accent-text, not --color-primary: globals.css
-                  warns that #FFAE00 is ~1.9:1 on white, under WCAG AA, and is
-                  for backgrounds and rings rather than text. */}
               <p
                 className="mb-1 text-xs font-bold"
                 style={{ color: "var(--color-accent-text)" }}
@@ -116,7 +133,6 @@ export default function MaterialsSection() {
                 {mat.tagline}
               </p>
 
-              {/* Name — extrabold sentence case, the sister site's card title */}
               <h3
                 className="text-lg font-extrabold tracking-tight"
                 style={{ color: "var(--color-foreground)" }}
@@ -124,31 +140,31 @@ export default function MaterialsSection() {
                 {mat.name}
               </h3>
 
-              {/* Description — leading-7 matches vytlacto3d's body rhythm */}
+              {/* min-h reserves three lines so the bullet lists start at the
+                  same height across all four cards — vytlacto3d uses the same
+                  trick (min-h-[36px]) on its parameter-card hints. */}
               <p
-                className="mt-3 flex-1 text-sm leading-7"
+                className="mt-2 min-h-21 text-sm leading-7"
                 style={{ color: "var(--color-muted)" }}
               >
                 {mat.description}
               </p>
 
-              {/* Feature chips — the bordered pill vytlacto3d uses under its
-                  sliders, instead of filled all-caps micro-labels. */}
-              <div className="mt-6 flex flex-wrap gap-1.5">
-                {mat.features.map((f) => (
-                  <span
-                    key={f}
-                    className="chip rounded-full px-3 py-1.5 text-xs font-bold"
-                    style={{
-                      background: "var(--color-surface)",
-                      color: "var(--color-muted)",
-                      border: "1px solid var(--color-border)",
-                    }}
-                  >
-                    {f}
-                  </span>
+              {/* Variants as a bulleted list — markers fill amber in sequence
+                  as the card is hovered (see .material-bullet in globals.css). */}
+              <ul className="mt-5 flex-1 space-y-2.5">
+                {mat.bullets.map((b) => (
+                  <li key={b} className="flex items-start gap-2.5">
+                    <span
+                      className="material-bullet mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                      aria-hidden="true"
+                    />
+                    <span className="text-[13px] leading-5" style={{ color: "var(--color-foreground-soft)" }}>
+                      {b}
+                    </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </article>
           ))}
         </div>
