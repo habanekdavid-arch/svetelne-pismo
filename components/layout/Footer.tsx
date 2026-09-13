@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const links = [
   { label: "GDPR", href: "/gdpr" },
@@ -26,7 +27,14 @@ export default function Footer() {
             className="mb-3 inline-block text-sm font-black tracking-tight"
             style={{ fontFamily: "var(--font-century-gothic), Arial, sans-serif" }}
           >
-            rozsvieť<span style={{ color: "var(--color-primary)" }}>TO</span>
+            <Image
+              src="/logo.svg"
+              alt="rozsvieťTO"
+              width={237}
+              height={64}
+              unoptimized
+              className="h-7 w-auto"
+            />
           </Link>
           <p
             className="max-w-55 text-[13px] leading-5"
