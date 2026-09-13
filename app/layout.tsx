@@ -7,6 +7,7 @@ import ScrollReveal from "@/components/layout/ScrollReveal";
 import CookieConsent from "@/components/layout/CookieConsent";
 import { CartProvider } from "@/lib/cart-context";
 import CartSidebar from "@/components/cart/CartSidebar";
+import FourFromFloatingButton from "@/components/layout/FourFromFloatingButton";
 
 const centuryGothic = localFont({
   src: [
@@ -63,6 +64,7 @@ export default function RootLayout({
           <div className="flex-1">{children}</div>
           <Footer />
           <CartSidebar />
+          <FourFromFloatingButton />
         </CartProvider>
         <ScrollReveal />
         <CookieConsent />

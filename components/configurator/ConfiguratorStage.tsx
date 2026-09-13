@@ -9,6 +9,7 @@ import type { Config, LightModeDirection, LightModeId, SignType } from "@/lib/ty
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
 import { calculatePrice } from "@/lib/pricing";
+import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
 import {
   fontOptions,
   lightColors,
@@ -262,142 +263,97 @@ export default function ConfiguratorStage() {
           </span>
         </div>
 
-        {/* ── Settings | preview | settings ───────────────────────────────
-            Three columns on desktop: the parameters are split either side of
-            the preview instead of all stacked in one tall column, so far less
-            scrolling is needed to reach any of them. On narrow screens the
-            grid collapses to one column and `order` puts the preview first,
-            ahead of both settings groups. */}
-        <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)_300px]">
-
-          {/* ── CENTRE: 3D preview + price, sticky as one block ───────────── */}
-          <div className="order-first space-y-4 lg:order-2 lg:sticky lg:top-24">
-          <div
-            className="rounded-[26px] p-4"
-            style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-[13px] font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                Náhľad
-              </p>
-              <div
-                className="flex items-center rounded-full p-1 transition-opacity duration-300"
-                style={{
-                  background: "var(--color-surface)",
-                  opacity: isIlluminated ? 1 : 0.35,
-                  pointerEvents: isIlluminated ? undefined : "none",
-                }}
-              >
-                {(["day", "night"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setManualMode(mode)}
-                    className="rounded-full px-3 py-1.5 text-[10px] font-bold transition-all"
-                    style={
-                      previewMode === mode
-                        ? { background: "var(--color-foreground)", color: "var(--color-background)" }
-                        : { color: "var(--color-muted)" }
-                    }
-                  >
-                    {mode === "day" ? "☀ Deň" : "☾ Noc"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+        {/* ── Preview, full width ──────────────────────────────────────────
+            The preview used to be one narrow column wedged between two
+            columns of settings, so the sign rendered small. It now spans the
+            whole configurator — roughly three times the width — and the
+            parameters sit below it in two groups. */}
+        {/* ── CENTRE: 3D preview + price, sticky as one block ───────────── */}
+        <div className="space-y-4">
+        <div
+          className="rounded-[26px] p-4"
+          style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-[13px] font-extrabold" style={{ color: "var(--color-foreground)" }}>
+              Náhľad
+            </p>
             <div
-              className="relative h-105 w-full overflow-hidden rounded-[20px] transition-colors duration-500 lg:h-[34rem]"
+              className="flex items-center rounded-full p-1 transition-opacity duration-300"
               style={{
-                background: isNight
-                  ? "radial-gradient(ellipse at 50% 38%, #1c1c22 0%, #0a0a0d 80%)"
-                  : "radial-gradient(ellipse at 50% 40%, var(--color-background) 0%, var(--color-surface-raised) 120%)",
+                background: "var(--color-surface)",
+                opacity: isIlluminated ? 1 : 0.35,
+                pointerEvents: isIlluminated ? undefined : "none",
               }}
             >
-              {isNight && (
-                <div
-                  className="pointer-events-none absolute inset-0"
-                  style={{ background: `radial-gradient(ellipse at 50% 44%, ${config.lightColor}30 0%, transparent 65%)` }}
-                />
-              )}
-
-              <LetterScene
-                text={config.text}
-                font={config.font}
-                lightColor={config.lightColor}
-                letterColor={config.bodyColor}
-                thickness={config.thickness}
-                material={config.material}
-                signType={config.signType}
-                lightMode={config.lightMode}
-                height={config.height}
-                previewMode={previewMode}
-              />
-            </div>
-
-            {/* Live recap of what's currently set */}
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {summary.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
-                  style={{
-                    background: "var(--color-surface)",
-                    color: "var(--color-muted)",
-                    border: "1px solid var(--color-border)",
-                  }}
+              {(["day", "night"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setManualMode(mode)}
+                  className="rounded-full px-3 py-1.5 text-[10px] font-bold transition-all"
+                  style={
+                    previewMode === mode
+                      ? { background: "var(--color-foreground)", color: "var(--color-background)" }
+                      : { color: "var(--color-muted)" }
+                  }
                 >
-                  {item}
-                </span>
+                  {mode === "day" ? "☀ Deň" : "☾ Noc"}
+                </button>
               ))}
             </div>
           </div>
 
-          {/* Price + order — sits under the preview so the customer sees the
-              running total right next to what they are configuring. */}
-          <div className="price-card rounded-[26px] p-5">
-            <div className="flex flex-col items-center justify-between gap-5 sm:flex-row">
-              <div className="text-center sm:text-left">
-                <p className="text-[11px] font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-                  Orientačná cena
-                </p>
-                <p className="mt-1 text-4xl font-black leading-none tracking-tight" style={{ color: "var(--color-foreground)" }}>
-                  {price} €
-                </p>
-                <p className="mt-1.5 text-[11px]" style={{ color: "var(--color-muted)" }}>
-                  Záväznú cenu dostanete po overení parametrov.
-                </p>
-              </div>
+          <div
+            className="relative h-105 w-full overflow-hidden rounded-[20px] transition-colors duration-500 lg:h-[30rem]"
+            style={{
+              background: isNight
+                ? "radial-gradient(ellipse at 50% 38%, #1c1c22 0%, #0a0a0d 80%)"
+                : "radial-gradient(ellipse at 50% 40%, var(--color-background) 0%, var(--color-surface-raised) 120%)",
+            }}
+          >
+            {isNight && (
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ background: `radial-gradient(ellipse at 50% 44%, ${config.lightColor}30 0%, transparent 65%)` }}
+              />
+            )}
 
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                {/* Secondary action: keep configuring and collect several signs
-                    before checking out. The primary "Objednať" still orders
-                    this one sign straight away. */}
-                <button
-                  onClick={() => addToCart(config)}
-                  className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
-                  style={{
-                    background: "var(--color-surface)",
-                    color: "var(--color-foreground)",
-                    border: "1px solid var(--color-border)",
-                  }}
-                >
-                  Pridať do košíka
-                </button>
-
-                <button
-                  onClick={() => setOrderOpen(true)}
-                  className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
-                  style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
-                >
-                  Objednať
-                </button>
-              </div>
-            </div>
-          </div>
+            <LetterScene
+              text={config.text}
+              font={config.font}
+              lightColor={config.lightColor}
+              letterColor={config.bodyColor}
+              thickness={config.thickness}
+              material={config.material}
+              signType={config.signType}
+              lightMode={config.lightMode}
+              height={config.height}
+              previewMode={previewMode}
+            />
           </div>
 
+          {/* Live recap of what's currently set */}
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {summary.map((item) => (
+              <span
+                key={item}
+                className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
+                style={{
+                  background: "var(--color-surface)",
+                  color: "var(--color-muted)",
+                  border: "1px solid var(--color-border)",
+                }}
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Settings — two groups under the preview ─────────────────── */}
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
           {/* ── LEFT: sign type, text, material, colours, lighting ───────── */}
-          <div className="order-2 space-y-3 lg:order-1">
+          <div className="space-y-3">
 
             <FieldCard title="Typ nápisu" description="Svetelný s LED, alebo bez svietenia.">
               <div className="grid grid-cols-2 gap-2">
@@ -539,8 +495,9 @@ export default function ConfiguratorStage() {
 
           </div>
 
+
           {/* ── RIGHT: typeface and dimensions ───────────────────────────── */}
-          <div className="order-3 space-y-3 lg:order-3">
+          <div className="space-y-3">
             <FieldCard title="Font" description="Písmo, ktorým sa nápis vyreže.">
               <FontPicker
                 value={config.font}
@@ -574,6 +531,98 @@ export default function ConfiguratorStage() {
             </FieldCard>
           </div>
         </div>
+        </div>
+
+        {/* ── Price ─────────────────────────────────────────────────────────
+            Shape taken from vytlacto3d's price block: the headline figure with
+            an amber "Aktuálna cena" badge beside it, then the VAT split and a
+            grid of technical details. Its detail fields are 3D-printing ones
+            (weight, print time, scale); these are the equivalents for a sign. */}
+        <div className="price-card mt-4 rounded-[28px] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
+                Orientačná cena s DPH
+              </div>
+              <div
+                className="mt-1 text-4xl font-extrabold tracking-tight"
+                style={{ color: "var(--color-foreground)" }}
+              >
+                {formatEur(price)}
+              </div>
+              <div className="mt-1 text-xs" style={{ color: "var(--color-muted-light)" }}>
+                Záväznú cenu dostanete po overení parametrov.
+              </div>
+            </div>
+
+            <div
+              className="rounded-2xl px-4 py-3 text-sm font-extrabold"
+              style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+            >
+              Aktuálna cena
+            </div>
+          </div>
+
+          {/* VAT split */}
+          <div
+            className="mt-5 rounded-well p-4"
+            style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+          >
+            <div className="mb-3 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
+              Rozpis DPH
+            </div>
+            <div className="space-y-2">
+              <PriceLine label="Základ bez DPH" value={formatEur(netFromGross(price))} />
+              <PriceLine label={`DPH ${Math.round(VAT_RATE * 100)} %`} value={formatEur(vatFromGross(price))} />
+              <div className="my-1 border-t" style={{ borderColor: "var(--color-border)" }} />
+              <PriceLine label="Cena s DPH" value={formatEur(price)} bold />
+            </div>
+          </div>
+
+          {/* Technical details */}
+          <div
+            className="mt-3 rounded-well p-4"
+            style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+          >
+            <div className="mb-3 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
+              Technické detaily
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <TechLine label="Materiál" value={currentMat.displayName} />
+              <TechLine label="Písmo" value={currentFont?.name ?? "—"} />
+              <TechLine label="Výška písmen" value={`${config.height} cm`} />
+              <TechLine label="Hrúbka" value={`${config.thickness} mm`} />
+              <TechLine label="Počet znakov" value={String(config.text.replace(/\s/g, "").length)} />
+              <TechLine
+                label="Svietenie"
+                value={isIlluminated ? (currentLightMode?.name ?? "—") : "Bez svietenia"}
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-4 flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              onClick={() => addToCart(config)}
+              className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
+              style={{
+                background: "var(--color-background)",
+                color: "var(--color-foreground)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              Pridať do košíka
+            </button>
+
+            <button
+              onClick={() => setOrderOpen(true)}
+              className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
+              style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+            >
+              Objednať
+            </button>
+          </div>
+        </div>
 
       </div>
 
@@ -596,27 +645,6 @@ export default function ConfiguratorStage() {
         </span>
         <ArrowDown size={16} className="animate-bounce" style={{ color: "var(--accent)" }} />
       </a>
-
-      {/* ── Floating price widget — stays visible while scrolling the page ── */}
-      <div className="pointer-events-none fixed bottom-5 left-5 z-40 hidden sm:block">
-        <button
-          onClick={() => setOrderOpen(true)}
-          className="pointer-events-auto flex items-center gap-3 rounded-full py-2 pl-5 pr-2 shadow-2xl transition hover:opacity-90 active:scale-[0.97]"
-          style={{ background: "var(--color-foreground)" }}
-        >
-          <span>
-            <span className="block text-[9px] font-medium tracking-wide" style={{ color: "var(--color-background)", opacity: 0.6 }}>
-              Orientačná cena
-            </span>
-            <span className="block text-lg font-black leading-tight" style={{ color: "var(--color-background)" }}>
-              {price} €
-            </span>
-          </span>
-          <span className="rounded-full px-4 py-2 text-[11px] font-black" style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}>
-            Objednať
-          </span>
-        </button>
-      </div>
 
       {orderOpen && (
         <OrderModal config={config} onClose={() => setOrderOpen(false)} />
@@ -952,5 +980,39 @@ function LightModeGlyphPreview({
         <text {...glyph} fill={glowColor} filter={`url(#${tightId})`}>{char}</text>
       )}
     </svg>
+  );
+}
+
+// ── Price block rows ──────────────────────────────────────────────────────────
+// The two row shapes vytlacto3d uses inside its price block.
+
+function PriceLine({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span
+        className={`text-sm ${bold ? "font-extrabold" : ""}`}
+        style={{ color: bold ? "var(--color-foreground)" : "var(--color-foreground-soft)" }}
+      >
+        {label}
+      </span>
+      <span
+        className={`text-sm ${bold ? "font-extrabold" : "font-semibold"}`}
+        style={{ color: "var(--color-foreground)" }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TechLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="flex items-center justify-between gap-3 rounded-xl px-3 py-2"
+      style={{ background: "var(--color-background)" }}
+    >
+      <span className="shrink-0 text-xs" style={{ color: "var(--color-muted)" }}>{label}</span>
+      <span className="truncate text-xs font-bold" style={{ color: "var(--color-foreground)" }}>{value}</span>
+    </div>
   );
 }
