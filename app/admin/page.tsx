@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getAdminSession } from "@/lib/admin-auth";
+import { getAdminIdentity } from "@/lib/admin-auth";
 import { listAllOrders, ORDER_STATUSES, ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
 import StatusSelect from "@/components/orders/StatusSelect";
@@ -26,7 +26,7 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  const session = await getAdminSession();
+  const session = await getAdminIdentity();
   if (!session) redirect("/admin/prihlasenie");
 
   const { status: statusParam } = await searchParams;
@@ -67,7 +67,9 @@ export default async function AdminPage({
               >
                 Späť na web
               </Link>
-              <LogoutButton />
+              {/* Only the password login has an admin cookie to clear. An
+                  allowlisted account signs out from its own profile. */}
+              {session.via === "password" && <LogoutButton />}
             </div>
           </div>
 
