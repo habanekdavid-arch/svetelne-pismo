@@ -5,6 +5,7 @@ import { getUserSession } from "@/lib/user-auth";
 import { listOrdersForUser } from "@/lib/orders";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
 import StatusBadge from "@/components/orders/StatusBadge";
+import UserLogoutButton from "@/components/orders/UserLogoutButton";
 
 export const metadata: Metadata = {
   title: "Moje objednávky | rozsvieťTO",
@@ -31,6 +32,11 @@ export default async function MyOrdersPage() {
           <h1 className="main-heading text-3xl md:text-5xl" style={{ color: "var(--color-foreground)" }}>
             Moje objednávky
           </h1>
+
+          {/* Sign-out lives here, not in the header — it is an account action */}
+          <div className="mt-6 flex justify-center">
+            <UserLogoutButton />
+          </div>
         </div>
       </section>
 

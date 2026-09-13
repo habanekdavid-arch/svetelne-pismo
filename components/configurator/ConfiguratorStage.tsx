@@ -632,7 +632,7 @@ export default function ConfiguratorStage() {
         className="main-heading mt-10 text-center text-lg md:text-xl"
         style={{ color: "var(--color-primary)" }}
       >
-        Poď si s nami vytvoriť tvoj svetelný text
+        Poď si s nami vytvoriť svetelný nápis, ktorý tvojej značke svieti aj po zotmení
       </p>
 
       {/* ── Arrow to the most relevant realization ──────────────────────── */}

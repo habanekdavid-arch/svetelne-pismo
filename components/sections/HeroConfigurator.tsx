@@ -25,9 +25,9 @@ export default function HeroConfigurator() {
             className="reveal delay-1 main-heading text-4xl md:text-6xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            Poď si s nami
+            Poď si s nami vytvoriť svetelný nápis,
             <br />
-            <span style={{ color: "var(--color-primary)" }}>vytvoriť tvoj svetelný text</span>
+            ktorý tvojej značke svieti aj po zotmení
           </h1>
 
           <p
