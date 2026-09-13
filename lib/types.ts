@@ -35,6 +35,10 @@ export type MaterialOption = {
   id: string;
   displayName: string;
   subtitle: string;
+  /** Short label above the name in the Materiály section. */
+  tagline: string;
+  /** What the material is, how it behaves and where it belongs. */
+  bullets: string[];
   useTag: MaterialUseTag;
   priceMultiplier: number;
   supportsIlluminated: boolean;

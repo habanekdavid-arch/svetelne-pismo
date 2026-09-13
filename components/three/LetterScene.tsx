@@ -34,16 +34,18 @@ const THREED_REPEAT   = 8;   // ribbed_corduroy — 8× simulates fine FDM layer
 const BLOOM_LUMINANCE_THRESHOLD = 0.85;
 const BLOOM_LUMINANCE_SMOOTHING = 0.4;
 const BLOOM_RADIUS              = 0.75;
-const BLOOM_INTENSITY_BASE      = 0.9;   // front / full
+const BLOOM_INTENSITY_BASE      = 0.9;   // front
+const BLOOM_INTENSITY_FULL      = 0.35;   // full — the whole body glows, so it flares far sooner
 const BLOOM_INTENSITY_HALO      = 1.15;  // halo — the glow texture is already bright; bloom only flares it
 
-// Depth (mm) → world-unit scale. One shared range for every material AND
-// every font now — see lib/options.ts MIN_DEPTH_MM/MAX_DEPTH_MM. At
-// MAX_DEPTH_MM=200 this divisor puts the thickest letters at ~1.4× the
-// glyph size (0.78) — the first constant to re-tune if that reads as too
-// chunky or too thin.
-const DEPTH_SCALE_DIVISOR = 140;
-const MIN_DEPTH_UNITS     = 0.05; // crash-safety floor only, not a visual design choice
+// Depth (mm) → world-unit scale. The range the workshop makes is 4–10 mm for
+// a cut letter and up to 50 mm for a lit one (lib/options.ts maxDepthMm), so
+// this divisor puts the deepest letter at ~0.2 units against a glyph size of
+// 0.78. That is about twice the true proportion of a 50 mm box on a 35 cm
+// letter — enough relief to read in a small preview without pretending the
+// sign is deeper than it is. First constant to re-tune if depth looks wrong.
+const DEPTH_SCALE_DIVISOR = 250;
+const MIN_DEPTH_UNITS     = 0.012; // crash-safety floor only, not a visual design choice
 
 const TEXT_DEBOUNCE_MS = 300; // only text/thickness are debounced — font switches are discrete clicks, not rapid-fire
 
@@ -76,7 +78,12 @@ const FACE_EMISSIVE: Record<LightModeId, { front: number; side: number; back: nu
   // side used to carry 0.16, which drew a bright rule around every glyph and
   // made the sign look like a neon tube rather than a back-lit letter.
   halo:  { front: 0.00, side: 0.06, back: 1.00 },
-  full:  { front: 0.62, side: 0.42, back: 0.50 },
+  // Full: the whole body lights up, but a lit letter is still an object —
+  // in a photo of one you can see the seam between the face and the return,
+  // and the returns sit a shade darker. These used to be high enough that the
+  // face clipped to a flat slab of colour with the letterform boiled out of
+  // it, which is what "príliš intenzívne" was describing.
+  full:  { front: 0.58, side: 0.38, back: 0.30 },
 };
 const EMISSIVE_BASE_INTENSITY   = 3.2;
 const EMISSIVE_NIGHT_MULTIPLIER = 1.55;
@@ -103,7 +110,7 @@ const HALO_GLOW_GAIN        = 2.8;
 // bright warm white right at the contour, easing back into the LED's own
 // colour as it fades — which is what a back-lit sign looks like in a photo.
 const HALO_GLOW_WHITE_MIX   = 0.34;
-const HALO_GLOW_FULL_FACTOR = 0.42; // a fully lit sign spills too, far less
+const HALO_GLOW_FULL_FACTOR = 0.15; // a fully lit sign spills too, far less
 const HALO_GLOW_WALL_OFFSET = 0.004; // in front of the wall, to avoid z-fighting
 
 // How far a transmissive material's (plexi) body colour is pulled toward
@@ -493,7 +500,10 @@ export default function LetterScene(props: LetterSceneProps) {
   // night. In daylight the sign is switched off, so blooming a plain lit face
   // would just fog the preview.
   const bloomActive = signType === "illuminated" && previewMode === "night";
-  const bloomIntensity = lightMode === "halo" ? BLOOM_INTENSITY_HALO : BLOOM_INTENSITY_BASE;
+  const bloomIntensity =
+    lightMode === "halo" ? BLOOM_INTENSITY_HALO
+    : lightMode === "full" ? BLOOM_INTENSITY_FULL
+    : BLOOM_INTENSITY_BASE;
 
   return (
     <div className="relative h-full w-full">

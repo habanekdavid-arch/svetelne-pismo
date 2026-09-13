@@ -15,7 +15,9 @@ import {
   letterColorOptions,
   MATERIALS,
   MIN_DEPTH_MM,
-  MAX_DEPTH_MM,
+  maxDepthMm,
+  MIN_HEIGHT_CM,
+  MAX_HEIGHT_CM,
   LIGHT_MODES,
 } from "@/lib/options";
 import type { FontOption } from "@/lib/options";
@@ -42,8 +44,11 @@ const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
 // Same "slider + chips" pattern vytlacto3d uses for scale/infill: drag for a
 // precise value, or tap a chip for the common one. Every value must sit inside
 // the slider's own min/max.
-const HEIGHT_CHIPS    = [15, 25, 35, 45, 55];
-const THICKNESS_CHIPS = [4, 10, 25, 50, 100, 200];
+const HEIGHT_CHIPS = [10, 20, 30, 40, 55];
+// Two sets, because the two kinds of sign are built differently: a cut letter
+// is a sheet, a lit letter is a box deep enough for the LEDs.
+const THICKNESS_CHIPS_PLAIN       = [4, 6, 8, 10];
+const THICKNESS_CHIPS_ILLUMINATED = [10, 20, 30, 40, 50];
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -113,6 +118,7 @@ export default function ConfiguratorStage() {
 
   const isNight = previewMode === "night";
   const isIlluminated = config.signType === "illuminated";
+  const maxThickness  = maxDepthMm(config.signType);
 
   const currentFont = fontOptions.find((f) => f.id === config.font);
   const currentLightMode = LIGHT_MODES.find((l) => l.id === config.lightMode);
@@ -150,7 +156,10 @@ export default function ConfiguratorStage() {
       // Remember current lightMode before hiding the panel
       lastLightModeRef.current = config.lightMode;
       setManualMode(null); // clear forced night when switching to plain
-      patch({ signType: type });
+      // A cut letter is a thin sheet, so a 40 mm body from the lit variant
+      // has to come back inside the plain range instead of quoting a sign
+      // the workshop would not make.
+      patch({ signType: type, thickness: Math.min(config.thickness, maxDepthMm("plain")) });
       return;
     }
 
@@ -512,8 +521,8 @@ export default function ConfiguratorStage() {
               </p>
               <SliderBox
                 value={config.height}
-                min={15}
-                max={55}
+                min={MIN_HEIGHT_CM}
+                max={MAX_HEIGHT_CM}
                 suffix=" cm"
                 chips={HEIGHT_CHIPS}
                 onChange={(v) => patch({ height: v })}
@@ -526,9 +535,9 @@ export default function ConfiguratorStage() {
               <SliderBox
                 value={config.thickness}
                 min={MIN_DEPTH_MM}
-                max={MAX_DEPTH_MM}
+                max={maxThickness}
                 suffix=" mm"
-                chips={THICKNESS_CHIPS}
+                chips={isIlluminated ? THICKNESS_CHIPS_ILLUMINATED : THICKNESS_CHIPS_PLAIN}
                 onChange={(v) => patch({ thickness: v })}
                 ariaLabel="Hrúbka písma"
               />
