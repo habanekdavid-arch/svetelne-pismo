@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Lightbulb, LightbulbOff, ArrowDown } from "lucide-react";
+import { Lightbulb, LightbulbOff, ArrowDown, Plus } from "lucide-react";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import type { Config, LightModeDirection, LightModeId, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
@@ -53,6 +53,20 @@ const THICKNESS_CHIPS_ILLUMINATED = [10, 20, 30, 40, 50];
 // Only the face-lit exterior build reaches this far — see maxDepthMm().
 const THICKNESS_CHIPS_DEEP        = [10, 25, 50, 100, 150, 200];
 
+// The light colour is stored either as a swatch's hex or as the hue slider's
+// own hsl(H, 92%, 58%) string, so reading a hue back has to handle both. Used
+// when a sign comes back from the cart to be changed: the controls have to
+// land where that sign actually is, not where they were left.
+function hueOf(color: string, fallback: number): number {
+  const m = /^hsl\(\s*(\d+(?:\.\d+)?)/i.exec(color);
+  if (m) return Math.round(Number(m[1]));
+  return lightColors.find((c) => c.value.toLowerCase() === color.toLowerCase())?.hue ?? fallback;
+}
+
+function swatchIdFor(options: readonly { id: string; value: string }[], value: string): string {
+  return options.find((o) => o.value.toLowerCase() === value.toLowerCase())?.id ?? "";
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ConfiguratorStage() {
@@ -63,11 +77,15 @@ export default function ConfiguratorStage() {
   const [selectedSwatch, setSelectedSwatch] = useState<string>("yellow");
   const [selectedBodySwatch, setSelectedBodySwatch] = useState<string>("black");
   const { setConfig: publishConfig } = useSharedConfig();
-  const { add: addToCart, checkout } = useCart();
+  const {
+    add: addToCart, checkout,
+    editingId, applyEdit, cancelEdit, pendingConfig, consumePending,
+  } = useCart();
 
   // Remember the last active light mode so we can restore it when switching
   // back from plain → illuminated
   const lastLightModeRef = useRef<LightModeId>("front");
+  const textInputRef = useRef<HTMLInputElement | null>(null);
 
   const [config, setConfig] = useState<Config>({
     // Plain black "Váš text" on load — a blank, legible canvas, visible the
@@ -163,6 +181,26 @@ export default function ConfiguratorStage() {
     });
   }
 
+  // A sign sent back from the cart ("Upraviť") arrives as pendingConfig. It is
+  // loaded here rather than pushed from the cart, because the configurator
+  // owns this state — and consuming it immediately means a later, unrelated
+  // render cannot load the same sign a second time over newer edits.
+  // Loading four pieces of state at once is the point here: a sign arrives
+  // whole, and the controls have to land on it together. React's rule about
+  // setState in an effect is about states that could be derived — this one is
+  // an external hand-off that settles in a single pass and then clears itself.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!pendingConfig) return;
+    setConfig(pendingConfig);
+    setLightHue((prev) => hueOf(pendingConfig.lightColor, prev));
+    setSelectedSwatch(swatchIdFor(lightColors, pendingConfig.lightColor));
+    setSelectedBodySwatch(swatchIdFor(letterColorOptions, pendingConfig.bodyColor));
+    consumePending();
+    document.getElementById("konfigurator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [pendingConfig, consumePending]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   function handleSignTypeChange(type: SignType) {
     if (type === "plain") {
       // Remember current lightMode before hiding the panel
@@ -228,6 +266,17 @@ export default function ConfiguratorStage() {
     setLightHue(hue);
     setSelectedSwatch("");
     patch({ lightColor: `hsl(${hue}, 92%, 58%)` });
+  }
+
+  // "Ďalší nápis": bank the sign that is on screen and clear the text so the
+  // next one can be typed straight away. Font, material, colours and lighting
+  // stay — a second sign for the same shopfront is usually the same build with
+  // different words. The cart stays closed so it does not cover the field the
+  // customer is about to type in; the header's cart badge is the receipt.
+  function startAnotherSign() {
+    addToCart(config, { open: false });
+    patch({ text: "" });
+    textInputRef.current?.focus();
   }
 
   function setBodyColor(id: string, value: string) {
@@ -372,6 +421,7 @@ export default function ConfiguratorStage() {
             sitting third down a column. ── */}
         <FieldCard title="Text" description="Napíšte, čo má na nápise svietiť.">
           <input
+            ref={textInputRef}
             value={config.text}
             onChange={(e) => patch({ text: e.target.value })}
             maxLength={30}
@@ -626,30 +676,71 @@ export default function ConfiguratorStage() {
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions — two modes. Normally: put this sign in the cart, start
+              another one, or go and order. While a sign from the cart is open
+              for changes: save it back under the same line, or leave it as it
+              was. ── */}
           <div className="mt-4 flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-            <button
-              onClick={() => addToCart(config)}
-              className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
-              style={{
-                background: "var(--color-background)",
-                color: "var(--color-foreground)",
-                border: "1px solid var(--color-border)",
-              }}
-            >
-              Pridať do košíka
-            </button>
+            {editingId ? (
+              <>
+                <button
+                  onClick={cancelEdit}
+                  className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
+                  style={{
+                    background: "var(--color-background)",
+                    color: "var(--color-foreground)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  Zrušiť úpravu
+                </button>
+                <button
+                  onClick={() => applyEdit(config)}
+                  className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
+                  style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+                >
+                  Uložiť do košíka
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={startAnotherSign}
+                  className="btn-press flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
+                  style={{
+                    background: "var(--color-background)",
+                    color: "var(--color-foreground)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <Plus size={15} strokeWidth={2.5} />
+                  Ďalší nápis
+                </button>
 
-            {/* Objednať opens the cart rather than a checkout of its own: the
-                order is always placed from there, so a customer who configured
-                two signs does not lose one of them by ordering the other. */}
-            <button
-              onClick={() => checkout(config)}
-              className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
-              style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
-            >
-              Objednať
-            </button>
+                <button
+                  onClick={() => addToCart(config)}
+                  className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
+                  style={{
+                    background: "var(--color-background)",
+                    color: "var(--color-foreground)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  Pridať do košíka
+                </button>
+
+                {/* Objednať opens the cart rather than a checkout of its own: the
+                    order is always placed from there, so a customer who configured
+                    two signs does not lose one of them by ordering the other. */}
+                <button
+                  onClick={() => checkout(config)}
+                  className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
+                  style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+                >
+                  Objednať
+                </button>
+              </>
+            )}
           </div>
         </div>
 
