@@ -20,9 +20,9 @@ import type { SignType, LightModeId, MaterialOption } from "@/lib/types";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ENV_HDR_PATH        = "/hdri/studio.hdr";
-const ENV_INTENSITY       = 1.2;   // day — neutral studio HDRI
+const ENV_INTENSITY       = 0.75;   // day — neutral studio HDRI
 const ENV_INTENSITY_NIGHT = 0.4;   // night — dim ambient so emissives pop
-const TONEMAP_EXPOSURE    = 1.1;
+const TONEMAP_EXPOSURE    = 0.95;
 
 // PBR texture tiling (tiles per letter face) — asset folder names kept as-is,
 // only the material catalog ids ("kompozit" / "3dtlac") changed.
@@ -39,7 +39,7 @@ const BLOOM_INTENSITY_FULL      = 0.35;   // full — the whole body glows, so i
 const BLOOM_INTENSITY_HALO      = 1.15;  // halo — the glow texture is already bright; bloom only flares it
 
 // Depth (mm) → world-unit scale. The range the workshop makes is 4–10 mm for
-// a cut letter and up to 50 mm for a lit one (lib/options.ts maxDepthMm), so
+// a cut letter and up to 200 mm for the deepest lit build (lib/options.ts), so
 // this divisor puts the deepest letter at ~0.2 units against a glyph size of
 // 0.78. That is about twice the true proportion of a 50 mm box on a 35 cm
 // letter — enough relief to read in a small preview without pretending the
@@ -59,7 +59,10 @@ const VIEW_TILT = -0.04; // tiny forward pitch of the letter group (radians)
 
 // Smooth matte "wall" the letters are mounted on — a soft vertical gradient
 // plus a gentle vignette reads far better than a dead-flat fill.
-const WALL_GRADIENT_DAY: [string, string, string]   = ["#fbfaf8", "#efedea", "#ddd8d2"];
+// Day wall. It used to be near-white (#fbfaf8 → #ddd8d2), which made a white
+// sign vanish into it completely — white letters, white wall, no edge to see.
+// A soft warm grey keeps every body colour readable, the pale ones included.
+const WALL_GRADIENT_DAY: [string, string, string]   = ["#eceae6", "#dcd8d2", "#c7c1b9"];
 const WALL_GRADIENT_NIGHT: [string, string, string] = ["#302e2c", "#242220", "#191817"];
 
 // Emissive scale per light mode, per face group (front cap / side wall / back cap).
@@ -237,7 +240,15 @@ function disposeMaterialTriple(t: MaterialTriple) {
 // ── PBR texture support ───────────────────────────────────────────────────────
 
 type TexSet = {
-  map:           THREE.Texture;
+  /**
+   * Optional: a material whose colour is the customer's choice must not carry
+   * a photographed colour map. `map` MULTIPLIES the base colour, so a dark
+   * photo (the composite's is a dark bronze, average rgb 60,48,26) drags every
+   * colour down to near-black — which is exactly what happened to the exterior
+   * composite: a red sign rendered black. Its structure comes from the normal
+   * and roughness maps instead, which is what a powder-coated panel is anyway.
+   */
+  map?:          THREE.Texture;
   roughnessMap:  THREE.Texture;
   normalMap?:    THREE.Texture;
   metalnessMap?: THREE.Texture;
@@ -257,7 +268,7 @@ function configTex(
 }
 
 function applyTexToMat(mat: THREE.MeshPhysicalMaterial, texSet: TexSet) {
-  mat.map = texSet.map;
+  if (texSet.map) mat.map = texSet.map;
   mat.roughnessMap = texSet.roughnessMap;
   if (texSet.normalMap)    mat.normalMap    = texSet.normalMap;
   if (texSet.metalnessMap) mat.metalnessMap = texSet.metalnessMap;
@@ -278,7 +289,7 @@ function useTexturedTriple(
 
   useLayoutEffect(() => {
     const maxAniso = gl.capabilities.getMaxAnisotropy();
-    configTex(map,          THREE.SRGBColorSpace,       repeat, maxAniso);
+    if (map) configTex(map, THREE.SRGBColorSpace, repeat, maxAniso);
     configTex(roughnessMap, THREE.LinearSRGBColorSpace, repeat, maxAniso);
     if (normalMap)    configTex(normalMap,    THREE.LinearSRGBColorSpace, repeat, maxAniso);
     if (metalnessMap) configTex(metalnessMap, THREE.LinearSRGBColorSpace, repeat, maxAniso);
@@ -327,15 +338,16 @@ type TexLetterProps = {
 };
 
 function KompozitLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry }: TexLetterProps) {
-  const [colorMap, roughMap, normalMap, metalMap] = useTexture([
-    "/textures/alubond/color.jpg",
+  // No colour map here on purpose (see TexSet.map) — and one fewer 2.6 MB
+  // texture to download for it.
+  const [roughMap, normalMap, metalMap] = useTexture([
     "/textures/alubond/roughness.jpg",
     "/textures/alubond/normal.jpg",
     "/textures/alubond/metalness.jpg",
   ]);
   const triple = useTexturedTriple(
     matOpt, baseColor, glowColor, ls, isIlluminated,
-    { map: colorMap, roughnessMap: roughMap, normalMap, metalnessMap: metalMap },
+    { roughnessMap: roughMap, normalMap, metalnessMap: metalMap },
     KOMPOZIT_REPEAT,
   );
   return <SolidLetterMesh geometry={geometry} materials={toMaterialArray(triple)} />;
@@ -658,10 +670,10 @@ function SceneContent({
     <>
       {/* ── Lighting — even studio fill + one key light that throws the
           letters' shadow onto the wall behind them ── */}
-      <ambientLight intensity={isNight ? 0.35 : 1.15} />
+      <ambientLight intensity={isNight ? 0.35 : 0.75} />
       <directionalLight
         position={[3.2, 4.2, 3.5]}
-        intensity={isNight ? 0.7 : 2.2}
+        intensity={isNight ? 0.7 : 1.35}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}

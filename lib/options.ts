@@ -35,27 +35,31 @@ export const fontOptions: FontOption[] = [
 // What the workshop actually makes, so the configurator cannot quote a sign
 // nobody would build.
 //
-// Thickness is capped by whether the sign is lit, not by the material: a cut
-// letter is a sheet a few millimetres thick, while a lit letter is a box that
-// has to hold the LEDs and the space for the light to spread behind the face.
+// Thickness is ONE range for the whole configurator. It used to depend on
+// whether the sign was lit, which meant switching Svetelné/Nesvetelné silently
+// rewrote a thickness the customer had already chosen — the setting moved
+// under their hands. What each build is usually made in is advice now
+// (usualDepthMm below), shown as a note, never applied to the value.
 export const MIN_HEIGHT_CM = 10;
 export const MAX_HEIGHT_CM = 55;
 
 export const MIN_DEPTH_MM = 4;
-export const MAX_DEPTH_MM_PLAIN       = 10;
-export const MAX_DEPTH_MM_ILLUMINATED = 50;
-// The one deep build: a face-lit letter in the exterior composite is a real
-// box with the LEDs far enough behind the face to light it evenly, so it goes
-// up to 200 mm. No other combination does — a halo letter sits close to the
-// wall, and a cut letter is a sheet.
-export const MAX_DEPTH_MM_FRONT_EXTERIOR = 200;
+export const MAX_DEPTH_MM = 200;
+
+// What the workshop normally builds: a cut letter is a sheet; a lit letter is
+// a box deep enough for the LEDs; a face-lit letter in the exterior composite
+// is the one build that goes really deep, because the LEDs have to sit far
+// enough behind the face to light it evenly.
+export const USUAL_DEPTH_MM_PLAIN          = 10;
+export const USUAL_DEPTH_MM_ILLUMINATED    = 50;
+export const USUAL_DEPTH_MM_FRONT_EXTERIOR = 200;
 const DEEP_BUILD_MATERIAL = "kompozit";
 
-/** Thickness cap for this exact build — type, direction of light and material. */
-export function maxDepthMm(signType: SignType, lightMode?: LightModeId, materialId?: string): number {
-  if (signType !== "illuminated") return MAX_DEPTH_MM_PLAIN;
-  if (lightMode === "front" && materialId === DEEP_BUILD_MATERIAL) return MAX_DEPTH_MM_FRONT_EXTERIOR;
-  return MAX_DEPTH_MM_ILLUMINATED;
+/** The thickness this build is usually made in — guidance for the UI only. */
+export function usualDepthMm(signType: SignType, lightMode?: LightModeId, materialId?: string): number {
+  if (signType !== "illuminated") return USUAL_DEPTH_MM_PLAIN;
+  if (lightMode === "front" && materialId === DEEP_BUILD_MATERIAL) return USUAL_DEPTH_MM_FRONT_EXTERIOR;
+  return USUAL_DEPTH_MM_ILLUMINATED;
 }
 
 // ── Materials ─────────────────────────────────────────────────────────────────
@@ -82,12 +86,18 @@ export const MATERIALS: MaterialOption[] = [
     supportsPlain: true,
     lightModes: ["front", "halo", "full"],
     pbr: {
-      roughness: 0.08,
-      metalness: 1.0,
-      anisotropy: 1.0,
-      clearcoat: 0.25,
-      clearcoatRoughness: 0.1,
-      sideRoughnessMul: 2.0,
+      // A composite panel is PAINTED aluminium, not bare metal. At
+      // metalness 1 a PBR surface has no diffuse colour at all — it only
+      // mirrors its surroundings — so a red or navy sign came out nearly
+      // black and the colour the customer picked was simply not there.
+      // Low metalness with a clearcoat is what a powder-coated panel is:
+      // the colour reads, the sheen stays.
+      roughness: 0.32,
+      metalness: 0.15,
+      anisotropy: 0.3,
+      clearcoat: 0.45,
+      clearcoatRoughness: 0.14,
+      sideRoughnessMul: 1.6,
     },
   },
   {

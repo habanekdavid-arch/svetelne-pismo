@@ -15,8 +15,8 @@ import {
   letterColorOptions,
   MATERIALS,
   MIN_DEPTH_MM,
-  MAX_DEPTH_MM_FRONT_EXTERIOR,
-  maxDepthMm,
+  MAX_DEPTH_MM,
+  usualDepthMm,
   MIN_HEIGHT_CM,
   MAX_HEIGHT_CM,
   LIGHT_MODES,
@@ -46,12 +46,9 @@ const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
 // precise value, or tap a chip for the common one. Every value must sit inside
 // the slider's own min/max.
 const HEIGHT_CHIPS = [10, 20, 30, 40, 55];
-// Two sets, because the two kinds of sign are built differently: a cut letter
-// is a sheet, a lit letter is a box deep enough for the LEDs.
-const THICKNESS_CHIPS_PLAIN       = [4, 6, 8, 10];
-const THICKNESS_CHIPS_ILLUMINATED = [10, 20, 30, 40, 50];
-// Only the face-lit exterior build reaches this far — see maxDepthMm().
-const THICKNESS_CHIPS_DEEP        = [10, 25, 50, 100, 150, 200];
+// One set for every sign. The shortcuts used to change with the sign type,
+// which made the same slider mean different things from one click to the next.
+const THICKNESS_CHIPS = [4, 10, 25, 50, 100, 200];
 
 // The light colour is stored either as a swatch's hex or as the hue slider's
 // own hsl(H, 92%, 58%) string, so reading a hue back has to handle both. Used
@@ -139,7 +136,12 @@ export default function ConfiguratorStage() {
 
   const isNight = previewMode === "night";
   const isIlluminated = config.signType === "illuminated";
-  const maxThickness  = maxDepthMm(config.signType, config.lightMode, config.material);
+  // Advice, not a limit: the thickness the customer set is never overwritten.
+  const usualThickness = usualDepthMm(config.signType, config.lightMode, config.material);
+  const thicknessNote =
+    config.thickness > usualThickness
+      ? `${isIlluminated ? "Svetelné" : "Rezané"} písmo v tejto stavbe bežne robíme do ${usualThickness} mm. Väčšiu hrúbku vieme vyrobiť, cenu a riešenie potvrdíme pri overení objednávky.`
+      : null;
 
   const currentFont = fontOptions.find((f) => f.id === config.font);
   const currentLightMode = LIGHT_MODES.find((l) => l.id === config.lightMode);
@@ -169,16 +171,11 @@ export default function ConfiguratorStage() {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function patch(update: Partial<Config>) {
-    setConfig((prev) => {
-      const next = { ...prev, ...update };
-      // The thickness cap depends on the whole build (type, light direction,
-      // material), so it can drop under a change made anywhere in the
-      // configurator — switching away from the deep face-lit exterior build,
-      // for one. Clamping here means every control gets it, instead of each
-      // handler having to remember.
-      const cap = maxDepthMm(next.signType, next.lightMode, next.material);
-      return next.thickness > cap ? { ...next, thickness: cap } : next;
-    });
+    // Nothing here rewrites another setting. A change to the sign type used to
+    // clamp the thickness to what that type is usually built in, which meant a
+    // customer who had set 40 mm found 10 mm after toggling Nesvetelné — the
+    // configurator changing a choice they had already made.
+    setConfig((prev) => ({ ...prev, ...update }));
   }
 
   // A sign sent back from the cart ("Upraviť") arrives as pendingConfig. It is
@@ -594,16 +591,17 @@ export default function ConfiguratorStage() {
               <SliderBox
                 value={config.thickness}
                 min={MIN_DEPTH_MM}
-                max={maxThickness}
+                max={MAX_DEPTH_MM}
                 suffix=" mm"
-                chips={
-                  maxThickness === MAX_DEPTH_MM_FRONT_EXTERIOR ? THICKNESS_CHIPS_DEEP
-                  : isIlluminated ? THICKNESS_CHIPS_ILLUMINATED
-                  : THICKNESS_CHIPS_PLAIN
-                }
+                chips={THICKNESS_CHIPS}
                 onChange={(v) => patch({ thickness: v })}
                 ariaLabel="Hrúbka písma"
               />
+              {thicknessNote && (
+                <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-accent-text)" }}>
+                  {thicknessNote}
+                </p>
+              )}
             </FieldCard>
           </div>
         </div>
