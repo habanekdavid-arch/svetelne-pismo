@@ -7,6 +7,7 @@ import OrderModal from "@/components/configurator/OrderModal";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import type { Config, LightModeDirection, LightModeId, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
+import { useCart } from "@/lib/cart-context";
 import { calculatePrice } from "@/lib/pricing";
 import {
   fontOptions,
@@ -55,6 +56,7 @@ export default function ConfiguratorStage() {
   const [selectedBodySwatch, setSelectedBodySwatch] = useState<string>("black");
   const [orderOpen, setOrderOpen] = useState(false);
   const { setConfig: publishConfig } = useSharedConfig();
+  const { add: addToCart } = useCart();
 
   // Remember the last active light mode so we can restore it when switching
   // back from plain → illuminated
@@ -354,13 +356,30 @@ export default function ConfiguratorStage() {
                 </p>
               </div>
 
-              <button
-                onClick={() => setOrderOpen(true)}
-                className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
-                style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
-              >
-                Objednať
-              </button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                {/* Secondary action: keep configuring and collect several signs
+                    before checking out. The primary "Objednať" still orders
+                    this one sign straight away. */}
+                <button
+                  onClick={() => addToCart(config)}
+                  className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
+                  style={{
+                    background: "var(--color-surface)",
+                    color: "var(--color-foreground)",
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  Pridať do košíka
+                </button>
+
+                <button
+                  onClick={() => setOrderOpen(true)}
+                  className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
+                  style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+                >
+                  Objednať
+                </button>
+              </div>
             </div>
           </div>
           </div>

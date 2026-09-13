@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useSharedConfig } from "@/lib/config-context";
 import { realizations } from "@/data/realizations";
@@ -24,8 +24,17 @@ export default function ShowcaseSection() {
   const effective = config ?? DEFAULT_CONFIG;
   const { best, alternatives, isFallback } = matchRealization(effective, realizations);
 
-  // Fade out → in whenever the matched realization changes
+  // Fade out → in when the matched realization CHANGES.
+  //
+  // This used to call setVisible(false) unconditionally in the effect body,
+  // which meant two things: the cards were hidden for 180 ms on every mount
+  // (a flash of blank space on first paint, and again after any navigation),
+  // and React flagged it as a cascading render. Tracking the previous id in a
+  // ref means the very first run is a no-op and only real changes animate.
+  const prevIdRef = useRef(best.id);
   useEffect(() => {
+    if (prevIdRef.current === best.id) return;
+    prevIdRef.current = best.id;
     setVisible(false);
     const t = setTimeout(() => setVisible(true), 180);
     return () => clearTimeout(t);

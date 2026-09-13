@@ -1,5 +1,6 @@
 import Link from "next/link";
 import HeaderNav from "@/components/layout/HeaderNav";
+import CartButton from "@/components/cart/CartButton";
 
 const cgBlack: React.CSSProperties = {
   fontFamily: "var(--font-century-gothic)",
@@ -28,7 +29,10 @@ export default function Header() {
           rozsvieťTO
         </Link>
 
-        <HeaderNav />
+        <div className="flex items-center gap-3">
+          <CartButton />
+          <HeaderNav />
+        </div>
       </div>
     </header>
   );

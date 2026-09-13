@@ -112,16 +112,21 @@ body {
 /* Hero/brand heading. No text-transform: the site sets headings in sentence
    case — a capital on the first letter and nothing else — so the weight and
    size carry the emphasis instead of caps. */
+/* weight 800, not 900. The Century Gothic family here is loaded at 400/600/
+   800/900, so 900 resolved to the Black file — a visibly different cut from
+   the Bold that every other heading on the site got, which is why the hero
+   looked like it used another font. vytlacto3d sets its h1 to font-extrabold
+   (800), so this now matches both the sister site and the rest of the page. */
 .main-heading {
   font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: -0.025em;
   line-height: 1.05;
 }
 
 /* Section heading in vytlacto3d's voice: large, extrabold, tight tracking.
-   `.main-heading` above is the heavier (900) hero treatment; this is the 800
-   the sister site sets every section heading at. */
+   Same cut as .main-heading above — the sister site has exactly one heading
+   treatment — differing only in line-height for the tighter hero setting. */
 .section-heading {
   font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
   font-weight: 800;
@@ -300,24 +305,32 @@ body {
   font-weight: 700;
 }
 
-/* ─── Scroll reveal ──────────────────────────────────────────────────────── */
-.reveal {
+/* ─── Scroll reveal ────────────────────────────────────────────────────────
+   The hiding rules are scoped to [data-reveal="on"], an attribute only
+   ScrollReveal sets once it is mounted and actually able to reveal things.
+   Without JavaScript — a failed chunk, a crawler — the attribute never
+   appears and all this content renders plainly visible instead of blank. */
+[data-reveal="on"] .reveal {
   opacity: 0;
   transform: translateY(30px);
+}
+.reveal {
   transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.reveal.visible {
+[data-reveal="on"] .reveal.visible {
   opacity: 1;
   transform: translateY(0);
 }
-.reveal-scale {
+[data-reveal="on"] .reveal-scale {
   opacity: 0;
   transform: scale(0.92);
+}
+.reveal-scale {
   transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.reveal-scale.visible {
+[data-reveal="on"] .reveal-scale.visible {
   opacity: 1;
   transform: scale(1);
 }

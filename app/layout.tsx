@@ -5,6 +5,8 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ScrollReveal from "@/components/layout/ScrollReveal";
 import CookieConsent from "@/components/layout/CookieConsent";
+import { CartProvider } from "@/lib/cart-context";
+import CartSidebar from "@/components/cart/CartSidebar";
 
 const centuryGothic = localFont({
   src: [
@@ -52,11 +54,16 @@ export default function RootLayout({
       <body
         className={`${centuryGothic.variable} flex min-h-screen flex-col antialiased`}
       >
-        <Header />
-        {/* A plain div, not <main>: every page already renders its own <main>,
-            and nesting them is invalid HTML. */}
-        <div className="flex-1">{children}</div>
-        <Footer />
+        {/* CartProvider wraps Header too — the header's cart badge and the
+            drawer both read the same state. */}
+        <CartProvider>
+          <Header />
+          {/* A plain div, not <main>: every page already renders its own
+              <main>, and nesting them is invalid HTML. */}
+          <div className="flex-1">{children}</div>
+          <Footer />
+          <CartSidebar />
+        </CartProvider>
         <ScrollReveal />
         <CookieConsent />
       </body>
