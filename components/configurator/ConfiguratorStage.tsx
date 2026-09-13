@@ -223,7 +223,7 @@ export default function ConfiguratorStage() {
           <div>
             <EyebrowPill>Krok 1</EyebrowPill>
             <h2
-              className="main-heading mt-3 text-2xl md:text-3xl"
+              className="section-heading mt-3 text-2xl md:text-3xl"
               style={{ color: "var(--color-foreground)" }}
             >
               Nastav si nápis
