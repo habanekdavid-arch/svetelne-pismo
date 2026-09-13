@@ -60,14 +60,37 @@ const WALL_GRADIENT_DAY: [string, string, string]   = ["#fbfaf8", "#efedea", "#d
 const WALL_GRADIENT_NIGHT: [string, string, string] = ["#17171c", "#0d0d11", "#050506"];
 
 // Emissive scale per light mode, per face group (front cap / side wall / back cap).
-// front → lit face, halo → glow off the back onto the wall, full → whole letter.
+// front → lit face, halo → back face washing the wall, full → whole letter.
+//
+// `full` used to be a flat 1.00 across all three faces, which at the base
+// intensity below blew out to a solid white slab with no letterform left in
+// it. Real fully-lit channel letters are brightest on the face and softer
+// round the returns, so the sides and back are pulled down and the face
+// eased off — the shape stays readable instead of becoming a glare.
 const FACE_EMISSIVE: Record<LightModeId, { front: number; side: number; back: number }> = {
   front: { front: 1.00, side: 0.06, back: 0.04 },
-  halo:  { front: 0.05, side: 0.20, back: 0.95 },
-  full:  { front: 1.00, side: 1.00, back: 1.00 },
+  halo:  { front: 0.04, side: 0.16, back: 1.00 },
+  full:  { front: 0.62, side: 0.42, back: 0.50 },
 };
 const EMISSIVE_BASE_INTENSITY   = 3.2;
-const EMISSIVE_NIGHT_MULTIPLIER = 1.8;
+const EMISSIVE_NIGHT_MULTIPLIER = 1.55;
+
+// ── Halo wall wash ──────────────────────────────────────────────────────────
+// Emissive materials light nothing but themselves, and in halo mode the only
+// bright face points AT the wall, away from the camera — so the mode showed a
+// dim letter and a dark wall. These drive a real light parked between the sign
+// and the wall, which is what actually spreads the glow across it.
+// Intensity, and crucially DISTANCE FROM THE WALL. Sitting the lights almost
+// against it (z + 0.12) made the pool a blown hotspot rather than a wash —
+// point-light falloff goes as 1/d^decay, so at 0.12 away an intensity of 4
+// lands like ~150. Backing them off toward the letters both softens the
+// falloff and widens the pool, which is what a halo actually looks like.
+const HALO_LIGHT_INTENSITY = 7.5;
+const HALO_LIGHT_WALL_GAP        = 0.55; // how far in front of the wall they sit
+const HALO_LIGHT_DISTANCE        = 12;   // falloff radius — the size of the pool
+const HALO_LIGHT_DECAY           = 1.35;
+// `full` also spills a little onto the wall, just far less than a halo sign.
+const FULL_WASH_FACTOR = 0.3;
 
 // How far a transmissive material's (plexi) body colour is pulled toward
 // white when illuminated (0 = full bodyColor, 1 = old fully-white behaviour).
@@ -86,11 +109,16 @@ function getLightingSettings(
   lightMode: LightModeId,
   night: boolean,
 ): LightSettings {
-  if (signType === "plain") {
+  // A plain sign never emits — and neither does an illuminated one in daylight.
+  // A real sign is switched off during the day, so Deň shows the physical
+  // object: the material, the body colour, the depth and the shadow it casts.
+  // Noc is where the LEDs come on. This also means Deň and Noc now differ in
+  // the one way a customer cares about, instead of both looking lit.
+  if (signType === "plain" || !night) {
     return { emissiveFront: 0, emissiveSide: 0, emissiveBack: 0 };
   }
   const base = FACE_EMISSIVE[lightMode];
-  const n    = (night ? EMISSIVE_NIGHT_MULTIPLIER : 1) * EMISSIVE_BASE_INTENSITY;
+  const n    = EMISSIVE_NIGHT_MULTIPLIER * EMISSIVE_BASE_INTENSITY;
   return {
     emissiveFront: base.front * n,
     emissiveSide:  base.side  * n,
@@ -398,8 +426,11 @@ type LetterSceneProps = {
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function LetterScene(props: LetterSceneProps) {
-  const { signType, lightMode } = props;
-  const bloomActive = signType === "illuminated";
+  const { signType, lightMode, previewMode } = props;
+  // Bloom only when something is actually emitting — an illuminated sign at
+  // night. In daylight the sign is switched off, so blooming a plain lit face
+  // would just fog the preview.
+  const bloomActive = signType === "illuminated" && previewMode === "night";
   const bloomIntensity = lightMode === "halo" ? BLOOM_INTENSITY_HALO : BLOOM_INTENSITY_BASE;
 
   return (
@@ -546,6 +577,13 @@ function SceneContent({
   const wallStops = isNight ? WALL_GRADIENT_NIGHT : WALL_GRADIENT_DAY;
   const wallTexture = useWallTexture(wallStops);
 
+  // Wall-wash strength and spread. `full` spills only a fraction of what a
+  // dedicated halo sign throws; the spread follows the sign's own scale so a
+  // long nápis is lit across its whole width, not just behind its centre.
+  const washIntensity =
+    HALO_LIGHT_INTENSITY * (lightMode === "full" ? FULL_WASH_FACTOR : 1);
+  const washSpread = Math.max(0.9, finalScale * 2.2);
+
   return (
     <>
       {/* ── Lighting — even studio fill + one key light that throws the
@@ -566,6 +604,33 @@ function SceneContent({
         shadow-camera-bottom={-6}
       />
       <directionalLight position={[-4, 1.5, 2.5]} intensity={isNight ? 0.12 : 0.55} />
+
+      {/* ── Halo wall wash ────────────────────────────────────────────────
+          The piece that actually makes "Zozadu" work. The back face of the
+          letters emits toward the wall, but emissive materials illuminate
+          nothing around them, and that face is hidden from the camera — so
+          without these lights the mode showed a dim letter against a dark
+          wall and read as broken.
+
+          Three point lights sit in the gap between the sign and the wall,
+          spread horizontally so a wide nápis is washed evenly rather than
+          having one hotspot behind its middle. They carry the chosen LED
+          colour, and their distance/decay is what spreads the pool of light
+          outward across the wall. */}
+      {isIlluminated && isNight && (lightMode === "halo" || lightMode === "full") && (
+        <>
+          {[-1, 0, 1].map((offset) => (
+            <pointLight
+              key={offset}
+              position={[offset * washSpread, 0.08, wallZ + HALO_LIGHT_WALL_GAP]}
+              color={glowColor}
+              distance={HALO_LIGHT_DISTANCE}
+              decay={HALO_LIGHT_DECAY}
+              intensity={washIntensity}
+            />
+          ))}
+        </>
+      )}
 
       {/* ── Smooth matte wall the sign is mounted on ── */}
       <mesh position={[0, 0, wallZ]} receiveShadow>
