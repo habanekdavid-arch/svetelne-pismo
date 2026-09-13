@@ -10,6 +10,7 @@ import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   useTTFFont,
   buildSolidLetterGeometry,
+  buildHaloGlowTexture,
   MATERIAL_GROUP,
 } from "@/components/three/letterGeometry";
 import type { SignType, LightModeId, MaterialOption } from "@/lib/types";
@@ -34,7 +35,7 @@ const BLOOM_LUMINANCE_THRESHOLD = 0.85;
 const BLOOM_LUMINANCE_SMOOTHING = 0.4;
 const BLOOM_RADIUS              = 0.75;
 const BLOOM_INTENSITY_BASE      = 0.9;   // front / full
-const BLOOM_INTENSITY_HALO      = 1.6;   // halo — stronger bloom for the wall glow
+const BLOOM_INTENSITY_HALO      = 1.15;  // halo — the glow texture is already bright; bloom only flares it
 
 // Depth (mm) → world-unit scale. One shared range for every material AND
 // every font now — see lib/options.ts MIN_DEPTH_MM/MAX_DEPTH_MM. At
@@ -57,7 +58,7 @@ const VIEW_TILT = -0.04; // tiny forward pitch of the letter group (radians)
 // Smooth matte "wall" the letters are mounted on — a soft vertical gradient
 // plus a gentle vignette reads far better than a dead-flat fill.
 const WALL_GRADIENT_DAY: [string, string, string]   = ["#fbfaf8", "#efedea", "#ddd8d2"];
-const WALL_GRADIENT_NIGHT: [string, string, string] = ["#17171c", "#0d0d11", "#050506"];
+const WALL_GRADIENT_NIGHT: [string, string, string] = ["#302e2c", "#242220", "#191817"];
 
 // Emissive scale per light mode, per face group (front cap / side wall / back cap).
 // front → lit face, halo → back face washing the wall, full → whole letter.
@@ -69,28 +70,41 @@ const WALL_GRADIENT_NIGHT: [string, string, string] = ["#17171c", "#0d0d11", "#0
 // eased off — the shape stays readable instead of becoming a glare.
 const FACE_EMISSIVE: Record<LightModeId, { front: number; side: number; back: number }> = {
   front: { front: 1.00, side: 0.06, back: 0.04 },
-  halo:  { front: 0.04, side: 0.16, back: 1.00 },
+  // Halo: nothing the camera can see emits. The face and the returns stay the
+  // material's own colour — a back-lit letter reads as a dark silhouette — and
+  // the light lives entirely on the wall behind it (see HaloGlow below). The
+  // side used to carry 0.16, which drew a bright rule around every glyph and
+  // made the sign look like a neon tube rather than a back-lit letter.
+  halo:  { front: 0.00, side: 0.06, back: 1.00 },
   full:  { front: 0.62, side: 0.42, back: 0.50 },
 };
 const EMISSIVE_BASE_INTENSITY   = 3.2;
 const EMISSIVE_NIGHT_MULTIPLIER = 1.55;
 
-// ── Halo wall wash ──────────────────────────────────────────────────────────
-// Emissive materials light nothing but themselves, and in halo mode the only
-// bright face points AT the wall, away from the camera — so the mode showed a
-// dim letter and a dark wall. These drive a real light parked between the sign
-// and the wall, which is what actually spreads the glow across it.
-// Intensity, and crucially DISTANCE FROM THE WALL. Sitting the lights almost
-// against it (z + 0.12) made the pool a blown hotspot rather than a wash —
-// point-light falloff goes as 1/d^decay, so at 0.12 away an intensity of 4
-// lands like ~150. Backing them off toward the letters both softens the
-// falloff and widens the pool, which is what a halo actually looks like.
-const HALO_LIGHT_INTENSITY = 7.5;
-const HALO_LIGHT_WALL_GAP        = 0.55; // how far in front of the wall they sit
-const HALO_LIGHT_DISTANCE        = 12;   // falloff radius — the size of the pool
-const HALO_LIGHT_DECAY           = 1.35;
-// `full` also spills a little onto the wall, just far less than a halo sign.
-const FULL_WASH_FACTOR = 0.3;
+// ── Halo wall glow ──────────────────────────────────────────────────────────
+// The wall glow is a texture built from the glyph outlines themselves
+// (letterGeometry.ts buildHaloGlowTexture), laid flat on the wall with
+// additive blending. That is what makes the light follow the letterform —
+// tight at the contour, fading out over half a letter height, and glowing
+// inside counters like the bowl of an "A".
+//
+// It replaced three point lights parked behind the sign: point lights throw
+// round pools, so a wide nápis was lit by a row of blobs that had nothing to
+// do with its letters.
+//
+// The gain is a multiplier on the LED colour. Above 1 the core of the glow
+// passes the bloom threshold, so the halo blooms the way a real one flares on
+// camera. The framebuffer is HalfFloat (see the Canvas below), so values over
+// 1 survive to the bloom pass instead of being clipped.
+const HALO_GLOW_GAIN        = 2.8;
+// How far the glow's own colour is pulled toward white before the gain is
+// applied. Without it a saturated LED colour can never clip to white, and the
+// halo stays flatly amber across its whole spread. With it the core clips —
+// bright warm white right at the contour, easing back into the LED's own
+// colour as it fades — which is what a back-lit sign looks like in a photo.
+const HALO_GLOW_WHITE_MIX   = 0.34;
+const HALO_GLOW_FULL_FACTOR = 0.42; // a fully lit sign spills too, far less
+const HALO_GLOW_WALL_OFFSET = 0.004; // in front of the wall, to avoid z-fighting
 
 // How far a transmissive material's (plexi) body colour is pulled toward
 // white when illuminated (0 = full bodyColor, 1 = old fully-white behaviour).
@@ -407,6 +421,54 @@ function LetterGeometryHost({
   );
 }
 
+// ── Halo wall glow ────────────────────────────────────────────────────────────
+// The glow plane. It hangs flat on the wall, behind the letters and outside
+// <Center>, so it is never part of the group's bounding box — dropping it
+// inside would shift the sign's own centring and re-frame the shot.
+//
+// The letter geometry is centred on its own bounding box (letterGeometry.ts),
+// and this texture is built from the same glyph outlines around the same
+// centre, so both line up by construction at any scale.
+
+type HaloGlowProps = {
+  fontFile: string;
+  text: string;
+  color: THREE.Color;
+  gain: number;
+  scale: number;
+  y: number;
+  z: number;
+};
+
+function HaloGlow({ fontFile, text, color, gain, scale, y, z }: HaloGlowProps) {
+  const font = useTTFFont(fontFile); // already cached by the letters themselves
+  const build = useMemo(() => buildHaloGlowTexture(font, text), [font, text]);
+
+  useEffect(() => () => build.texture?.dispose(), [build]);
+
+  // Over 1 on purpose — see HALO_GLOW_GAIN / HALO_GLOW_WHITE_MIX.
+  const tint = useMemo(
+    () => color.clone().lerp(new THREE.Color(0xffffff), HALO_GLOW_WHITE_MIX).multiplyScalar(gain),
+    [color, gain],
+  );
+
+  if (!build.texture) return null;
+
+  return (
+    <mesh position={[0, y, z]} scale={scale} renderOrder={-1}>
+      <planeGeometry args={[build.width, build.height]} />
+      <meshBasicMaterial
+        map={build.texture}
+        color={tint}
+        blending={THREE.AdditiveBlending}
+        transparent
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
 // ── Component types ───────────────────────────────────────────────────────────
 
 type LetterSceneProps = {
@@ -577,12 +639,10 @@ function SceneContent({
   const wallStops = isNight ? WALL_GRADIENT_NIGHT : WALL_GRADIENT_DAY;
   const wallTexture = useWallTexture(wallStops);
 
-  // Wall-wash strength and spread. `full` spills only a fraction of what a
-  // dedicated halo sign throws; the spread follows the sign's own scale so a
-  // long nápis is lit across its whole width, not just behind its centre.
-  const washIntensity =
-    HALO_LIGHT_INTENSITY * (lightMode === "full" ? FULL_WASH_FACTOR : 1);
-  const washSpread = Math.max(0.9, finalScale * 2.2);
+  const glowGain =
+    HALO_GLOW_GAIN * (lightMode === "full" ? HALO_GLOW_FULL_FACTOR : 1);
+  const wallGlowOn =
+    isIlluminated && isNight && (lightMode === "halo" || lightMode === "full");
 
   return (
     <>
@@ -605,33 +665,6 @@ function SceneContent({
       />
       <directionalLight position={[-4, 1.5, 2.5]} intensity={isNight ? 0.12 : 0.55} />
 
-      {/* ── Halo wall wash ────────────────────────────────────────────────
-          The piece that actually makes "Zozadu" work. The back face of the
-          letters emits toward the wall, but emissive materials illuminate
-          nothing around them, and that face is hidden from the camera — so
-          without these lights the mode showed a dim letter against a dark
-          wall and read as broken.
-
-          Three point lights sit in the gap between the sign and the wall,
-          spread horizontally so a wide nápis is washed evenly rather than
-          having one hotspot behind its middle. They carry the chosen LED
-          colour, and their distance/decay is what spreads the pool of light
-          outward across the wall. */}
-      {isIlluminated && isNight && (lightMode === "halo" || lightMode === "full") && (
-        <>
-          {[-1, 0, 1].map((offset) => (
-            <pointLight
-              key={offset}
-              position={[offset * washSpread, 0.08, wallZ + HALO_LIGHT_WALL_GAP]}
-              color={glowColor}
-              distance={HALO_LIGHT_DISTANCE}
-              decay={HALO_LIGHT_DECAY}
-              intensity={washIntensity}
-            />
-          ))}
-        </>
-      )}
-
       {/* ── Smooth matte wall the sign is mounted on ── */}
       <mesh position={[0, 0, wallZ]} receiveShadow>
         <planeGeometry args={[110, 60]} />
@@ -642,6 +675,21 @@ function SceneContent({
           metalness={0}
         />
       </mesh>
+
+      {/* ── The glow the wall actually carries ── */}
+      {wallGlowOn && (
+        <Suspense fallback={null}>
+          <HaloGlow
+            fontFile={fontOpt.file}
+            text={debouncedText}
+            color={glowColor}
+            gain={glowGain}
+            scale={finalScale}
+            y={0.08}
+            z={wallZ + HALO_GLOW_WALL_OFFSET}
+          />
+        </Suspense>
+      )}
 
       {/* ── Sign geometry — mounted flat on the wall; the viewer can drag
           within a limited arc (OrbitControls below) ── */}
