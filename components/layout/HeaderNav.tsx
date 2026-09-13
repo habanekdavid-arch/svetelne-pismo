@@ -3,18 +3,33 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { onSessionChange } from "@/lib/session-client";
-
-const cgBlack: React.CSSProperties = {
-  fontFamily: "var(--font-century-gothic)",
-  fontWeight: 900,
-};
 
 const cgRegular: React.CSSProperties = {
   fontFamily: "var(--font-century-gothic)",
   fontWeight: 400,
 };
+
+// The exact glyph vytlacto3d's AccountButton draws — a head and shoulders,
+// not lucide's User, whose proportions differ.
+function UserGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 21a8 8 0 0 0-16 0" />
+      <circle cx="12" cy="8" r="4" />
+    </svg>
+  );
+}
 
 type SessionUser = { name: string };
 
@@ -61,7 +76,14 @@ export default function HeaderNav() {
   return (
     <>
       {/* Nav — desktop only */}
-      <nav className="hidden items-center gap-8 text-[14px] md:flex" style={cgRegular} aria-label="Hlavná navigácia">
+      {/* Centered in the viewport, not wedged between the logo and the account
+          button — vytlacto3d's Navbar does exactly this. The offset parent is
+          the sticky <header>, so left-1/2 is the middle of the page. */}
+      <nav
+        className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 text-[14px] md:flex"
+        style={cgRegular}
+        aria-label="Hlavná navigácia"
+      >
         {links.map((l) => (
           <Link key={l.href} href={l.href} className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
             {l.label}
@@ -83,36 +105,52 @@ export default function HeaderNav() {
         )}
       </nav>
 
-      {/* Account — desktop only */}
-      <div className="hidden items-center md:flex">
+      {/* Account — desktop only.
+          Both states copied from vytlacto3d's AccountButton: a white pill with
+          a hairline border and a round 32px chip on the left. Signed out, the
+          chip is a tinted amber circle holding the user glyph; signed in, it
+          is solid amber with the account's initial. Colours go through tokens
+          so the pill follows dark mode. */}
+      <div className="hidden items-center gap-2 md:flex">
         {user ? (
-          <div className="flex items-center gap-3 rounded-full py-1.5 pl-1.5 pr-2" style={{ background: "var(--color-surface)" }}>
-            <span
-              className="flex h-7 w-7 items-center justify-center rounded-full"
-              style={{ background: "var(--accent)", color: "#000" }}
+          <>
+            <Link
+              href="/moje-objednavky"
+              className="account-pill inline-flex items-center gap-3 rounded-full px-4 py-2 text-sm font-medium transition"
             >
-              <User size={14} strokeWidth={2.5} />
-            </span>
-            <span className="text-[12px] font-black tracking-wide" style={{ color: "var(--color-foreground)" }}>
-              {user.name || "Môj účet"}
-            </span>
+              <span
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold"
+                style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+              >
+                {(user.name?.trim()?.charAt(0) || "U").toUpperCase()}
+              </span>
+              <span className="hidden sm:inline">Môj účet</span>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}
               disabled={loggingOut}
-              className="rounded-full px-3 py-1.5 text-[11px] font-black transition hover:opacity-70 disabled:opacity-50"
+              className="whitespace-nowrap rounded-full px-3 py-2 text-sm transition hover:opacity-70 disabled:opacity-50"
               style={{ color: "var(--color-muted)" }}
             >
-              Odhlásiť
+              {loggingOut ? "Odhlasujem…" : "Odhlásiť sa"}
             </button>
-          </div>
+          </>
         ) : (
           <Link
             href="/prihlasenie"
-            className="whitespace-nowrap rounded-full px-6 py-2.5 text-[13px] transition hover:opacity-85"
-            style={{ ...cgBlack, background: "var(--accent)", color: "#000" }}
+            className="account-pill inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition"
           >
-            Prihlásiť sa
+            <span
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+              style={{
+                background: "color-mix(in srgb, var(--accent) 15%, transparent)",
+                color: "var(--accent)",
+              }}
+            >
+              <UserGlyph />
+            </span>
+            <span className="hidden sm:inline">Prihlásiť sa</span>
           </Link>
         )}
       </div>
@@ -194,9 +232,17 @@ export default function HeaderNav() {
             <Link
               href="/prihlasenie"
               onClick={() => setOpen(false)}
-              className="mt-2 whitespace-nowrap rounded-full px-6 py-3 text-center text-[14px]"
-              style={{ ...cgBlack, background: "var(--accent)", color: "#000" }}
+              className="account-pill mt-2 inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-medium transition"
             >
+              <span
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full"
+                style={{
+                  background: "color-mix(in srgb, var(--accent) 15%, transparent)",
+                  color: "var(--accent)",
+                }}
+              >
+                <UserGlyph />
+              </span>
               Prihlásiť sa
             </Link>
           )}
