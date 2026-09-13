@@ -71,7 +71,7 @@ export default function RegisterPage() {
         return;
       }
       notifySessionChange(); // so the header's account pill updates too
-      router.replace("/moje-objednavky");
+      router.replace("/ucet");
       router.refresh();
     } catch {
       setError("Registrácia zlyhala. Skúste to prosím znova.");
