@@ -28,7 +28,7 @@ function CartGlyph({ size = 18 }: { size?: number }) {
 }
 
 export default function CartSidebar() {
-  const { items, total, isOpen, close, remove } = useCart();
+  const { items, total, isOpen, close, remove, beginEdit, editingId } = useCart();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -152,6 +152,11 @@ export default function CartSidebar() {
                             <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>
                               {[font?.name, mat?.displayName].filter(Boolean).join(" · ")} · {describeConfig(item.config)}
                             </div>
+                            {editingId === item.id && (
+                              <div className="text-[11px] font-bold" style={{ color: "var(--color-accent-text)" }}>
+                                Práve upravujete v konfigurátore
+                              </div>
+                            )}
                             {/* The one part of the spec a line of text can't
                                 carry: the body colour, and the LED colour when
                                 the sign is illuminated. */}
@@ -174,6 +179,21 @@ export default function CartSidebar() {
                           <div className="shrink-0 text-right text-xs font-bold" style={{ color: "var(--color-foreground)" }}>
                             {formatEur(item.price)}
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => beginEdit(item.id)}
+                            title="Upraviť"
+                            aria-label={`Upraviť ${item.config.text || "nápis"}`}
+                            className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition hover:opacity-70"
+                            style={{ color: editingId === item.id ? "var(--accent)" : "var(--color-muted)" }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
+                          </button>
 
                           <button
                             type="button"

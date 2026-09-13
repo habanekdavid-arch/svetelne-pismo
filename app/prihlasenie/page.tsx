@@ -34,7 +34,7 @@ export default function LoginPage() {
         return;
       }
       notifySessionChange(); // so the header's account pill updates too
-      router.replace("/moje-objednavky");
+      router.replace("/ucet");
       router.refresh();
     } catch {
       setError("Prihlásenie zlyhalo. Skúste to prosím znova.");
@@ -117,8 +117,10 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium transition hover:opacity-70"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium transition"
                 style={{ color: "var(--color-muted)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-foreground)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-muted)")}
               >
                 {showPassword ? "Skryť" : "Zobraziť"}
               </button>

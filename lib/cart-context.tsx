@@ -31,9 +31,24 @@ type Ctx = {
   count: number;
   total: number;
   isOpen: boolean;
-  add: (config: Config) => void;
+  /** `open: false` adds without pulling the drawer over the configurator. */
+  add: (config: Config, options?: { open?: boolean }) => void;
   checkout: (config: Config) => void;
   remove: (id: string) => void;
+  /** Cart item currently open in the configurator, if any. */
+  editingId: string | null;
+  /** Send a cart item back into the configurator to be changed. */
+  beginEdit: (id: string) => void;
+  /** Store the changed sign back under the same cart line. */
+  applyEdit: (config: Config) => void;
+  cancelEdit: () => void;
+  /**
+   * Set by beginEdit for the configurator to pick up and then clear. A plain
+   * value rather than a callback registry: the configurator is the only
+   * consumer, and an effect there reads it exactly once.
+   */
+  pendingConfig: Config | null;
+  consumePending: () => void;
   clear: () => void;
   open: () => void;
   close: () => void;
@@ -44,6 +59,8 @@ const STORAGE_KEY = "rozsvietto.cart.v1";
 const CartContext = createContext<Ctx>({
   items: [], count: 0, total: 0, isOpen: false,
   add: () => {}, checkout: () => {}, remove: () => {}, clear: () => {}, open: () => {}, close: () => {},
+  editingId: null, beginEdit: () => {}, applyEdit: () => {}, cancelEdit: () => {},
+  pendingConfig: null, consumePending: () => {},
 });
 
 function makeId(): string {
@@ -72,6 +89,8 @@ function sameConfig(a: Config, b: Config): boolean {
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingConfig, setPendingConfig] = useState<Config | null>(null);
   // Start empty on both server and first client render so the markup matches,
   // then adopt the stored cart. Items and the hydrated flag are one piece of
   // state so restoring the cart is a single update, not two cascading ones.
@@ -128,13 +147,40 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
-  const add = useCallback((config: Config) => {
+  const add = useCallback((config: Config, options?: { open?: boolean }) => {
     setItems((prev) => [
       ...prev,
       { id: makeId(), config, price: calculatePrice(config), addedAt: Date.now() },
     ]);
-    setIsOpen(true);
+    if (options?.open !== false) setIsOpen(true);
   }, [setItems]);
+
+  // ── Editing a sign that is already in the cart ──────────────────────────
+  // The line stays where it is while it is being changed, so a customer who
+  // wanders off mid-edit still has the sign they configured earlier.
+  const beginEdit = useCallback((id: string) => {
+    setStored((s) => {
+      const item = s.items.find((i) => i.id === id);
+      if (item) {
+        setEditingId(id);
+        setPendingConfig(item.config);
+        setIsOpen(false);
+      }
+      return s;
+    });
+  }, []);
+
+  const consumePending = useCallback(() => setPendingConfig(null), []);
+
+  const applyEdit = useCallback((config: Config) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === editingId ? { ...i, config, price: calculatePrice(config) } : i)),
+    );
+    setEditingId(null);
+    setIsOpen(true);
+  }, [editingId, setItems]);
+
+  const cancelEdit = useCallback(() => setEditingId(null), []);
 
   // "Objednať" in the configurator. It opens the cart rather than a checkout
   // of its own, so the sign being configured has to be in the cart first —
@@ -153,17 +199,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const remove = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
+    setEditingId((current) => (current === id ? null : current));
   }, [setItems]);
 
-  const clear = useCallback(() => setItems(() => []), [setItems]);
+  const clear = useCallback(() => {
+    setItems(() => []);
+    setEditingId(null);
+  }, [setItems]);
   const open  = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
 
   const total = useMemo(() => items.reduce((s, i) => s + i.price, 0), [items]);
 
   const value = useMemo<Ctx>(
-    () => ({ items, count: items.length, total, isOpen, add, checkout, remove, clear, open, close }),
-    [items, total, isOpen, add, checkout, remove, clear, open, close],
+    () => ({
+      items, count: items.length, total, isOpen,
+      add, checkout, remove, clear, open, close,
+      editingId, beginEdit, applyEdit, cancelEdit, pendingConfig, consumePending,
+    }),
+    [items, total, isOpen, add, checkout, remove, clear, open, close,
+     editingId, beginEdit, applyEdit, cancelEdit, pendingConfig, consumePending],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
