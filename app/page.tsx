@@ -3,7 +3,7 @@ import HeroConfigurator from "@/components/sections/HeroConfigurator";
 import ShowcaseSection from "@/components/sections/ShowcaseSection";
 import HowItWorks from "@/components/sections/HowItWorks";
 import MaterialsSection from "@/components/sections/MaterialsSection";
-import BlogPreview from "@/components/sections/BlogPreview";
+import FaqContactSection from "@/components/sections/FaqContactSection";
 
 export default function Home() {
   return (
@@ -26,8 +26,8 @@ export default function Home() {
       {/* 4 — Materiály */}
       <MaterialsSection />
 
-      {/* 5 — Blog / články */}
-      <BlogPreview />
+      {/* 5 — Časté otázky a kontaktný formulár */}
+      <FaqContactSection />
     </main>
   );
 }

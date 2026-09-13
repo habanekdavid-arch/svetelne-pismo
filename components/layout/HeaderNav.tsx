@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { onSessionChange } from "@/lib/session-client";
@@ -40,8 +39,6 @@ type SessionUser = { name: string };
 // static rendering.
 export default function HeaderNav() {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
-  const [loggingOut, setLoggingOut] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
 
   useEffect(() => {
@@ -56,15 +53,6 @@ export default function HeaderNav() {
     const unsubscribe = onSessionChange(fetchUser);
     return () => { cancelled = true; unsubscribe(); };
   }, []);
-
-  async function handleLogout() {
-    setLoggingOut(true);
-    await fetch("/api/auth/logout", { method: "POST" });
-    setUser(null);
-    setOpen(false);
-    router.replace("/");
-    router.refresh();
-  }
 
   const links = [
     { href: "/#materialy", label: "Materiály" },
@@ -98,11 +86,6 @@ export default function HeaderNav() {
         >
           4from media
         </a>
-        {user && (
-          <Link href="/moje-objednavky" className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
-            Moje objednávky
-          </Link>
-        )}
       </nav>
 
       {/* Account — desktop only.
@@ -113,7 +96,6 @@ export default function HeaderNav() {
           so the pill follows dark mode. */}
       <div className="hidden items-center gap-2 md:flex">
         {user ? (
-          <>
             <Link
               href="/moje-objednavky"
               className="account-pill inline-flex items-center gap-3 rounded-full px-4 py-2 text-sm font-medium transition"
@@ -126,16 +108,6 @@ export default function HeaderNav() {
               </span>
               <span className="hidden sm:inline">Môj účet</span>
             </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="whitespace-nowrap rounded-full px-3 py-2 text-sm transition hover:opacity-70 disabled:opacity-50"
-              style={{ color: "var(--color-muted)" }}
-            >
-              {loggingOut ? "Odhlasujem…" : "Odhlásiť sa"}
-            </button>
-          </>
         ) : (
           <Link
             href="/prihlasenie"
@@ -202,32 +174,20 @@ export default function HeaderNav() {
             4from media
           </a>
 
-          {user && (
+          {user ? (
             <Link
               href="/moje-objednavky"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
-              style={{ color: "var(--color-foreground)" }}
+              className="account-pill mt-2 inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-medium transition"
             >
-              Moje objednávky
-            </Link>
-          )}
-
-          {user ? (
-            <div className="mt-2 flex items-center justify-between px-3">
-              <span className="text-[13px]" style={{ color: "var(--color-muted)" }}>
-                {user.name || "Môj účet"}
-              </span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="rounded-full px-4 py-2 text-[11px] font-black transition hover:opacity-70 disabled:opacity-50"
-                style={{ border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+              <span
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold"
+                style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
               >
-                Odhlásiť
-              </button>
-            </div>
+                {(user.name?.trim()?.charAt(0) || "U").toUpperCase()}
+              </span>
+              Môj účet
+            </Link>
           ) : (
             <Link
               href="/prihlasenie"
