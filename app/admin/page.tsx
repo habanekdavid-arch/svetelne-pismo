@@ -4,8 +4,11 @@ import { redirect } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
 import { listAllOrders, ORDER_STATUSES, ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
-import StatusSelect from "@/components/orders/StatusSelect";
+import { formatEur } from "@/lib/vat";
+import AdminOrderActions from "@/components/admin/AdminOrderActions";
+import StatusBadge from "@/components/orders/StatusBadge";
 import LogoutButton from "@/components/admin/LogoutButton";
+import EyebrowPill from "@/components/ui/EyebrowPill";
 
 export const metadata: Metadata = {
   title: "Administratíva objednávok | rozsvieťTO",
@@ -16,11 +19,28 @@ function isOrderStatus(v: string | undefined): v is OrderStatus {
   return !!v && (ORDER_STATUSES as string[]).includes(v);
 }
 
-// Own password-based login (Prisma AdminUser + bcrypt), deliberately
-// separate from Clerk — see lib/admin-auth.ts and app/admin/prihlasenie.
-// Deliberately compact/light-weight typography (small text, regular/semibold
-// weights) rather than the site's usual bold-uppercase voice — this is a
-// working tool, not a marketing page.
+// Sub-label under each filter tile. vytlacto3d's admin puts a short hint
+// under every count so the tiles read as sentences, not bare numbers.
+const TILE_HINT: Record<string, string> = {
+  all:         "Celkom v systéme",
+  new:         "Čakajú na prijatie",
+  in_progress: "Práve sa vyrábajú",
+  done:        "Odovzdané zákazníkovi",
+  cancelled:   "Stornované",
+};
+
+// Human-facing order number. The database id stays visible next to it so a
+// row is still findable by its real primary key.
+function orderNumber(id: number): string {
+  return `ROZ-${String(id).padStart(4, "0")}`;
+}
+
+// Own password-based login (AdminUser + bcrypt) or an allowlisted account —
+// see lib/admin-auth.ts and app/admin/prihlasenie.
+//
+// Laid out like vytlacto3d's admin: an eyebrow + heading block with the exit
+// actions on the right, a row of clickable stat tiles that double as the
+// status filter, then one roomy card per order instead of a dense table.
 export default async function AdminPage({
   searchParams,
 }: {
@@ -49,146 +69,201 @@ export default async function AdminPage({
   const orders = activeFilter === "all" ? allOrders : allOrders.filter((o) => o.status === activeFilter);
 
   return (
-    <main style={{ background: "var(--color-background)" }}>
-      <section className="pb-5 pt-12">
-        <div className="mx-auto max-w-4xl px-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <p
-              className="text-[9px] font-bold tracking-wide"
-              style={{ color: "var(--color-muted)" }}
-            >
-              Administratíva
-            </p>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/"
-                className="rounded-full px-4 py-2 text-[10px] font-bold tracking-wide transition hover:opacity-80"
-                style={{ color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
-              >
-                Späť na web
-              </Link>
-              {/* Only the password login has an admin cookie to clear. An
-                  allowlisted account signs out from its own profile. */}
-              {session.via === "password" && <LogoutButton />}
+    <main className="min-h-screen px-5 py-12" style={{ background: "var(--color-surface)" }}>
+      <div className="mx-auto max-w-7xl">
+
+        {/* Header — eyebrow, heading, description, exit actions */}
+        <div className="mb-10 flex flex-wrap items-start justify-between gap-6">
+          <div className="max-w-2xl">
+            <div className="mb-4">
+              <EyebrowPill>Administrácia</EyebrowPill>
             </div>
+            <h1
+              className="section-heading text-3xl sm:text-4xl"
+              style={{ color: "var(--color-foreground)" }}
+            >
+              Správa objednávok
+            </h1>
+            <p className="mt-3 leading-7" style={{ color: "var(--color-muted)" }}>
+              Prehľad všetkých objednaných svetelných nápisov. Kliknutím na dlaždicu
+              vyfiltrujete zoznam podľa stavu, v karte objednávky posuniete zákazku
+              do ďalšieho kroku výroby.
+            </p>
           </div>
 
-          <h1 className="mb-4 text-xl font-bold md:text-2xl" style={{ color: "var(--color-foreground)" }}>
-            Objednávky
-          </h1>
-
-          {/* Stat tiles — counts per status + total revenue; click to filter the list below */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
-            {tiles.map((t) => {
-              const active = t.key === activeFilter;
-              return (
-                <Link
-                  key={t.key}
-                  href={t.key === "all" ? "/admin" : `/admin?status=${t.key}`}
-                  className="rounded-xl p-3 transition hover:opacity-90"
-                  style={{
-                    background: active ? "var(--color-foreground)" : "var(--color-surface)",
-                    border: `1px solid ${active ? "var(--color-foreground)" : "var(--color-border)"}`,
-                  }}
-                >
-                  <p
-                    className="text-[9px] font-semibold tracking-wide"
-                    style={{ color: active ? "var(--color-background)" : "var(--color-muted)", opacity: active ? 0.7 : 1 }}
-                  >
-                    {t.label}
-                  </p>
-                  <p className="mt-0.5 text-base font-bold" style={{ color: active ? "var(--color-background)" : "var(--color-foreground)" }}>
-                    {t.count}
-                  </p>
-                </Link>
-              );
-            })}
-            <div className="rounded-xl p-3" style={{ background: "var(--color-primary)" }}>
-              <p className="text-[9px] font-semibold tracking-wide" style={{ color: "#000", opacity: 0.7 }}>
-                Tržby
-              </p>
-              <p className="mt-0.5 text-base font-bold" style={{ color: "#000" }}>
-                {revenue} €
-              </p>
-            </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/"
+              className="rounded-full px-4 py-2 text-sm font-semibold transition hover:opacity-80"
+              style={{
+                background: "var(--color-background)",
+                color: "var(--color-foreground)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              Späť na web
+            </Link>
+            {/* Only the password login has an admin cookie to clear. An
+                allowlisted account signs out from its own profile. */}
+            {session.via === "password" && <LogoutButton />}
           </div>
         </div>
-      </section>
 
-      <section className="pb-20 pt-2">
-        <div className="mx-auto max-w-4xl px-5">
-          {orders.length === 0 ? (
-            <p className="text-[13px]" style={{ color: "var(--color-muted)" }}>
+        {/* Stat tiles — counts per status + total revenue; click to filter */}
+        <div className="mb-10 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+          {tiles.map((t) => {
+            const active = t.key === activeFilter;
+            return (
+              <Link
+                key={t.key}
+                href={t.key === "all" ? "/admin" : `/admin?status=${t.key}`}
+                className={`rounded-3xl border p-5 transition ${
+                  active
+                    ? "border-[#FFAE00] bg-[#FFAE00]/10 shadow-md ring-2 ring-[#FFAE00]/30"
+                    : "hover:-translate-y-0.5 hover:shadow-md"
+                }`}
+                style={
+                  active
+                    ? undefined
+                    : { background: "var(--color-background)", borderColor: "var(--color-border)" }
+                }
+              >
+                <p className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
+                  {t.label}
+                </p>
+                <p className="mt-1 text-3xl font-extrabold" style={{ color: "var(--color-foreground)" }}>
+                  {t.count}
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>
+                  {active ? "● Aktívny filter" : TILE_HINT[t.key]}
+                </p>
+              </Link>
+            );
+          })}
+
+          {/* Revenue is not a filter, so it is a plain tile in the accent fill */}
+          <div className="rounded-3xl border border-[#FFAE00] bg-[#FFAE00] p-5 shadow-sm">
+            <p className="text-sm font-semibold text-black/70">Tržby</p>
+            <p className="mt-1 text-3xl font-extrabold text-black">{formatEur(revenue)}</p>
+            <p className="mt-1 text-xs text-black/70">Bez zrušených objednávok</p>
+          </div>
+        </div>
+
+        {/* Orders */}
+        {orders.length === 0 ? (
+          <div
+            className="rounded-3xl border p-10 text-center"
+            style={{ background: "var(--color-background)", borderColor: "var(--color-border)" }}
+          >
+            <p className="font-semibold" style={{ color: "var(--color-foreground)" }}>
               {activeFilter === "all" ? "Zatiaľ žiadne objednávky." : "V tomto stave nie sú žiadne objednávky."}
             </p>
-          ) : (
-            <div className="space-y-2">
-              {orders.map((o) => {
-                const font     = fontOptions.find((f) => f.id === o.config.font);
-                const material = MATERIALS.find((m) => m.id === o.config.material);
-                const lighting = o.config.signType === "illuminated"
-                  ? LIGHT_MODES.find((l) => l.id === o.config.lightMode)
-                  : null;
+            <p className="mt-2 text-sm" style={{ color: "var(--color-muted)" }}>
+              Nové objednávky z konfigurátora sa zobrazia tu.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {orders.map((o) => {
+              const font     = fontOptions.find((f) => f.id === o.config.font);
+              const material = MATERIALS.find((m) => m.id === o.config.material);
+              const lighting = o.config.signType === "illuminated"
+                ? LIGHT_MODES.find((l) => l.id === o.config.lightMode)
+                : null;
 
-                return (
-                  <article
-                    key={o.id}
-                    className="flex flex-col gap-3 rounded-xl p-4 text-[13px] sm:flex-row sm:items-start sm:justify-between"
-                    style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-                  >
-                    {/* Left — order + customer */}
-                    <div className="min-w-0 sm:w-52 sm:shrink-0">
-                      <p className="text-[9px] font-semibold tracking-wide" style={{ color: "var(--color-muted)" }}>
-                        Objednávka #{o.id}
+              return (
+                <article
+                  key={o.id}
+                  className="rounded-3xl border p-6 shadow-sm transition hover:shadow-md"
+                  style={{ background: "var(--color-background)", borderColor: "var(--color-border)" }}
+                >
+                  <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr_1fr_auto]">
+
+                    {/* Identity — order number, the sign itself, its colour */}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold tracking-wide" style={{ color: "var(--color-accent-text)" }}>
+                        {orderNumber(o.id)}
+                        <span className="ml-2 font-medium" style={{ color: "var(--color-muted)" }}>
+                          #{o.id}
+                        </span>
                       </p>
-                      <p className="mt-0.5 truncate font-semibold" style={{ color: "var(--color-foreground)" }}>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span
+                          className="h-4 w-4 shrink-0 rounded-full"
+                          style={{ background: o.config.bodyColor, border: "1px solid var(--color-border)" }}
+                          aria-hidden="true"
+                        />
+                        <p className="truncate text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
+                          {o.config.text}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm" style={{ color: "var(--color-muted)" }}>
+                        {o.config.signType === "plain" ? "Nesvetelné písmo" : (lighting?.name ?? "Svetelné písmo")}
+                      </p>
+                    </div>
+
+                    {/* Configuration */}
+                    <div className="min-w-0 text-sm">
+                      <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
+                        Konfigurácia
+                      </p>
+                      <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
+                        <SpecLine label="Font" value={font?.name ?? o.config.font} />
+                        <SpecLine label="Materiál" value={material?.displayName ?? o.config.material} />
+                        <SpecLine label="Výška" value={`${o.config.height} cm`} />
+                        <SpecLine label="Hrúbka" value={`${o.config.thickness} mm`} />
+                      </dl>
+                    </div>
+
+                    {/* Customer + date */}
+                    <div className="min-w-0 text-sm">
+                      <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
+                        Zákazník
+                      </p>
+                      <p className="truncate font-semibold" style={{ color: "var(--color-foreground)" }}>
                         {o.customerName}
                       </p>
                       <a
                         href={`mailto:${o.customerEmail}`}
-                        className="truncate text-[11px] underline"
+                        className="block truncate underline underline-offset-2"
                         style={{ color: "var(--color-muted)" }}
                       >
                         {o.customerEmail}
                       </a>
-                      <p className="mt-1 text-[10px]" style={{ color: "var(--color-muted)" }}>
-                        {new Date(o.createdAt).toLocaleDateString("sk-SK")}
+                      <p className="mt-3 text-2xl font-extrabold" style={{ color: "var(--color-foreground)" }}>
+                        {formatEur(o.price)}
                       </p>
-                    </div>
-
-                    {/* Middle — sign spec */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-3 w-3 shrink-0 rounded-full"
-                          style={{ background: o.config.bodyColor, border: "1px solid var(--color-border)" }}
-                          aria-hidden="true"
-                        />
-                        <p className="truncate font-semibold" style={{ color: "var(--color-foreground)" }}>
-                          {o.config.text}
-                        </p>
+                      <p className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>
+                        {new Date(o.createdAt).toLocaleDateString("sk-SK", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </p>
+                      <div className="mt-3">
+                        <StatusBadge status={o.status} />
                       </div>
-                      <p className="mt-1 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
-                        {font?.name ?? o.config.font} · {material?.displayName ?? o.config.material} ·{" "}
-                        {o.config.signType === "plain" ? "Nesvetelné" : (lighting?.name ?? "Svetelné")} ·{" "}
-                        {o.config.height} cm / {o.config.thickness} mm
-                      </p>
                     </div>
 
-                    {/* Right — price + status */}
-                    <div className="flex shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
-                      <p className="text-base font-bold" style={{ color: "var(--color-foreground)" }}>
-                        {o.price} €
-                      </p>
-                      <StatusSelect orderId={o.id} status={o.status} />
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
+                    {/* Actions */}
+                    <AdminOrderActions orderId={o.id} status={o.status} />
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+      </div>
     </main>
+  );
+}
+
+function SpecLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt style={{ color: "var(--color-muted)" }}>{label}</dt>
+      <dd className="truncate font-semibold">{value}</dd>
+    </div>
   );
 }
