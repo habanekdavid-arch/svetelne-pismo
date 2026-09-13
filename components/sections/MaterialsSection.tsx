@@ -69,13 +69,13 @@ export default function MaterialsSection() {
             <EyebrowPill>Materiály</EyebrowPill>
           </div>
           <h2
-            className="main-heading text-3xl md:text-5xl"
+            className="section-heading text-4xl sm:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
             Z čoho môže byť vaše písmo
           </h2>
           <p
-            className="mx-auto mt-4 max-w-md text-sm leading-6"
+            className="mx-auto mt-4 max-w-md leading-7"
             style={{ color: "var(--color-muted)" }}
           >
             4 materiály, 4 použitia — vyberte podľa toho, kde bude nápis visieť.
@@ -84,22 +84,15 @@ export default function MaterialsSection() {
 
         {/* Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* .field-card is the shared vytlacto3d parameter-card behaviour —
+              lift plus an amber edge on hover. It replaces the inset 2px accent
+              ring this section drew, which is not an idiom the sister site
+              uses anywhere. */}
           {MATERIALS.map((mat) => (
             <article
               key={mat.name}
-              className="group relative flex flex-col rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl"
-              style={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-              }}
+              className="field-card group relative flex flex-col rounded-field p-6"
             >
-              {/* Accent border overlay on hover */}
-              <div
-                className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                style={{ boxShadow: "inset 0 0 0 2px var(--accent)" }}
-                aria-hidden="true"
-              />
-
               {/* Icon — subtly yellow-tinted at rest, full accent on hover */}
               <div
                 className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl transition-colors duration-300 group-hover:bg-(--accent)"
@@ -113,39 +106,43 @@ export default function MaterialsSection() {
                 </span>
               </div>
 
-              {/* Tagline */}
+              {/* Tagline — --color-accent-text, not --color-primary: globals.css
+                  warns that #FFAE00 is ~1.9:1 on white, under WCAG AA, and is
+                  for backgrounds and rings rather than text. */}
               <p
-                className="mb-1 text-[10px] font-black uppercase tracking-[0.2em]"
-                style={{ color: "var(--color-primary)" }}
+                className="mb-1 text-xs font-bold"
+                style={{ color: "var(--color-accent-text)" }}
               >
                 {mat.tagline}
               </p>
 
-              {/* Name */}
+              {/* Name — extrabold sentence case, the sister site's card title */}
               <h3
-                className="text-lg font-black uppercase tracking-tight"
+                className="text-lg font-extrabold tracking-tight"
                 style={{ color: "var(--color-foreground)" }}
               >
                 {mat.name}
               </h3>
 
-              {/* Description */}
+              {/* Description — leading-7 matches vytlacto3d's body rhythm */}
               <p
-                className="mt-3 flex-1 text-sm leading-6"
+                className="mt-3 flex-1 text-sm leading-7"
                 style={{ color: "var(--color-muted)" }}
               >
                 {mat.description}
               </p>
 
-              {/* Feature pills */}
+              {/* Feature chips — the bordered pill vytlacto3d uses under its
+                  sliders, instead of filled all-caps micro-labels. */}
               <div className="mt-6 flex flex-wrap gap-1.5">
                 {mat.features.map((f) => (
                   <span
                     key={f}
-                    className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase transition-colors duration-300 group-hover:bg-(--accent) group-hover:text-black"
+                    className="chip rounded-full px-3 py-1.5 text-xs font-bold"
                     style={{
-                      background: "var(--color-background)",
+                      background: "var(--color-surface)",
                       color: "var(--color-muted)",
+                      border: "1px solid var(--color-border)",
                     }}
                   >
                     {f}

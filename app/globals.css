@@ -112,6 +112,17 @@ body {
   line-height: 1.05;
 }
 
+/* Section heading in vytlacto3d's voice: large, extrabold, tight tracking and
+   sentence case. `.main-heading` above is the uppercase-black brand treatment
+   and stays for the hero — the sister site never sets section headings that
+   way, so everything below the hero uses this instead. */
+.section-heading {
+  font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
 /* ─── Accessibility ──────────────────────────────────────────────────────── */
 ::selection {
   background: var(--color-primary);

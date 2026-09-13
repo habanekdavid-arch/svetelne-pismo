@@ -45,7 +45,7 @@ export default function ShowcaseSection() {
             <EyebrowPill>Realizácie</EyebrowPill>
           </div>
           <h2
-            className="main-heading text-3xl md:text-5xl"
+            className="section-heading text-4xl sm:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
             Pozri si, ako tvoj text
@@ -53,7 +53,7 @@ export default function ShowcaseSection() {
             vyzerá v praxi
           </h2>
           <p
-            className="mx-auto mt-4 max-w-lg text-sm leading-6"
+            className="mx-auto mt-4 max-w-lg leading-7"
             style={{ color: "var(--color-muted)" }}
           >
             {isFallback
@@ -95,8 +95,8 @@ function MainCard({ realization: r }: { realization: Realization }) {
       href={r.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group relative block overflow-hidden rounded-2xl"
-      style={{ background: "var(--color-surface)" }}
+      className="group relative block overflow-hidden rounded-panel shadow-v3d-panel transition duration-300 hover:-translate-y-1"
+      style={{ background: "var(--color-background)" }}
       aria-label={`Otvoriť realizáciu: ${r.title}`}
     >
       {/* Image */}
@@ -135,7 +135,7 @@ function MainCard({ realization: r }: { realization: Realization }) {
             {r.client}
           </p>
           <h3
-            className="main-heading mt-1 text-xl md:text-2xl"
+            className="mt-1 text-2xl font-extrabold tracking-tight"
             style={{ color: "var(--color-foreground)" }}
           >
             {r.title}
@@ -164,8 +164,7 @@ function AltCard({ realization: r }: { realization: Realization }) {
       href={r.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex gap-4 overflow-hidden rounded-xl p-3 transition-colors"
-      style={{ background: "var(--color-surface)" }}
+      className="field-card group flex gap-4 overflow-hidden rounded-field p-3"
       aria-label={`Otvoriť realizáciu: ${r.title}`}
     >
       {/* Thumbnail */}

@@ -56,13 +56,13 @@ export default function HowItWorks() {
         {/* Heading */}
         <div className="mx-auto mb-16 max-w-2xl text-center">
           <h2
-            className="reveal main-heading text-[50px]"
+            className="reveal section-heading text-4xl sm:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
             Ako to funguje
           </h2>
           <p
-            className="reveal delay-1 mx-auto mt-5 max-w-xl text-[20px] leading-relaxed"
+            className="reveal delay-1 mx-auto mt-4 max-w-xl leading-7"
             style={{ color: "var(--color-muted)" }}
           >
             Od nápadu k hotovému nápisu v štyroch jednoduchých krokoch.
