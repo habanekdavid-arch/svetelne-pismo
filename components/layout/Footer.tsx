@@ -24,7 +24,7 @@ export default function Footer() {
           <Link
             href="/"
             className="mb-3 inline-block text-sm font-black tracking-tight"
-            style={{ fontFamily: "var(--font-anton), sans-serif" }}
+            style={{ fontFamily: "var(--font-century-gothic), Arial, sans-serif" }}
           >
             rozsvieť<span style={{ color: "var(--color-primary)" }}>TO</span>
           </Link>

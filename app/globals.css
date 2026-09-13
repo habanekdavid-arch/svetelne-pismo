@@ -45,6 +45,9 @@
   --color-foreground:    #111111;
   --color-muted:         #737373;
   --color-muted-light:   #a3a3a3;
+  /* neutral-700 — vytlacto3d's body/eyebrow text colour, one step softer
+     than --color-foreground. */
+  --color-foreground-soft: #404040;
 
   /* Surfaces */
   --color-surface:       #f9f9f9;
@@ -73,6 +76,7 @@ html.dark {
   --color-foreground:    #ededed;
   --color-muted:         #888888;
   --color-muted-light:   #666666;
+  --color-foreground-soft: #d4d4d4;
   --color-surface:       #141414;
   --color-surface-raised:#1e1e1e;
   --color-border:        #282828;
@@ -93,11 +97,11 @@ html {
 body {
   background: var(--color-background);
   color: var(--color-foreground);
-  /* Century Gothic first, matching vytlacto3d, where it is THE body face.
-     Inter used to lead here, which was the single biggest reason the two
-     sites read as different typefaces despite sharing a palette. Inter stays
-     in the stack as the fallback for glyphs Century Gothic lacks. */
-  font-family: var(--font-century-gothic), var(--font-inter), Arial, Helvetica, sans-serif;
+  /* Exactly vytlacto3d's stack: Century Gothic, then the same plain system
+     fallbacks it uses. Inter used to lead here and was then kept as a
+     fallback — but the sister site loads no second family at all, so it is
+     gone entirely and the whole site is now one typeface. */
+  font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
   transition: background-color 0.4s ease, color 0.3s ease;
   /* vytlacto3d sets `antialiased` on <body>; same rendering, done in CSS. */
   -webkit-font-smoothing: antialiased;
@@ -115,10 +119,9 @@ body {
   line-height: 1.05;
 }
 
-/* Section heading in vytlacto3d's voice: large, extrabold, tight tracking and
-   sentence case. `.main-heading` above is the uppercase-black brand treatment
-   and stays for the hero — the sister site never sets section headings that
-   way, so everything below the hero uses this instead. */
+/* Section heading in vytlacto3d's voice: large, extrabold, tight tracking.
+   `.main-heading` above is the heavier (900) hero treatment; this is the 800
+   the sister site sets every section heading at. */
 .section-heading {
   font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
   font-weight: 800;

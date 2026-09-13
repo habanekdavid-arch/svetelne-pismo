@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Anton, Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -33,18 +32,7 @@ const centuryGothic = localFont({
   variable: "--font-century-gothic",
 });
 
-const anton = Anton({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-anton",
-  display: "swap",
-});
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "rozsvieťTO | Konfigurátor svetelného písma",
@@ -62,7 +50,7 @@ export default function RootLayout({
           the content area flexing, so short pages push the footer to the
           bottom of the viewport instead of leaving it mid-screen. */}
       <body
-        className={`${centuryGothic.variable} ${anton.variable} ${inter.variable} flex min-h-screen flex-col antialiased`}
+        className={`${centuryGothic.variable} flex min-h-screen flex-col antialiased`}
       >
         <Header />
         {/* A plain div, not <main>: every page already renders its own <main>,
