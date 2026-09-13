@@ -1,4 +1,4 @@
-import type { MaterialOption, LightModeDef } from "@/lib/types";
+import type { MaterialOption, LightModeDef, SignType } from "@/lib/types";
 
 // ── Font options ──────────────────────────────────────────────────────────────
 // Every font is a real TTF (see /public/fonts, fetched by scripts/fetch-fonts.mjs)
@@ -31,11 +31,24 @@ export const fontOptions: FontOption[] = [
   { id: "baloo-2",          name: "Baloo 2",          category: "rounded", file: "/fonts/baloo-2.ttf",          multiplier: 1.06 },
 ];
 
-// ── Thickness range (mm) ────────────────────────────────────────────────────
-// One shared range for every material — thickness no longer depends on the
-// chosen material, and switching material never touches it.
+// ── Size limits ─────────────────────────────────────────────────────────────
+// What the workshop actually makes, so the configurator cannot quote a sign
+// nobody would build.
+//
+// Thickness is capped by whether the sign is lit, not by the material: a cut
+// letter is a sheet a few millimetres thick, while a lit letter is a box that
+// has to hold the LEDs and the space for the light to spread behind the face.
+export const MIN_HEIGHT_CM = 10;
+export const MAX_HEIGHT_CM = 55;
+
 export const MIN_DEPTH_MM = 4;
-export const MAX_DEPTH_MM = 200;
+export const MAX_DEPTH_MM_PLAIN       = 10;
+export const MAX_DEPTH_MM_ILLUMINATED = 50;
+
+/** Thickness cap for a sign of this type. */
+export function maxDepthMm(signType: SignType): number {
+  return signType === "illuminated" ? MAX_DEPTH_MM_ILLUMINATED : MAX_DEPTH_MM_PLAIN;
+}
 
 // ── Materials ─────────────────────────────────────────────────────────────────
 // Catalog is named by customer-facing benefit (displayName/subtitle/useTag) —
@@ -43,11 +56,38 @@ export const MAX_DEPTH_MM = 200;
 // supportsIlluminated = can have internal LED illumination
 // lightModes = which LED modes make physical sense for this material
 
+// The one list of materials on the site. The Materiály section on the home
+// page and the configurator both render from it, in this order, so the
+// names a customer reads in the section are exactly the options they then
+// find in the configurator — they used to be two hand-kept lists in two
+// files, in two different orders.
 export const MATERIALS: MaterialOption[] = [
+  {
+    id: "kompozit",
+    displayName: "Odolné exteriérové",
+    tagline: "Prémiový exteriér",
+    subtitle: "Hliníkový kompozit odolný voči počasiu — pevný aj v náročných podmienkach.",
+    bullets: ["Hliníkový kompozit", "Odolný dažďu aj mrazu", "Fasády a vonkajšie pútače"],
+    useTag: "exteriér",
+    priceMultiplier: 1.15,
+    supportsIlluminated: true,
+    supportsPlain: true,
+    lightModes: ["front", "halo", "full"],
+    pbr: {
+      roughness: 0.08,
+      metalness: 1.0,
+      anisotropy: 1.0,
+      clearcoat: 0.25,
+      clearcoatRoughness: 0.1,
+      sideRoughnessMul: 2.0,
+    },
+  },
   {
     id: "plexi",
     displayName: "Luxusné",
-    subtitle: "Priehľadný akryl s prémiovým leskom a hĺbkou presvitu",
+    tagline: "Čistý svetelný efekt",
+    subtitle: "Priehľadný akryl s prémiovým leskom a hĺbkou presvitu.",
+    bullets: ["Priehľadné plexisklo", "Prémiový lesk a presvit", "Interiér aj exteriér"],
     useTag: "oboje",
     priceMultiplier: 1.25,
     supportsIlluminated: true,
@@ -70,7 +110,9 @@ export const MATERIALS: MaterialOption[] = [
   {
     id: "3dtlac",
     displayName: "Interiérové",
-    subtitle: "3D tlačený plast s jemným presvitom, ideálny dovnútra",
+    tagline: "Tvarová voľnosť",
+    subtitle: "3D tlačený plast s jemným presvitom — ideálny pre detailné tvary.",
+    bullets: ["3D tlačený plast", "Jemný, mäkký presvit", "Aj členité tvary a logá"],
     useTag: "interiér",
     priceMultiplier: 1.0,
     supportsIlluminated: true,
@@ -86,27 +128,11 @@ export const MATERIALS: MaterialOption[] = [
     },
   },
   {
-    id: "kompozit",
-    displayName: "Odolné exteriérové",
-    subtitle: "Hliníkový kompozit odolný voči počasiu, pre vonkajšie inštalácie",
-    useTag: "exteriér",
-    priceMultiplier: 1.15,
-    supportsIlluminated: true,
-    supportsPlain: true,
-    lightModes: ["front", "halo", "full"],
-    pbr: {
-      roughness: 0.08,
-      metalness: 1.0,
-      anisotropy: 1.0,
-      clearcoat: 0.25,
-      clearcoatRoughness: 0.1,
-      sideRoughnessMul: 2.0,
-    },
-  },
-  {
     id: "pvc",
     displayName: "Cenovo dostupné",
-    subtitle: "Ľahká penová doska, najúspornejšia voľba pre interiér",
+    tagline: "Praktický interiér",
+    subtitle: "Ľahká penová doska — najúspornejšia voľba pre jednoduché nápisy.",
+    bullets: ["Ľahká penová doska", "Najnižšia cena z ponuky", "Bez podsvietenia, do interiéru"],
     useTag: "interiér",
     priceMultiplier: 0.9,
     supportsIlluminated: false,

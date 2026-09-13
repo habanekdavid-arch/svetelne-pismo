@@ -44,6 +44,19 @@ export function subscribeConsent(callback: () => void): () => void {
   };
 }
 
+// "Nastavenia cookies" in the footer: forget the stored decision so the
+// banner comes back and the visitor can choose again. Deliberately not a
+// third stored state — undecided is exactly what a first visit looks like.
+export function clearConsent() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // nothing persisted to clear
+  }
+  window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: null }));
+}
+
 export function hasAnalyticsConsent(): boolean {
   return getConsent() === "accepted";
 }
