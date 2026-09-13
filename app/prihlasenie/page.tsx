@@ -46,7 +46,7 @@ export default function LoginPage() {
         className="w-full max-w-sm rounded-2xl p-8"
         style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
       >
-        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.35em]" style={{ color: "var(--color-muted)" }}>
+        <p className="mb-2 text-[10px] font-black tracking-[0.35em]" style={{ color: "var(--color-muted)" }}>
           Účet
         </p>
         <h1 className="main-heading mb-6 text-2xl" style={{ color: "var(--color-foreground)" }}>
@@ -54,7 +54,7 @@ export default function LoginPage() {
         </h1>
 
         <div className="mb-4">
-          <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--color-foreground)" }}>
+          <label className="mb-1.5 block text-[11px] font-black tracking-wide" style={{ color: "var(--color-foreground)" }}>
             E-mail
           </label>
           <input
@@ -69,7 +69,7 @@ export default function LoginPage() {
         </div>
 
         <div className="mb-6">
-          <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--color-foreground)" }}>
+          <label className="mb-1.5 block text-[11px] font-black tracking-wide" style={{ color: "var(--color-foreground)" }}>
             Heslo
           </label>
           <input
@@ -88,7 +88,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 disabled:opacity-60"
+          className="w-full rounded-full py-3.5 text-xs font-black transition hover:opacity-90 disabled:opacity-60"
           style={{ background: "var(--accent)", color: "#000" }}
         >
           {submitting ? "Prihlasujem…" : "Prihlásiť sa"}

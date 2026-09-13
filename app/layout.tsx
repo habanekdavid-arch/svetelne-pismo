@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Anton, Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ScrollReveal from "@/components/layout/ScrollReveal";
 import CookieConsent from "@/components/layout/CookieConsent";
+import { CartProvider } from "@/lib/cart-context";
+import CartSidebar from "@/components/cart/CartSidebar";
 
 const centuryGothic = localFont({
   src: [
@@ -33,18 +34,7 @@ const centuryGothic = localFont({
   variable: "--font-century-gothic",
 });
 
-const anton = Anton({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-anton",
-  display: "swap",
-});
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "rozsvieťTO | Konfigurátor svetelného písma",
@@ -58,12 +48,22 @@ export default function RootLayout({
 }) {
   return (
     <html lang="sk">
+      {/* Body chrome mirrors vytlacto3d's <body>: a min-height flex column with
+          the content area flexing, so short pages push the footer to the
+          bottom of the viewport instead of leaving it mid-screen. */}
       <body
-        className={`${centuryGothic.variable} ${anton.variable} ${inter.variable}`}
+        className={`${centuryGothic.variable} flex min-h-screen flex-col antialiased`}
       >
-        <Header />
-        {children}
-        <Footer />
+        {/* CartProvider wraps Header too — the header's cart badge and the
+            drawer both read the same state. */}
+        <CartProvider>
+          <Header />
+          {/* A plain div, not <main>: every page already renders its own
+              <main>, and nesting them is invalid HTML. */}
+          <div className="flex-1">{children}</div>
+          <Footer />
+          <CartSidebar />
+        </CartProvider>
         <ScrollReveal />
         <CookieConsent />
       </body>

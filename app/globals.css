@@ -45,6 +45,9 @@
   --color-foreground:    #111111;
   --color-muted:         #737373;
   --color-muted-light:   #a3a3a3;
+  /* neutral-700 — vytlacto3d's body/eyebrow text colour, one step softer
+     than --color-foreground. */
+  --color-foreground-soft: #404040;
 
   /* Surfaces */
   --color-surface:       #f9f9f9;
@@ -73,6 +76,7 @@ html.dark {
   --color-foreground:    #ededed;
   --color-muted:         #888888;
   --color-muted-light:   #666666;
+  --color-foreground-soft: #d4d4d4;
   --color-surface:       #141414;
   --color-surface-raised:#1e1e1e;
   --color-border:        #282828;
@@ -93,16 +97,41 @@ html {
 body {
   background: var(--color-background);
   color: var(--color-foreground);
-  font-family: var(--font-inter), var(--font-century-gothic), Arial, Helvetica, sans-serif;
+  /* Exactly vytlacto3d's stack: Century Gothic, then the same plain system
+     fallbacks it uses. Inter used to lead here and was then kept as a
+     fallback — but the sister site loads no second family at all, so it is
+     gone entirely and the whole site is now one typeface. */
+  font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
   transition: background-color 0.4s ease, color 0.3s ease;
+  /* vytlacto3d sets `antialiased` on <body>; same rendering, done in CSS. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ─── Typography ─────────────────────────────────────────────────────────── */
+/* Hero/brand heading. No text-transform: the site sets headings in sentence
+   case — a capital on the first letter and nothing else — so the weight and
+   size carry the emphasis instead of caps. */
+/* weight 800, not 900. The Century Gothic family here is loaded at 400/600/
+   800/900, so 900 resolved to the Black file — a visibly different cut from
+   the Bold that every other heading on the site got, which is why the hero
+   looked like it used another font. vytlacto3d sets its h1 to font-extrabold
+   (800), so this now matches both the sister site and the rest of the page. */
 .main-heading {
   font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
-  font-weight: 900;
-  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: -0.025em;
   line-height: 1.05;
+}
+
+/* Section heading in vytlacto3d's voice: large, extrabold, tight tracking.
+   Same cut as .main-heading above — the sister site has exactly one heading
+   treatment — differing only in line-height for the tighter hero setting. */
+.section-heading {
+  font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
 
 /* ─── Accessibility ──────────────────────────────────────────────────────── */
@@ -222,24 +251,86 @@ body {
   100% { background-position:  200% center; }
 }
 
-/* ─── Scroll reveal ──────────────────────────────────────────────────────── */
-.reveal {
+/* Imported verbatim from vytlacto3d's globals.css — its one entrance
+   animation, used on hero and section content. */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── Long-form article typography ───────────────────────────────────────────
+   Imported from vytlacto3d's globals.css (.article-content). Colours swapped
+   from its hardcoded zinc hexes to this site's tokens so the blog follows
+   dark mode like everything else; sizes, spacing and the generous
+   line-height: 2 are kept exactly as the sister site sets them. */
+.article-content h2 {
+  margin-top: 3.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+.article-content h3 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+.article-content p,
+.article-content li {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  font-size: 1.0625rem;
+  line-height: 2;
+  color: var(--color-muted);
+}
+.article-content ul {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+.article-content li {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.article-content strong {
+  color: var(--color-foreground);
+  font-weight: 700;
+}
+
+/* ─── Scroll reveal ────────────────────────────────────────────────────────
+   The hiding rules are scoped to [data-reveal="on"], an attribute only
+   ScrollReveal sets once it is mounted and actually able to reveal things.
+   Without JavaScript — a failed chunk, a crawler — the attribute never
+   appears and all this content renders plainly visible instead of blank. */
+[data-reveal="on"] .reveal {
   opacity: 0;
   transform: translateY(30px);
+}
+.reveal {
   transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.reveal.visible {
+[data-reveal="on"] .reveal.visible {
   opacity: 1;
   transform: translateY(0);
 }
-.reveal-scale {
+[data-reveal="on"] .reveal-scale {
   opacity: 0;
   transform: scale(0.92);
+}
+.reveal-scale {
   transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.reveal-scale.visible {
+[data-reveal="on"] .reveal-scale.visible {
   opacity: 1;
   transform: scale(1);
 }
@@ -288,6 +379,60 @@ html.dark .card-hover:hover {
 }
 html.dark .font-tile:hover {
   box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.6);
+}
+
+/* ─── Configurator shell + field cards ───────────────────────────────────────
+   Same visual language as the sister site vytlacto3d: one large rounded panel
+   holding the whole configurator, parameters as white cards that lift and pick
+   up an amber edge on hover. Colours come from the tokens above so both light
+   and dark mode stay correct. */
+.config-shell {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.07);
+}
+html.dark .config-shell {
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+}
+
+.field-card {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease,
+              border-color 0.3s ease;
+}
+.field-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 174, 0, 0.5);
+  box-shadow: 0 16px 38px -18px rgba(255, 174, 0, 0.5),
+              0 4px 12px rgba(0, 0, 0, 0.06);
+}
+html.dark .field-card:hover {
+  box-shadow: 0 16px 38px -18px rgba(255, 174, 0, 0.35),
+              0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* Quick-pick chip under a slider — the vytlacto3d SliderBox pattern. */
+.chip {
+  transition: transform 0.2s ease, background-color 0.2s ease,
+              border-color 0.2s ease, color 0.2s ease;
+}
+.chip:hover {
+  transform: translateY(-1px);
+}
+
+/* Price card — lifts toward the accent, mirroring vytlacto3d's price block. */
+.price-card {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+}
+.price-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 174, 0, 0.4);
+  box-shadow: 0 24px 60px rgba(255, 174, 0, 0.16);
 }
 
 /* ─── Icon pop ───────────────────────────────────────────────────────────── */

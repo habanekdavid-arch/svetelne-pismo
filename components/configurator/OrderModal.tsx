@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Check, Lock } from "lucide-react";
 import type { Config } from "@/lib/types";
+import { useCart, describeConfig, type CartItem } from "@/lib/cart-context";
 import { calculatePrice } from "@/lib/pricing";
 import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
@@ -10,12 +11,25 @@ import { notifySessionChange } from "@/lib/session-client";
 
 type SessionUser = { name: string; email: string };
 
+// Either a single configured sign (the configurator's own "Objednať" button)
+// or a whole cart (the cart drawer's checkout). Exactly one is passed.
 type Props = {
-  config: Config;
+  config?: Config;
+  cartItems?: CartItem[];
   onClose: () => void;
 };
 
-export default function OrderModal({ config, onClose }: Props) {
+export default function OrderModal({ config, cartItems, onClose }: Props) {
+  const { clear: clearCart } = useCart();
+
+  // Normalise both entry points to one list, so everything below — pricing,
+  // the summary, the request body, analytics — has a single shape to work with.
+  const configs: Config[] = cartItems?.length
+    ? cartItems.map((i) => i.config)
+    : config
+      ? [config]
+      : [];
+  const isCart = !!cartItems?.length;
   // undefined = still checking /api/auth/me, null = confirmed signed out,
   // SessionUser = signed in. Fetched here (not passed as a prop from a
   // server-rendered ancestor) so the pages that render this stay static —
@@ -46,11 +60,15 @@ export default function OrderModal({ config, onClose }: Props) {
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const trackedRef = useRef(false);
 
-  const price    = calculatePrice(config);
-  const font     = fontOptions.find((f) => f.id === config.font);
-  const material = MATERIALS.find((m) => m.id === config.material);
-  const lighting = config.signType === "illuminated"
-    ? LIGHT_MODES.find((l) => l.id === config.lightMode)
+  const price = configs.reduce((sum, c) => sum + calculatePrice(c), 0);
+
+  // Detail fields for the single-sign summary. With a cart the modal shows a
+  // per-item list instead, so these are only read when configs.length === 1.
+  const first    = configs[0];
+  const font     = first ? fontOptions.find((f) => f.id === first.font) : undefined;
+  const material = first ? MATERIALS.find((m) => m.id === first.material) : undefined;
+  const lighting = first && first.signType === "illuminated"
+    ? LIGHT_MODES.find((l) => l.id === first.lightMode)
     : null;
 
   function handleAuthenticated(u: SessionUser) {
@@ -82,25 +100,28 @@ export default function OrderModal({ config, onClose }: Props) {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config, name, email }),
+        body: JSON.stringify({ items: configs, name, email }),
       });
       if (!res.ok) throw new Error(`request failed: ${res.status}`);
 
       setSubmitted(true);
+      if (isCart) clearCart();
       if (!trackedRef.current) {
         trackedRef.current = true;
         trackPurchase({
           transactionId: generateClientOrderId(),
           value: price,
           currency: "EUR",
-          items: [
-            {
-              item_name: `Svetelný nápis — ${material?.displayName ?? config.material} (${font?.name ?? config.font})`,
-              item_id: `${config.material}-${config.font}-${config.signType}`,
-              price,
+          items: configs.map((c) => {
+            const mat = MATERIALS.find((m) => m.id === c.material);
+            const f   = fontOptions.find((x) => x.id === c.font);
+            return {
+              item_name: `Svetelný nápis — ${mat?.displayName ?? c.material} (${f?.name ?? c.font})`,
+              item_id: `${c.material}-${c.font}-${c.signType}`,
+              price: calculatePrice(c),
               quantity: 1,
-            },
-          ],
+            };
+          }),
         });
       }
     } catch {
@@ -153,7 +174,7 @@ export default function OrderModal({ config, onClose }: Props) {
             </p>
             <button
               onClick={onClose}
-              className="mt-7 rounded-full px-10 py-3 text-xs font-black uppercase transition hover:opacity-80"
+              className="mt-7 rounded-full px-10 py-3 text-xs font-black transition hover:opacity-80"
               style={{ background: "var(--color-foreground)", color: "var(--color-background)" }}
             >
               Zatvoriť
@@ -168,44 +189,73 @@ export default function OrderModal({ config, onClose }: Props) {
               Zhrnutie objednávky
             </h2>
 
-            {/* Summary table */}
+            {/* Summary — a per-sign list for a cart, the full spec table for
+                a single sign ordered straight from the configurator. */}
             <div
               className="mb-6 rounded-xl p-4"
               style={{ background: "var(--color-surface)" }}
             >
+              {configs.length > 1 ? (
+                <ul className="space-y-2">
+                  {configs.map((c, i) => {
+                    const mat = MATERIALS.find((m) => m.id === c.material);
+                    const f   = fontOptions.find((x) => x.id === c.font);
+                    return (
+                      <li
+                        key={i}
+                        className="flex items-start justify-between gap-3 rounded-lg px-3 py-2"
+                        style={{ background: "var(--color-background)" }}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
+                            {c.text || "Váš text"}
+                          </p>
+                          <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                            {[f?.name, mat?.displayName].filter(Boolean).join(" · ")} · {describeConfig(c)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-black" style={{ color: "var(--color-foreground)" }}>
+                          {calculatePrice(c)} €
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Text</dt>
-                <dd className="truncate font-semibold" style={{ color: "var(--color-foreground)" }}>{config.text || "VÁŠ TEXT"}</dd>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Text</dt>
+                <dd className="truncate font-semibold" style={{ color: "var(--color-foreground)" }}>{first?.text || "Váš text"}</dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Písmo</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Písmo</dt>
                 <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{font?.name ?? "—"}</dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Materiál</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Materiál</dt>
                 <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{material?.displayName ?? "—"}</dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Svietenie</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Svietenie</dt>
                 <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>
-                  {config.signType === "plain" ? "Nesvetelné" : (lighting?.name ?? "—")}
+                  {first?.signType === "plain" ? "Nesvetelné" : (lighting?.name ?? "—")}
                 </dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Hrúbka</dt>
-                <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{config.thickness} mm</dd>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Hrúbka</dt>
+                <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{first?.thickness} mm</dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Farba svetla</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Farba svetla</dt>
                 <dd className="flex items-center gap-2">
                   <span
                     className="inline-block h-4 w-4 rounded-full"
-                    style={{ background: config.lightColor, border: "1px solid var(--color-border)" }}
+                    style={{ background: first?.lightColor, border: "1px solid var(--color-border)" }}
                   />
                   <span className="font-semibold" style={{ color: "var(--color-foreground)" }}>vlastná</span>
                 </dd>
               </dl>
+              )}
 
               <div
                 className="mt-4 flex items-baseline justify-between border-t pt-4"
                 style={{ borderColor: "var(--color-border)" }}
               >
-                <span className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>
+                <span className="text-xs font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
                   Orientačná cena
                 </span>
                 <span className="text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
@@ -225,7 +275,7 @@ export default function OrderModal({ config, onClose }: Props) {
               <form onSubmit={handleSubmit} noValidate>
                 <div className="mb-4">
                   <label
-                    className="mb-1.5 block text-[11px] font-black uppercase tracking-wide"
+                    className="mb-1.5 block text-[11px] font-black tracking-wide"
                     style={{ color: "var(--color-foreground)" }}
                   >
                     Meno a priezvisko
@@ -254,7 +304,7 @@ export default function OrderModal({ config, onClose }: Props) {
 
                 <div className="mb-6">
                   <label
-                    className="mb-1.5 block text-[11px] font-black uppercase tracking-wide"
+                    className="mb-1.5 block text-[11px] font-black tracking-wide"
                     style={{ color: "var(--color-foreground)" }}
                   >
                     E-mail
@@ -288,7 +338,7 @@ export default function OrderModal({ config, onClose }: Props) {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+                  className="w-full rounded-full py-3.5 text-xs font-black transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
                   style={{ background: "var(--accent)", color: "#000" }}
                 >
                   {submitting ? "Odosielam…" : "Odoslať objednávku"}
@@ -362,7 +412,7 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (user: SessionUser) =>
             key={m}
             type="button"
             onClick={() => { setMode(m); setError(null); }}
-            className="flex-1 rounded-full py-2 text-[11px] font-black uppercase tracking-wide transition"
+            className="flex-1 rounded-full py-2 text-[11px] font-black tracking-wide transition"
             style={
               mode === m
                 ? { background: "var(--color-foreground)", color: "var(--color-background)" }
@@ -414,7 +464,7 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (user: SessionUser) =>
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 disabled:opacity-60"
+          className="w-full rounded-full py-3.5 text-xs font-black transition hover:opacity-90 disabled:opacity-60"
           style={{ background: "var(--accent)", color: "#000" }}
         >
           {submitting

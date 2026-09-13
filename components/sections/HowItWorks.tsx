@@ -56,13 +56,13 @@ export default function HowItWorks() {
         {/* Heading */}
         <div className="mx-auto mb-16 max-w-2xl text-center">
           <h2
-            className="reveal main-heading text-[50px]"
+            className="reveal section-heading text-4xl sm:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
             Ako to funguje
           </h2>
           <p
-            className="reveal delay-1 mx-auto mt-5 max-w-xl text-[20px] leading-relaxed"
+            className="reveal delay-1 mx-auto mt-4 max-w-xl leading-7"
             style={{ color: "var(--color-muted)" }}
           >
             Od nápadu k hotovému nápisu v štyroch jednoduchých krokoch.
@@ -74,25 +74,27 @@ export default function HowItWorks() {
           {steps.map((step) => (
             <li key={step.n} className={`reveal delay-${step.n} step-card flex flex-col items-center text-center`}>
 
-              {/* Yellow icon badge */}
+              {/* Round yellow badge carrying the step number in a black
+                  bubble — vytlacto3d's HowItWorks shape, replacing the squared
+                  badge plus separate "Krok N" eyebrow used here before. */}
               <div
-                className="icon-pop yellow-pulse mb-6 flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl"
+                className="icon-pop yellow-pulse relative mb-6 flex h-16 w-16 shrink-0 items-center justify-center rounded-full"
                 style={{ background: "var(--color-yellow)" }}
               >
-                {step.icon}
+                <span className="relative z-10">{step.icon}</span>
+
+                <span
+                  className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold"
+                  style={{ background: "#000", color: "#fff" }}
+                >
+                  {step.n}
+                </span>
               </div>
 
-              {/* Step number */}
-              <p
-                className="mb-2 text-[10px] font-black uppercase tracking-[0.3em]"
-                style={{ color: "var(--color-yellow)" }}
-              >
-                Krok {step.n}
-              </p>
-
-              {/* Title */}
+              {/* Title — the sister site sets these large and in sentence case,
+                  not small and . */}
               <h3
-                className="mb-3 text-[18px] font-black uppercase leading-tight"
+                className="mx-auto mb-4 max-w-xs text-2xl font-extrabold leading-snug"
                 style={{
                   fontFamily: "var(--font-century-gothic)",
                   color: "var(--color-foreground)",
@@ -101,9 +103,9 @@ export default function HowItWorks() {
                 {step.title}
               </h3>
 
-              {/* Description */}
+              {/* Description — leading-8 is vytlacto3d's body rhythm. */}
               <p
-                className="max-w-52 text-[13px] leading-5"
+                className="mx-auto max-w-xs text-sm leading-8"
                 style={{ color: "var(--color-muted)" }}
               >
                 {step.desc}

@@ -4,11 +4,15 @@ import EyebrowPill from "@/components/ui/EyebrowPill";
 // Deliberately NOT reading the session here (no getUserSession()/cookies())
 // — that would force this page to opt out of static rendering. OrderModal
 // fetches /api/auth/me itself, client-side, only once it's actually opened.
+//
+// The section clips with overflow-x-clip, not overflow-hidden: `hidden` turns
+// it into a scroll container, which silently disables the sticky preview
+// column inside ConfiguratorStage. `clip` clips the same way without that.
 export default function HeroConfigurator() {
   return (
     <section
       id="konfigurator"
-      className="relative overflow-hidden pb-24 pt-16"
+      className="relative overflow-x-clip pb-24 pt-16"
       style={{ background: "var(--color-background)" }}
     >
       <div className="mx-auto max-w-7xl px-5">

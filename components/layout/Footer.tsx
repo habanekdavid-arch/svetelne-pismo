@@ -9,19 +9,22 @@ const links = [
 
 export default function Footer() {
   return (
+    // vytlacto3d's Footer separates itself from the page with an upward soft
+    // shadow plus a top margin rather than a hairline border — the same trick
+    // as its Navbar: one diffuse edge instead of a drawn line.
     <footer
-      className="border-t"
-      style={{ borderColor: "var(--color-border)" }}
+      className="mt-20 shadow-v3d-footer"
+      style={{ background: "var(--color-background)" }}
     >
       {/* Main grid */}
-      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 md:grid-cols-3 md:gap-6">
+      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-14 md:grid-cols-3 md:gap-6">
 
         {/* Brand */}
         <div>
           <Link
             href="/"
             className="mb-3 inline-block text-sm font-black tracking-tight"
-            style={{ fontFamily: "var(--font-anton), sans-serif" }}
+            style={{ fontFamily: "var(--font-century-gothic), Arial, sans-serif" }}
           >
             rozsvieť<span style={{ color: "var(--color-primary)" }}>TO</span>
           </Link>
@@ -117,7 +120,7 @@ export default function Footer() {
                   )}
                   <a
                     href={link.href}
-                    className="text-[11px] font-black uppercase tracking-widest transition hover:opacity-70"
+                    className="text-[11px] font-black tracking-wide transition hover:opacity-70"
                     style={{ color: "var(--color-muted)" }}
                   >
                     {link.label}
@@ -135,7 +138,7 @@ export default function Footer() {
 function FooterLabel({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="mb-2.5 text-[11px] font-black uppercase tracking-widest"
+      className="mb-2.5 text-[11px] font-black tracking-wide"
       style={{ color: "var(--color-foreground)" }}
     >
       {children}

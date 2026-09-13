@@ -235,13 +235,22 @@ function useTexturedTriple(
     if (metalnessMap) configTex(metalnessMap, THREE.LinearSRGBColorSpace, repeat, maxAniso);
   }, [gl, map, roughnessMap, normalMap, metalnessMap, repeat]);
 
+  // texSet arrives as a fresh object literal on every render, so depending on
+  // it directly would rebuild (and dispose) all three GPU materials each frame.
+  // Re-wrap it from the individual textures instead: same contents, stable
+  // identity, and the dependency list now says what it actually depends on.
+  const stableTexSet = useMemo(
+    () => ({ map, roughnessMap, normalMap, metalnessMap }),
+    [map, roughnessMap, normalMap, metalnessMap],
+  );
+
   const triple = useMemo(() => {
     const t = buildMaterialTriple(matOpt, baseColor, glowColor, ls, isIlluminated);
-    applyTexToMat(t.sideMat, texSet);
-    applyTexToMat(t.backMat, texSet);
-    applyTexToMat(t.frontMat, texSet);
+    applyTexToMat(t.sideMat, stableTexSet);
+    applyTexToMat(t.backMat, stableTexSet);
+    applyTexToMat(t.frontMat, stableTexSet);
     return t;
-  }, [matOpt, baseColor, glowColor, ls, isIlluminated, map, roughnessMap, normalMap, metalnessMap]);
+  }, [matOpt, baseColor, glowColor, ls, isIlluminated, stableTexSet]);
 
   useEffect(() => () => disposeMaterialTriple(triple), [triple]);
 
@@ -483,7 +492,7 @@ function SceneContent({
   previewMode,
   onFailedGlyphs,
 }: LetterSceneProps) {
-  const safeText  = text?.trim() || "VÁŠ TEXT";
+  const safeText  = text?.trim() || "Váš text";
   const isNight   = previewMode === "night";
   const isIlluminated = signType === "illuminated";
 
@@ -491,10 +500,10 @@ function SceneContent({
     () => fontOptions.find((f) => f.id === font) ?? fontOptions[0],
     [font],
   );
-  // Script/cursive faces are designed for mixed case — forcing UPPERCASE on
-  // them breaks letter connections and looks wrong. Every other category
-  // matches the site's own bold-uppercase voice.
-  const displayText = fontOpt.category === "script" ? safeText : safeText.toUpperCase();
+  // The sign renders exactly what the customer typed, in their own casing.
+  // This used to force .toUpperCase() on every non-script face, so someone who
+  // typed "Kaviareň" was shown — and quoted for — "KAVIAREŇ".
+  const displayText = safeText;
 
   const glowColor = useMemo(() => new THREE.Color(safeColor(lightColor)), [lightColor]);
   const baseColor = useMemo(() => new THREE.Color(safeColor(letterColor)), [letterColor]);

@@ -19,7 +19,7 @@ export default function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={loading}
-      className="rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-wide transition hover:opacity-80 disabled:opacity-60"
+      className="rounded-full px-4 py-2 text-[10px] font-bold tracking-wide transition hover:opacity-80 disabled:opacity-60"
       style={{ color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
     >
       {loading ? "…" : "Odhlásiť sa"}

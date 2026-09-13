@@ -11,7 +11,7 @@ export default function StatusBadge({ status }: { status: OrderStatus }) {
   const c = STATUS_COLOR[status];
   return (
     <span
-      className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide"
+      className="inline-block rounded-full px-3 py-1 text-[10px] font-black tracking-wide"
       style={{
         background: c.bg,
         color: c.fg,

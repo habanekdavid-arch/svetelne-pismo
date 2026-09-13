@@ -28,7 +28,7 @@ function renderMarkdown(text: string) {
       elements.push(
         <h3
           key={key++}
-          className="mt-6 mb-2 text-[15px] font-black uppercase tracking-wide"
+          className="mt-6 mb-2 text-[15px] font-black tracking-wide"
           style={{ color: "var(--color-foreground)" }}
         >
           {line.slice(4)}
@@ -77,7 +77,7 @@ function renderMarkdown(text: string) {
                 {rows[0]?.map((cell, ci) => (
                   <th
                     key={ci}
-                    className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-widest"
+                    className="px-4 py-3 text-left text-[11px] font-black tracking-wide"
                     style={{ color: "var(--color-muted)" }}
                   >
                     {cell}
@@ -143,7 +143,7 @@ export default async function BlogPostPage({
         <div className="mx-auto max-w-2xl px-5">
           <Link
             href="/blog"
-            className="mb-8 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest transition-opacity hover:opacity-60"
+            className="mb-8 flex items-center gap-2 text-[11px] font-black tracking-wide transition-opacity hover:opacity-60"
             style={{ color: "var(--color-muted)" }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -154,7 +154,7 @@ export default async function BlogPostPage({
 
           {/* Category badge */}
           <span
-            className="inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest"
+            className="inline-block rounded-full px-3 py-1 text-[10px] font-black tracking-wide"
             style={{
               background: "var(--color-yellow-dim)",
               color: "var(--color-yellow)",
@@ -237,7 +237,7 @@ export default async function BlogPostPage({
           </p>
           <Link
             href="/#konfigurator"
-            className="mt-6 inline-block rounded-full px-10 py-3.5 text-sm font-black uppercase tracking-wide transition hover:opacity-85"
+            className="mt-6 inline-block rounded-full px-10 py-3.5 text-sm font-black tracking-wide transition hover:opacity-85"
             style={{ background: "var(--color-yellow)", color: "#000" }}
           >
             Otvoriť konfigurátor
@@ -277,7 +277,7 @@ export default async function BlogPostPage({
                     </span>
                     <div>
                       <p
-                        className="text-[12px] font-black uppercase leading-tight group-hover:opacity-70 transition-opacity"
+                        className="text-[12px] font-black leading-tight group-hover:opacity-70 transition-opacity"
                         style={{ color: "var(--color-foreground)" }}
                       >
                         {r.title}

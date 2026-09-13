@@ -47,7 +47,7 @@ export default function AdminLoginPage() {
         style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
       >
         <p
-          className="mb-2 text-[10px] font-black uppercase tracking-[0.35em]"
+          className="mb-2 text-[10px] font-black tracking-[0.35em]"
           style={{ color: "var(--color-muted)" }}
         >
           Administratíva
@@ -57,7 +57,7 @@ export default function AdminLoginPage() {
         </h1>
 
         <div className="mb-4">
-          <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--color-foreground)" }}>
+          <label className="mb-1.5 block text-[11px] font-black tracking-wide" style={{ color: "var(--color-foreground)" }}>
             E-mail
           </label>
           <input
@@ -72,7 +72,7 @@ export default function AdminLoginPage() {
         </div>
 
         <div className="mb-6">
-          <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--color-foreground)" }}>
+          <label className="mb-1.5 block text-[11px] font-black tracking-wide" style={{ color: "var(--color-foreground)" }}>
             Heslo
           </label>
           <input
@@ -91,7 +91,7 @@ export default function AdminLoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 disabled:opacity-60"
+          className="w-full rounded-full py-3.5 text-xs font-black transition hover:opacity-90 disabled:opacity-60"
           style={{ background: "var(--accent)", color: "#000" }}
         >
           {submitting ? "Prihlasujem…" : "Prihlásiť sa"}

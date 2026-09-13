@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useSharedConfig } from "@/lib/config-context";
 import { realizations } from "@/data/realizations";
@@ -24,8 +24,17 @@ export default function ShowcaseSection() {
   const effective = config ?? DEFAULT_CONFIG;
   const { best, alternatives, isFallback } = matchRealization(effective, realizations);
 
-  // Fade out → in whenever the matched realization changes
+  // Fade out → in when the matched realization CHANGES.
+  //
+  // This used to call setVisible(false) unconditionally in the effect body,
+  // which meant two things: the cards were hidden for 180 ms on every mount
+  // (a flash of blank space on first paint, and again after any navigation),
+  // and React flagged it as a cascading render. Tracking the previous id in a
+  // ref means the very first run is a no-op and only real changes animate.
+  const prevIdRef = useRef(best.id);
   useEffect(() => {
+    if (prevIdRef.current === best.id) return;
+    prevIdRef.current = best.id;
     setVisible(false);
     const t = setTimeout(() => setVisible(true), 180);
     return () => clearTimeout(t);
@@ -45,7 +54,7 @@ export default function ShowcaseSection() {
             <EyebrowPill>Realizácie</EyebrowPill>
           </div>
           <h2
-            className="main-heading text-3xl md:text-5xl"
+            className="section-heading text-4xl sm:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
             Pozri si, ako tvoj text
@@ -53,7 +62,7 @@ export default function ShowcaseSection() {
             vyzerá v praxi
           </h2>
           <p
-            className="mx-auto mt-4 max-w-lg text-sm leading-6"
+            className="mx-auto mt-4 max-w-lg leading-7"
             style={{ color: "var(--color-muted)" }}
           >
             {isFallback
@@ -95,8 +104,8 @@ function MainCard({ realization: r }: { realization: Realization }) {
       href={r.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group relative block overflow-hidden rounded-2xl"
-      style={{ background: "var(--color-surface)" }}
+      className="group relative block overflow-hidden rounded-panel shadow-v3d-panel transition duration-300 hover:-translate-y-1"
+      style={{ background: "var(--color-background)" }}
       aria-label={`Otvoriť realizáciu: ${r.title}`}
     >
       {/* Image */}
@@ -129,13 +138,13 @@ function MainCard({ realization: r }: { realization: Realization }) {
       <div className="flex items-end justify-between gap-4 p-6">
         <div>
           <p
-            className="text-[11px] font-black uppercase tracking-widest"
+            className="text-[11px] font-black tracking-wide"
             style={{ color: "var(--color-muted)" }}
           >
             {r.client}
           </p>
           <h3
-            className="main-heading mt-1 text-xl md:text-2xl"
+            className="mt-1 text-2xl font-extrabold tracking-tight"
             style={{ color: "var(--color-foreground)" }}
           >
             {r.title}
@@ -143,7 +152,7 @@ function MainCard({ realization: r }: { realization: Realization }) {
         </div>
 
         <span
-          className="shrink-0 rounded-full px-6 py-3 text-[11px] font-black uppercase tracking-widest transition-opacity group-hover:opacity-80"
+          className="shrink-0 rounded-full px-6 py-3 text-[11px] font-black tracking-wide transition-opacity group-hover:opacity-80"
           style={{
             background: "var(--color-foreground)",
             color: "var(--color-background)",
@@ -164,8 +173,7 @@ function AltCard({ realization: r }: { realization: Realization }) {
       href={r.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex gap-4 overflow-hidden rounded-xl p-3 transition-colors"
-      style={{ background: "var(--color-surface)" }}
+      className="field-card group flex gap-4 overflow-hidden rounded-field p-3"
       aria-label={`Otvoriť realizáciu: ${r.title}`}
     >
       {/* Thumbnail */}
@@ -183,7 +191,7 @@ function AltCard({ realization: r }: { realization: Realization }) {
       {/* Info */}
       <div className="flex min-w-0 flex-col justify-center">
         <p
-          className="text-[9px] font-black uppercase tracking-widest"
+          className="text-[9px] font-black tracking-wide"
           style={{ color: "var(--color-muted)" }}
         >
           {r.category} · {r.year}
@@ -216,7 +224,7 @@ function Badge({
 }) {
   return (
     <span
-      className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider"
+      className="rounded-full px-3 py-1 text-[10px] font-black tracking-wider"
       style={
         variant === "accent"
           ? { background: "var(--accent)", color: "#000" }

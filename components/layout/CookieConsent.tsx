@@ -44,7 +44,7 @@ export default function CookieConsent() {
           <button
             type="button"
             onClick={() => setConsent("rejected")}
-            className="rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-wide transition hover:opacity-80"
+            className="rounded-full px-5 py-2.5 text-[11px] font-black tracking-wide transition hover:opacity-80"
             style={{
               color: "var(--color-foreground)",
               border: "1px solid var(--color-border)",
@@ -55,7 +55,7 @@ export default function CookieConsent() {
           <button
             type="button"
             onClick={() => setConsent("accepted")}
-            className="rounded-full px-5 py-2.5 text-[11px] font-black uppercase tracking-wide transition hover:opacity-85"
+            className="rounded-full px-5 py-2.5 text-[11px] font-black tracking-wide transition hover:opacity-85"
             style={{ background: "var(--accent)", color: "#000" }}
           >
             Prijať všetko

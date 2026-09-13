@@ -1,5 +1,6 @@
 import Link from "next/link";
 import HeaderNav from "@/components/layout/HeaderNav";
+import CartButton from "@/components/cart/CartButton";
 
 const cgBlack: React.CSSProperties = {
   fontFamily: "var(--font-century-gothic)",
@@ -11,24 +12,27 @@ const cgBlack: React.CSSProperties = {
 // statically rendered. HeaderNav (client) fetches /api/auth/me itself.
 export default function Header() {
   return (
+    // Chrome taken from vytlacto3d's Navbar: translucent background with a
+    // backdrop blur and one very soft shadow, and no bottom border. The border
+    // drew a hard line across the page; the blur is what makes content read as
+    // sliding *under* the header the way it does on the sister site.
     <header
-      className="sticky top-0 z-50 transition-colors duration-400"
-      style={{
-        background: "var(--color-background)",
-        borderBottom: "1px solid var(--color-border)",
-        boxShadow: "0 4px 24px 0 rgba(0,0,0,0.06)",
-      }}
+      className="sticky top-0 z-50 shadow-v3d-nav backdrop-blur transition-colors duration-400"
+      style={{ background: "color-mix(in srgb, var(--color-background) 90%, transparent)" }}
     >
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5">
+      <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-6">
         <Link
           href="/"
           className="whitespace-nowrap text-[20px] transition-opacity hover:opacity-70"
           style={{ ...cgBlack, color: "var(--color-foreground)" }}
         >
-          ROZSVIEŤTO
+          rozsvieťTO
         </Link>
 
-        <HeaderNav />
+        <div className="flex items-center gap-3">
+          <CartButton />
+          <HeaderNav />
+        </div>
       </div>
     </header>
   );
