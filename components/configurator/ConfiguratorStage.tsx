@@ -99,11 +99,18 @@ export default function ConfiguratorStage() {
   const modeTileRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const fontTileRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const previewMode: "day" | "night" =
-    (config.signType === "illuminated" && NIGHT_MODES.includes(config.lightMode)) ||
-    manualMode === "night"
+  // The customer's own Deň/Noc choice always wins; the light mode only picks
+  // the DEFAULT for the modes that read best in the dark.
+  //
+  // This used to be an OR: halo and full forced night outright, so the Deň
+  // button did nothing at all in those modes and an illuminated sign could
+  // never be seen in daylight — exactly what a customer wants to judge before
+  // buying. Now the automatic choice is only a starting point.
+  const autoMode: "day" | "night" =
+    config.signType === "illuminated" && NIGHT_MODES.includes(config.lightMode)
       ? "night"
       : "day";
+  const previewMode: "day" | "night" = manualMode ?? autoMode;
 
   const isNight = previewMode === "night";
   const isIlluminated = config.signType === "illuminated";
@@ -255,11 +262,16 @@ export default function ConfiguratorStage() {
           </span>
         </div>
 
-        {/* ── Preview (left, sticky) + all settings (right) ──────────────── */}
-        <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        {/* ── Settings | preview | settings ───────────────────────────────
+            Three columns on desktop: the parameters are split either side of
+            the preview instead of all stacked in one tall column, so far less
+            scrolling is needed to reach any of them. On narrow screens the
+            grid collapses to one column and `order` puts the preview first,
+            ahead of both settings groups. */}
+        <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)_300px]">
 
-          {/* ── LEFT: 3D preview + price, sticky as one block ─────────────── */}
-          <div className="space-y-4 lg:sticky lg:top-24">
+          {/* ── CENTRE: 3D preview + price, sticky as one block ───────────── */}
+          <div className="order-first space-y-4 lg:order-2 lg:sticky lg:top-24">
           <div
             className="rounded-[26px] p-4"
             style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
@@ -384,8 +396,8 @@ export default function ConfiguratorStage() {
           </div>
           </div>
 
-          {/* ── RIGHT: every parameter, stacked beside the preview ───────── */}
-          <div className="space-y-3">
+          {/* ── LEFT: sign type, text, material, colours, lighting ───────── */}
+          <div className="order-2 space-y-3 lg:order-1">
 
             <FieldCard title="Typ nápisu" description="Svetelný s LED, alebo bez svietenia.">
               <div className="grid grid-cols-2 gap-2">
@@ -419,13 +431,6 @@ export default function ConfiguratorStage() {
               />
             </FieldCard>
 
-            <FieldCard title="Font" description="Písmo, ktorým sa nápis vyreže.">
-              <FontPicker
-                value={config.font}
-                onChange={(id) => patch({ font: id })}
-                tileRefs={fontTileRefs}
-              />
-            </FieldCard>
 
             <FieldCard title="Materiál" description="Ovplyvňuje vzhľad aj cenu.">
               <div className="grid grid-cols-2 gap-2">
@@ -464,29 +469,7 @@ export default function ConfiguratorStage() {
               </p>
             </FieldCard>
 
-            <FieldCard title="Výška" description="Výška písmen v centimetroch.">
-              <SliderBox
-                value={config.height}
-                min={15}
-                max={55}
-                suffix=" cm"
-                chips={HEIGHT_CHIPS}
-                onChange={(v) => patch({ height: v })}
-                ariaLabel="Výška písmen"
-              />
-            </FieldCard>
 
-            <FieldCard title="Hrúbka" description="Hrúbka ovplyvňuje reliéf aj cenu.">
-              <SliderBox
-                value={config.thickness}
-                min={MIN_DEPTH_MM}
-                max={MAX_DEPTH_MM}
-                suffix=" mm"
-                chips={THICKNESS_CHIPS}
-                onChange={(v) => patch({ thickness: v })}
-                ariaLabel="Hrúbka písma"
-              />
-            </FieldCard>
 
             {isIlluminated && (
               <FieldCard title="Svietenie" description="Odkiaľ vychádza svetlo.">
@@ -554,6 +537,41 @@ export default function ConfiguratorStage() {
               </FieldCard>
             )}
 
+          </div>
+
+          {/* ── RIGHT: typeface and dimensions ───────────────────────────── */}
+          <div className="order-3 space-y-3 lg:order-3">
+            <FieldCard title="Font" description="Písmo, ktorým sa nápis vyreže.">
+              <FontPicker
+                value={config.font}
+                onChange={(id) => patch({ font: id })}
+                tileRefs={fontTileRefs}
+              />
+            </FieldCard>
+
+            <FieldCard title="Výška" description="Výška písmen v centimetroch.">
+              <SliderBox
+                value={config.height}
+                min={15}
+                max={55}
+                suffix=" cm"
+                chips={HEIGHT_CHIPS}
+                onChange={(v) => patch({ height: v })}
+                ariaLabel="Výška písmen"
+              />
+            </FieldCard>
+
+            <FieldCard title="Hrúbka" description="Hrúbka ovplyvňuje reliéf aj cenu.">
+              <SliderBox
+                value={config.thickness}
+                min={MIN_DEPTH_MM}
+                max={MAX_DEPTH_MM}
+                suffix=" mm"
+                chips={THICKNESS_CHIPS}
+                onChange={(v) => patch({ thickness: v })}
+                ariaLabel="Hrúbka písma"
+              />
+            </FieldCard>
           </div>
         </div>
 
