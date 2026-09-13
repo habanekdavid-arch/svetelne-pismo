@@ -162,15 +162,17 @@ export const lightColors = [
 
 // ── Body/material colours ─────────────────────────────────────────────────────
 
+// Finishes a sign is actually made in. The first four are the standard
+// aluminium-profile colours — the ones a profile is stocked in, so they need
+// no special order — and the rest are common RAL powder coats. Novelty metal
+// finishes (gold, copper) were dropped: they are not stock profile colours,
+// and a flat swatch is a poor promise of what a metallic finish looks like.
 export const letterColorOptions = [
-  { id: "white",    label: "Biela",        value: "#f2f2f2" },
-  { id: "black",    label: "Čierna",       value: "#1a1a1a" },
-  { id: "silver",   label: "Strieborná",   value: "#b0b8c1" },
-  { id: "gold",     label: "Zlatá",        value: "#c9a227" },
-  { id: "copper",   label: "Medená",       value: "#b45a2a" },
-  { id: "red",      label: "Červená",      value: "#c41e3a" },
-  { id: "navy",     label: "Tmavomodrá",   value: "#1e3a8a" },
-  { id: "green",    label: "Tmavá zelená", value: "#166534" },
-  { id: "orange",   label: "Oranžová",     value: "#c75000" },
-  { id: "charcoal", label: "Antracit",     value: "#3a3a3a" },
+  { id: "white",    label: "Biela",        value: "#f2f2f2" }, // RAL 9016
+  { id: "black",    label: "Čierna",       value: "#1a1a1a" }, // RAL 9005
+  { id: "charcoal", label: "Antracit",     value: "#3a3a3a" }, // RAL 7016
+  { id: "silver",   label: "Strieborná",   value: "#b0b8c1" }, // prírodný elox
+  { id: "red",      label: "Červená",      value: "#c41e3a" }, // RAL 3020
+  { id: "navy",     label: "Tmavomodrá",   value: "#1e3a8a" }, // RAL 5010
+  { id: "green",    label: "Tmavá zelená", value: "#166534" }, // RAL 6005
 ];

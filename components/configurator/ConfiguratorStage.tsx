@@ -348,12 +348,33 @@ export default function ConfiguratorStage() {
           </div>
         </div>
 
-        {/* ── Settings — two groups under the preview ─────────────────── */}
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          {/* ── LEFT: sign type, text, material, colours, lighting ───────── */}
+        {/* ── Text — first, and across the whole configurator ───────────────
+            It is the one thing every customer changes, and the thing the
+            preview above is showing, so it leads the settings instead of
+            sitting third down a column. ── */}
+        <FieldCard title="Text" description="Napíšte, čo má na nápise svietiť.">
+          <input
+            value={config.text}
+            onChange={(e) => patch({ text: e.target.value })}
+            maxLength={30}
+            className="w-full rounded-2xl px-5 py-4 text-center text-lg font-extrabold outline-none transition-colors"
+            style={{ background: "var(--color-surface)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
+            placeholder="Napíšte váš text…"
+            aria-label="Text na nápis"
+          />
+        </FieldCard>
+
+        {/* ── The rest — four cards instead of eight ────────────────────────
+            Type, lighting direction and LED colour were three separate cards
+            for what is really one decision; so were material + colour, and
+            height + thickness. Grouping them took the configurator from nine
+            panels down to five without removing a single setting. ── */}
+        <div className="mt-3 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+
+          {/* ── LEFT: lighting, then material and colour ── */}
           <div className="space-y-3">
 
-            <FieldCard title="Typ nápisu" description="Svetelný s LED, alebo bez svietenia.">
+            <FieldCard title="Svietenie" description="Či nápis svieti, odkiaľ a akou farbou.">
               <div className="grid grid-cols-2 gap-2">
                 {(
                   [
@@ -371,22 +392,77 @@ export default function ConfiguratorStage() {
                   </Seg>
                 ))}
               </div>
+
+              {isIlluminated && (
+                availableLightModes.length === 0 ? (
+                  <p className="mt-3 text-[11px]" style={{ color: "var(--color-muted)" }}>
+                    Tento materiál nepodporuje svietenie.
+                  </p>
+                ) : (
+                  <>
+                    <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                      Odkiaľ vychádza svetlo
+                    </p>
+                    <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-2">
+                      {availableLightModes.map((opt, i) => {
+                        const active = config.lightMode === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            ref={(el) => { modeTileRefs.current[i] = el; }}
+                            role="radio"
+                            aria-checked={active}
+                            tabIndex={active ? 0 : -1}
+                            onClick={() => setLightMode(opt.id)}
+                            onKeyDown={(e) => handleModeKeyDown(e, i)}
+                            className="flex flex-col items-center gap-1.5 rounded-2xl px-1.5 py-3 text-center transition-all duration-200 hover:-translate-y-0.5"
+                            style={{
+                              background: "var(--color-surface)",
+                              border: active ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
+                              boxShadow: active ? `0 6px 18px -8px rgba(255,174,0,.7), inset 0 0 14px ${config.lightColor}2e` : "none",
+                              opacity: active ? 1 : 0.72,
+                            }}
+                          >
+                            <LightModeGlyphPreview direction={opt.direction} glowColor={config.lightColor} char={previewChar} />
+                            <span className="text-[10px] font-bold" style={{ color: "var(--color-foreground)" }}>
+                              {opt.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                      Farba svetla
+                    </p>
+                    <input
+                      type="range"
+                      min="0"
+                      max="359"
+                      value={lightHue}
+                      onChange={(e) => setLightColorFromSlider(Number(e.target.value))}
+                      className="range-hue mb-3.5 w-full"
+                      style={{
+                        background:
+                          "linear-gradient(90deg,hsl(0,92%,58%),hsl(40,92%,58%),hsl(60,92%,58%),hsl(120,92%,58%),hsl(180,92%,58%),hsl(240,92%,58%),hsl(300,92%,58%),hsl(359,92%,58%))",
+                      }}
+                      aria-label="Odtieň farby svetla"
+                    />
+                    <SwatchRow
+                      options={lightColors}
+                      selectedId={selectedSwatch}
+                      onSelect={(c) => {
+                        const hue = lightColors.find((l) => l.id === c.id)?.hue ?? 0;
+                        setLightColorFromSwatch(c.id, c.value, hue);
+                      }}
+                      splitWhite
+                    />
+                  </>
+                )
+              )}
             </FieldCard>
 
-            <FieldCard title="Text" description="Text, ktorý sa zobrazí na nápise.">
-              <input
-                value={config.text}
-                onChange={(e) => patch({ text: e.target.value })}
-                maxLength={30}
-                className="w-full rounded-2xl px-4 py-3 text-center text-sm font-bold outline-none transition-colors"
-                style={{ background: "var(--color-surface)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
-                placeholder="Napíšte váš text…"
-                aria-label="Text na nápis"
-              />
-            </FieldCard>
-
-
-            <FieldCard title="Materiál" description="Ovplyvňuje vzhľad aj cenu.">
+            <FieldCard title="Materiál a farba" description="Z čoho je nápis a akú má farbu.">
               <div className="grid grid-cols-2 gap-2">
                 {filteredMaterials.map((mat) => (
                   <Seg
@@ -404,97 +480,23 @@ export default function ConfiguratorStage() {
               >
                 {currentMat.subtitle}
               </p>
-            </FieldCard>
 
-            <FieldCard title={isIlluminated ? "Farba tela" : "Farba materiálu"} description="Farba samotného písmena.">
+              <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                {isIlluminated ? "Farba tela" : "Farba materiálu"}
+                <span className="ml-1.5 font-semibold" style={{ color: "var(--color-foreground)" }}>
+                  — {letterColorOptions.find((c) => c.id === selectedBodySwatch)?.label ?? ""}
+                </span>
+              </p>
               <SwatchRow
                 options={letterColorOptions}
                 selectedId={selectedBodySwatch}
                 onSelect={(c) => setBodyColor(c.id, c.value)}
               />
-              <p
-                className="mt-3 rounded-2xl px-3.5 py-2.5 text-[11px]"
-                style={{ background: "var(--color-surface)", color: "var(--color-muted)" }}
-              >
-                Vybraná farba:{" "}
-                <span className="font-bold" style={{ color: "var(--color-foreground)" }}>
-                  {letterColorOptions.find((c) => c.id === selectedBodySwatch)?.label ?? ""}
-                </span>
-              </p>
             </FieldCard>
-
-
-
-            {isIlluminated && (
-              <FieldCard title="Svietenie" description="Odkiaľ vychádza svetlo.">
-                {availableLightModes.length === 0 ? (
-                  <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
-                    Tento materiál nepodporuje svietenie.
-                  </p>
-                ) : (
-                  <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-2">
-                    {availableLightModes.map((opt, i) => {
-                      const active = config.lightMode === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          ref={(el) => { modeTileRefs.current[i] = el; }}
-                          role="radio"
-                          aria-checked={active}
-                          tabIndex={active ? 0 : -1}
-                          onClick={() => setLightMode(opt.id)}
-                          onKeyDown={(e) => handleModeKeyDown(e, i)}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl px-1.5 py-3 text-center transition-all duration-200 hover:-translate-y-0.5"
-                          style={{
-                            background: "var(--color-surface)",
-                            border: active ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
-                            boxShadow: active ? `0 6px 18px -8px rgba(255,174,0,.7), inset 0 0 14px ${config.lightColor}2e` : "none",
-                            opacity: active ? 1 : 0.72,
-                          }}
-                        >
-                          <LightModeGlyphPreview direction={opt.direction} glowColor={config.lightColor} char={previewChar} />
-                          <span className="text-[10px] font-bold" style={{ color: "var(--color-foreground)" }}>
-                            {opt.name}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </FieldCard>
-            )}
-
-            {isIlluminated && (
-              <FieldCard title="Farba svetla" description="Farba LED podsvietenia.">
-                <input
-                  type="range"
-                  min="0"
-                  max="359"
-                  value={lightHue}
-                  onChange={(e) => setLightColorFromSlider(Number(e.target.value))}
-                  className="range-hue mb-3.5 w-full"
-                  style={{
-                    background:
-                      "linear-gradient(90deg,hsl(0,92%,58%),hsl(40,92%,58%),hsl(60,92%,58%),hsl(120,92%,58%),hsl(180,92%,58%),hsl(240,92%,58%),hsl(300,92%,58%),hsl(359,92%,58%))",
-                  }}
-                  aria-label="Odtieň farby svetla"
-                />
-                <SwatchRow
-                  options={lightColors}
-                  selectedId={selectedSwatch}
-                  onSelect={(c) => {
-                    const hue = lightColors.find((l) => l.id === c.id)?.hue ?? 0;
-                    setLightColorFromSwatch(c.id, c.value, hue);
-                  }}
-                  splitWhite
-                />
-              </FieldCard>
-            )}
 
           </div>
 
-
-          {/* ── RIGHT: typeface and dimensions ───────────────────────────── */}
+          {/* ── RIGHT: typeface and dimensions ── */}
           <div className="space-y-3">
             <FieldCard title="Font" description="Písmo, ktorým sa nápis vyreže.">
               <FontPicker
@@ -504,7 +506,10 @@ export default function ConfiguratorStage() {
               />
             </FieldCard>
 
-            <FieldCard title="Výška" description="Výška písmen v centimetroch.">
+            <FieldCard title="Rozmery" description="Výška písmen a hrúbka materiálu.">
+              <p className="mb-2 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                Výška písmen
+              </p>
               <SliderBox
                 value={config.height}
                 min={15}
@@ -514,9 +519,10 @@ export default function ConfiguratorStage() {
                 onChange={(v) => patch({ height: v })}
                 ariaLabel="Výška písmen"
               />
-            </FieldCard>
 
-            <FieldCard title="Hrúbka" description="Hrúbka ovplyvňuje reliéf aj cenu.">
+              <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                Hrúbka
+              </p>
               <SliderBox
                 value={config.thickness}
                 min={MIN_DEPTH_MM}
