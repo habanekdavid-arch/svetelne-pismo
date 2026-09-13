@@ -483,7 +483,7 @@ function SceneContent({
   previewMode,
   onFailedGlyphs,
 }: LetterSceneProps) {
-  const safeText  = text?.trim() || "VÁŠ TEXT";
+  const safeText  = text?.trim() || "Váš text";
   const isNight   = previewMode === "night";
   const isIlluminated = signType === "illuminated";
 
@@ -491,10 +491,10 @@ function SceneContent({
     () => fontOptions.find((f) => f.id === font) ?? fontOptions[0],
     [font],
   );
-  // Script/cursive faces are designed for mixed case — forcing UPPERCASE on
-  // them breaks letter connections and looks wrong. Every other category
-  // matches the site's own bold-uppercase voice.
-  const displayText = fontOpt.category === "script" ? safeText : safeText.toUpperCase();
+  // The sign renders exactly what the customer typed, in their own casing.
+  // This used to force .toUpperCase() on every non-script face, so someone who
+  // typed "Kaviareň" was shown — and quoted for — "KAVIAREŇ".
+  const displayText = safeText;
 
   const glowColor = useMemo(() => new THREE.Color(safeColor(lightColor)), [lightColor]);
   const baseColor = useMemo(() => new THREE.Color(safeColor(letterColor)), [letterColor]);

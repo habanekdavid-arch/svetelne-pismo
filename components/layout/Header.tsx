@@ -25,7 +25,7 @@ export default function Header() {
           className="whitespace-nowrap text-[20px] transition-opacity hover:opacity-70"
           style={{ ...cgBlack, color: "var(--color-foreground)" }}
         >
-          ROZSVIEŤTO
+          rozsvieťTO
         </Link>
 
         <HeaderNav />

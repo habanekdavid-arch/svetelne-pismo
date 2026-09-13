@@ -120,7 +120,7 @@ export default function Footer() {
                   )}
                   <a
                     href={link.href}
-                    className="text-[11px] font-black uppercase tracking-widest transition hover:opacity-70"
+                    className="text-[11px] font-black tracking-wide transition hover:opacity-70"
                     style={{ color: "var(--color-muted)" }}
                   >
                     {link.label}
@@ -138,7 +138,7 @@ export default function Footer() {
 function FooterLabel({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="mb-2.5 text-[11px] font-black uppercase tracking-widest"
+      className="mb-2.5 text-[11px] font-black tracking-wide"
       style={{ color: "var(--color-foreground)" }}
     >
       {children}

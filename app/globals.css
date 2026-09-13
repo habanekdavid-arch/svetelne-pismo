@@ -105,10 +105,13 @@ body {
 }
 
 /* ─── Typography ─────────────────────────────────────────────────────────── */
+/* Hero/brand heading. No text-transform: the site sets headings in sentence
+   case — a capital on the first letter and nothing else — so the weight and
+   size carry the emphasis instead of caps. */
 .main-heading {
   font-family: var(--font-century-gothic), Arial, Helvetica, sans-serif;
   font-weight: 900;
-  text-transform: uppercase;
+  letter-spacing: -0.02em;
   line-height: 1.05;
 }
 

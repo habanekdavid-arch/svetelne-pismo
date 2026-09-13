@@ -54,7 +54,7 @@ export default async function AdminPage({
         <div className="mx-auto max-w-4xl px-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p
-              className="text-[9px] font-bold uppercase tracking-[0.3em]"
+              className="text-[9px] font-bold tracking-wide"
               style={{ color: "var(--color-muted)" }}
             >
               Administratíva
@@ -62,7 +62,7 @@ export default async function AdminPage({
             <div className="flex items-center gap-2">
               <Link
                 href="/"
-                className="rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-wide transition hover:opacity-80"
+                className="rounded-full px-4 py-2 text-[10px] font-bold tracking-wide transition hover:opacity-80"
                 style={{ color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
               >
                 Späť na web
@@ -90,7 +90,7 @@ export default async function AdminPage({
                   }}
                 >
                   <p
-                    className="text-[9px] font-semibold uppercase tracking-wide"
+                    className="text-[9px] font-semibold tracking-wide"
                     style={{ color: active ? "var(--color-background)" : "var(--color-muted)", opacity: active ? 0.7 : 1 }}
                   >
                     {t.label}
@@ -102,7 +102,7 @@ export default async function AdminPage({
               );
             })}
             <div className="rounded-xl p-3" style={{ background: "var(--color-primary)" }}>
-              <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "#000", opacity: 0.7 }}>
+              <p className="text-[9px] font-semibold tracking-wide" style={{ color: "#000", opacity: 0.7 }}>
                 Tržby
               </p>
               <p className="mt-0.5 text-base font-bold" style={{ color: "#000" }}>
@@ -136,7 +136,7 @@ export default async function AdminPage({
                   >
                     {/* Left — order + customer */}
                     <div className="min-w-0 sm:w-52 sm:shrink-0">
-                      <p className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>
+                      <p className="text-[9px] font-semibold tracking-wide" style={{ color: "var(--color-muted)" }}>
                         Objednávka #{o.id}
                       </p>
                       <p className="mt-0.5 truncate font-semibold" style={{ color: "var(--color-foreground)" }}>

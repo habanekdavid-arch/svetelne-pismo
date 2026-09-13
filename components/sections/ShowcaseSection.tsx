@@ -129,7 +129,7 @@ function MainCard({ realization: r }: { realization: Realization }) {
       <div className="flex items-end justify-between gap-4 p-6">
         <div>
           <p
-            className="text-[11px] font-black uppercase tracking-widest"
+            className="text-[11px] font-black tracking-wide"
             style={{ color: "var(--color-muted)" }}
           >
             {r.client}
@@ -143,7 +143,7 @@ function MainCard({ realization: r }: { realization: Realization }) {
         </div>
 
         <span
-          className="shrink-0 rounded-full px-6 py-3 text-[11px] font-black uppercase tracking-widest transition-opacity group-hover:opacity-80"
+          className="shrink-0 rounded-full px-6 py-3 text-[11px] font-black tracking-wide transition-opacity group-hover:opacity-80"
           style={{
             background: "var(--color-foreground)",
             color: "var(--color-background)",
@@ -182,7 +182,7 @@ function AltCard({ realization: r }: { realization: Realization }) {
       {/* Info */}
       <div className="flex min-w-0 flex-col justify-center">
         <p
-          className="text-[9px] font-black uppercase tracking-widest"
+          className="text-[9px] font-black tracking-wide"
           style={{ color: "var(--color-muted)" }}
         >
           {r.category} · {r.year}
@@ -215,7 +215,7 @@ function Badge({
 }) {
   return (
     <span
-      className="rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider"
+      className="rounded-full px-3 py-1 text-[10px] font-black tracking-wider"
       style={
         variant === "accent"
           ? { background: "var(--accent)", color: "#000" }

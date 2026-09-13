@@ -56,7 +56,7 @@ function AccordionItem({ q, a }: { q: string; a: string }) {
         aria-expanded={open}
       >
         <span
-          className="pr-4 text-[14px] font-black uppercase leading-snug"
+          className="pr-4 text-[14px] font-black leading-snug"
           style={{ color: "var(--color-foreground)" }}
         >
           {q}
@@ -97,7 +97,7 @@ export default function FaqPage() {
       <section className="pb-12 pt-20">
         <div className="mx-auto max-w-7xl px-5 text-center">
           <p
-            className="reveal mb-4 text-[10px] font-black uppercase tracking-[0.35em]"
+            className="reveal mb-4 text-[10px] font-black tracking-[0.35em]"
             style={{ color: "var(--color-muted)" }}
           >
             Časté otázky
@@ -131,7 +131,7 @@ export default function FaqPage() {
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className="flex items-center gap-2.5 rounded-full px-5 py-2.5 text-[12px] font-black uppercase tracking-wide transition-all"
+                  className="flex items-center gap-2.5 rounded-full px-5 py-2.5 text-[12px] font-black tracking-wide transition-all"
                   style={
                     active
                       ? {
@@ -212,14 +212,14 @@ export default function FaqPage() {
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <a
               href="mailto:info@4frommedia.sk"
-              className="inline-block rounded-full px-8 py-3 text-sm font-black uppercase tracking-wide transition hover:opacity-85"
+              className="inline-block rounded-full px-8 py-3 text-sm font-black tracking-wide transition hover:opacity-85"
               style={{ background: "var(--color-yellow)", color: "#000" }}
             >
               Napísať e-mail
             </a>
             <a
               href="tel:+421907907097"
-              className="inline-block rounded-full px-8 py-3 text-sm font-black uppercase tracking-wide transition"
+              className="inline-block rounded-full px-8 py-3 text-sm font-black tracking-wide transition"
               style={{
                 border: "1px solid var(--color-border)",
                 color: "var(--color-foreground)",

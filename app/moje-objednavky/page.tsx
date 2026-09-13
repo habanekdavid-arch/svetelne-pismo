@@ -23,7 +23,7 @@ export default async function MyOrdersPage() {
       <section className="pb-8 pt-20">
         <div className="mx-auto max-w-3xl px-5 text-center">
           <p
-            className="mb-4 text-[10px] font-black uppercase tracking-[0.35em]"
+            className="mb-4 text-[10px] font-black tracking-[0.35em]"
             style={{ color: "var(--color-muted)" }}
           >
             Účet
@@ -46,7 +46,7 @@ export default async function MyOrdersPage() {
               </p>
               <Link
                 href="/#konfigurator"
-                className="mt-5 inline-block rounded-full px-8 py-3 text-xs font-black uppercase tracking-wide transition hover:opacity-85"
+                className="mt-5 inline-block rounded-full px-8 py-3 text-xs font-black tracking-wide transition hover:opacity-85"
                 style={{ background: "var(--accent)", color: "#000" }}
               >
                 Vytvoriť nápis
@@ -70,7 +70,7 @@ export default async function MyOrdersPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-black" style={{ color: "var(--color-foreground)" }}>
-                          {o.config.text || "VÁŠ TEXT"}
+                          {o.config.text || "Váš text"}
                         </p>
                         <p className="mt-0.5 text-[12px]" style={{ color: "var(--color-muted)" }}>
                           {font?.name ?? o.config.font} · {material?.displayName ?? o.config.material} ·{" "}

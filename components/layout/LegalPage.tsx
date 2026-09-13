@@ -18,7 +18,7 @@ export function LegalPage({
       <section className="pb-8 pt-20">
         <div className="mx-auto max-w-3xl px-5 text-center">
           <p
-            className="mb-4 text-[10px] font-black uppercase tracking-[0.35em]"
+            className="mb-4 text-[10px] font-black tracking-[0.35em]"
             style={{ color: "var(--color-muted)" }}
           >
             {eyebrow}
@@ -52,7 +52,7 @@ export function LegalSection({
   return (
     <div>
       <h2
-        className="mb-2.5 text-[15px] font-black uppercase tracking-wide"
+        className="mb-2.5 text-[15px] font-black tracking-wide"
         style={{ color: "var(--color-foreground)" }}
       >
         {title}

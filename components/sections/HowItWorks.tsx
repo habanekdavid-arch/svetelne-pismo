@@ -92,7 +92,7 @@ export default function HowItWorks() {
               </div>
 
               {/* Title — the sister site sets these large and in sentence case,
-                  not small and uppercase. */}
+                  not small and . */}
               <h3
                 className="mx-auto mb-4 max-w-xs text-2xl font-extrabold leading-snug"
                 style={{

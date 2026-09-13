@@ -62,7 +62,7 @@ export default function BlogPage() {
       <section className="pb-12 pt-20" style={{ background: "var(--color-background)" }}>
         <div className="mx-auto max-w-7xl px-5 text-center">
           <p
-            className="reveal mb-4 text-[10px] font-black uppercase tracking-[0.35em]"
+            className="reveal mb-4 text-[10px] font-black tracking-[0.35em]"
             style={{ color: "var(--color-muted)" }}
           >
             Blog
@@ -119,7 +119,7 @@ export default function BlogPage() {
                     {/* Category + read time */}
                     <div className="mb-3 flex items-center gap-3">
                       <span
-                        className="rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide"
+                        className="rounded-full px-2.5 py-0.5 text-[10px] font-black tracking-wide"
                         style={{
                           background: "var(--color-yellow-dim)",
                           color: "var(--color-yellow)",
@@ -136,7 +136,7 @@ export default function BlogPage() {
                     </div>
 
                     <h2
-                      className="text-[18px] font-black uppercase leading-tight"
+                      className="text-[18px] font-black leading-tight"
                       style={{
                         fontFamily: "var(--font-century-gothic)",
                         color: "var(--color-foreground)",
@@ -153,7 +153,7 @@ export default function BlogPage() {
                     </p>
 
                     <div
-                      className="mt-4 flex items-center gap-1 text-[12px] font-black uppercase tracking-wide transition-opacity group-hover:opacity-60"
+                      className="mt-4 flex items-center gap-1 text-[12px] font-black tracking-wide transition-opacity group-hover:opacity-60"
                       style={{ color: "var(--color-yellow)" }}
                     >
                       Čítať viac

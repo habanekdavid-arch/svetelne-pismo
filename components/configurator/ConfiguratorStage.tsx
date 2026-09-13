@@ -61,9 +61,9 @@ export default function ConfiguratorStage() {
   const lastLightModeRef = useRef<LightModeId>("front");
 
   const [config, setConfig] = useState<Config>({
-    // Plain black "VÁŠ TEXT" on load — a blank, legible canvas, visible the
+    // Plain black "Váš text" on load — a blank, legible canvas, visible the
     // instant the page loads. The user turns on Svetelné/colour themselves.
-    text:       "VÁŠ TEXT",
+    text:       "Váš text",
     font:       "archivo-black",
     material:   "plexi",
     signType:   "plain",
@@ -343,7 +343,7 @@ export default function ConfiguratorStage() {
           <div className="price-card rounded-[26px] p-5">
             <div className="flex flex-col items-center justify-between gap-5 sm:flex-row">
               <div className="text-center sm:text-left">
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+                <p className="text-[11px] font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
                   Orientačná cena
                 </p>
                 <p className="mt-1 text-4xl font-black leading-none tracking-tight" style={{ color: "var(--color-foreground)" }}>
@@ -356,7 +356,7 @@ export default function ConfiguratorStage() {
 
               <button
                 onClick={() => setOrderOpen(true)}
-                className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black uppercase tracking-wide sm:w-auto"
+                className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
                 style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
               >
                 Objednať
@@ -554,7 +554,7 @@ export default function ConfiguratorStage() {
         href="#realizacie"
         className="mt-6 flex flex-col items-center gap-1.5 text-center transition hover:opacity-70"
       >
-        <span className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+        <span className="text-[10px] font-medium tracking-wide" style={{ color: "var(--color-muted)" }}>
           Pozri realizáciu, ktorá najviac sedí s tvojím výberom
         </span>
         <ArrowDown size={16} className="animate-bounce" style={{ color: "var(--accent)" }} />
@@ -568,14 +568,14 @@ export default function ConfiguratorStage() {
           style={{ background: "var(--color-foreground)" }}
         >
           <span>
-            <span className="block text-[9px] font-medium uppercase tracking-widest" style={{ color: "var(--color-background)", opacity: 0.6 }}>
+            <span className="block text-[9px] font-medium tracking-wide" style={{ color: "var(--color-background)", opacity: 0.6 }}>
               Orientačná cena
             </span>
             <span className="block text-lg font-black leading-tight" style={{ color: "var(--color-background)" }}>
               {price} €
             </span>
           </span>
-          <span className="rounded-full px-4 py-2 text-[11px] font-black uppercase" style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}>
+          <span className="rounded-full px-4 py-2 text-[11px] font-black" style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}>
             Objednať
           </span>
         </button>

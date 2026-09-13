@@ -52,10 +52,10 @@ export default function HeaderNav() {
   }
 
   const links = [
-    { href: "/#materialy", label: "MATERIÁLY" },
-    { href: "/#konfigurator", label: "CENY" },
+    { href: "/#materialy", label: "Materiály" },
+    { href: "/#konfigurator", label: "Ceny" },
     { href: "/faq", label: "FAQ" },
-    { href: "/blog", label: "BLOG" },
+    { href: "/blog", label: "Blog" },
   ];
 
   return (
@@ -74,11 +74,11 @@ export default function HeaderNav() {
           className="nav-link whitespace-nowrap"
           style={{ color: "var(--color-muted)" }}
         >
-          4FROM MEDIA
+          4from media
         </a>
         {user && (
           <Link href="/moje-objednavky" className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
-            MOJE OBJEDNÁVKY
+            Moje objednávky
           </Link>
         )}
       </nav>
@@ -93,14 +93,14 @@ export default function HeaderNav() {
             >
               <User size={14} strokeWidth={2.5} />
             </span>
-            <span className="text-[12px] font-black uppercase tracking-wide" style={{ color: "var(--color-foreground)" }}>
+            <span className="text-[12px] font-black tracking-wide" style={{ color: "var(--color-foreground)" }}>
               {user.name || "Môj účet"}
             </span>
             <button
               type="button"
               onClick={handleLogout}
               disabled={loggingOut}
-              className="rounded-full px-3 py-1.5 text-[11px] font-black uppercase transition hover:opacity-70 disabled:opacity-50"
+              className="rounded-full px-3 py-1.5 text-[11px] font-black transition hover:opacity-70 disabled:opacity-50"
               style={{ color: "var(--color-muted)" }}
             >
               Odhlásiť
@@ -112,7 +112,7 @@ export default function HeaderNav() {
             className="whitespace-nowrap rounded-full px-6 py-2.5 text-[13px] transition hover:opacity-85"
             style={{ ...cgBlack, background: "var(--accent)", color: "#000" }}
           >
-            PRIHLÁSIŤ SA
+            Prihlásiť sa
           </Link>
         )}
       </div>
@@ -171,7 +171,7 @@ export default function HeaderNav() {
               className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
               style={{ color: "var(--color-foreground)" }}
             >
-              MOJE OBJEDNÁVKY
+              Moje objednávky
             </Link>
           )}
 
@@ -184,7 +184,7 @@ export default function HeaderNav() {
                 type="button"
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="rounded-full px-4 py-2 text-[11px] font-black uppercase transition hover:opacity-70 disabled:opacity-50"
+                className="rounded-full px-4 py-2 text-[11px] font-black transition hover:opacity-70 disabled:opacity-50"
                 style={{ border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
               >
                 Odhlásiť
@@ -197,7 +197,7 @@ export default function HeaderNav() {
               className="mt-2 whitespace-nowrap rounded-full px-6 py-3 text-center text-[14px]"
               style={{ ...cgBlack, background: "var(--accent)", color: "#000" }}
             >
-              PRIHLÁSIŤ SA
+              Prihlásiť sa
             </Link>
           )}
         </nav>

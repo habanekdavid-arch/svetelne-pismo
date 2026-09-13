@@ -153,7 +153,7 @@ export default function OrderModal({ config, onClose }: Props) {
             </p>
             <button
               onClick={onClose}
-              className="mt-7 rounded-full px-10 py-3 text-xs font-black uppercase transition hover:opacity-80"
+              className="mt-7 rounded-full px-10 py-3 text-xs font-black transition hover:opacity-80"
               style={{ background: "var(--color-foreground)", color: "var(--color-background)" }}
             >
               Zatvoriť
@@ -174,24 +174,24 @@ export default function OrderModal({ config, onClose }: Props) {
               style={{ background: "var(--color-surface)" }}
             >
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Text</dt>
-                <dd className="truncate font-semibold" style={{ color: "var(--color-foreground)" }}>{config.text || "VÁŠ TEXT"}</dd>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Text</dt>
+                <dd className="truncate font-semibold" style={{ color: "var(--color-foreground)" }}>{config.text || "Váš text"}</dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Písmo</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Písmo</dt>
                 <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{font?.name ?? "—"}</dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Materiál</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Materiál</dt>
                 <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{material?.displayName ?? "—"}</dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Svietenie</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Svietenie</dt>
                 <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>
                   {config.signType === "plain" ? "Nesvetelné" : (lighting?.name ?? "—")}
                 </dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Hrúbka</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Hrúbka</dt>
                 <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{config.thickness} mm</dd>
 
-                <dt className="font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>Farba svetla</dt>
+                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Farba svetla</dt>
                 <dd className="flex items-center gap-2">
                   <span
                     className="inline-block h-4 w-4 rounded-full"
@@ -205,7 +205,7 @@ export default function OrderModal({ config, onClose }: Props) {
                 className="mt-4 flex items-baseline justify-between border-t pt-4"
                 style={{ borderColor: "var(--color-border)" }}
               >
-                <span className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--color-muted)" }}>
+                <span className="text-xs font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
                   Orientačná cena
                 </span>
                 <span className="text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
@@ -225,7 +225,7 @@ export default function OrderModal({ config, onClose }: Props) {
               <form onSubmit={handleSubmit} noValidate>
                 <div className="mb-4">
                   <label
-                    className="mb-1.5 block text-[11px] font-black uppercase tracking-wide"
+                    className="mb-1.5 block text-[11px] font-black tracking-wide"
                     style={{ color: "var(--color-foreground)" }}
                   >
                     Meno a priezvisko
@@ -254,7 +254,7 @@ export default function OrderModal({ config, onClose }: Props) {
 
                 <div className="mb-6">
                   <label
-                    className="mb-1.5 block text-[11px] font-black uppercase tracking-wide"
+                    className="mb-1.5 block text-[11px] font-black tracking-wide"
                     style={{ color: "var(--color-foreground)" }}
                   >
                     E-mail
@@ -288,7 +288,7 @@ export default function OrderModal({ config, onClose }: Props) {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+                  className="w-full rounded-full py-3.5 text-xs font-black transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
                   style={{ background: "var(--accent)", color: "#000" }}
                 >
                   {submitting ? "Odosielam…" : "Odoslať objednávku"}
@@ -362,7 +362,7 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (user: SessionUser) =>
             key={m}
             type="button"
             onClick={() => { setMode(m); setError(null); }}
-            className="flex-1 rounded-full py-2 text-[11px] font-black uppercase tracking-wide transition"
+            className="flex-1 rounded-full py-2 text-[11px] font-black tracking-wide transition"
             style={
               mode === m
                 ? { background: "var(--color-foreground)", color: "var(--color-background)" }
@@ -414,7 +414,7 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (user: SessionUser) =>
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-full py-3.5 text-xs font-black uppercase transition hover:opacity-90 disabled:opacity-60"
+          className="w-full rounded-full py-3.5 text-xs font-black transition hover:opacity-90 disabled:opacity-60"
           style={{ background: "var(--accent)", color: "#000" }}
         >
           {submitting
