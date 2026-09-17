@@ -377,10 +377,16 @@ export default function ConfiguratorStage() {
             columns of settings, so the sign rendered small. It now spans the
             whole configurator — roughly three times the width — and the
             parameters sit below it in two groups. */}
-        {/* ── CENTRE: 3D preview + price, sticky as one block ───────────── */}
+        {/* ── Preview — pinned while the settings scroll past it ────────────
+            Every setting below changes what this shows, so it stays in view
+            instead of being scrolled off the top: from lg up the panel sticks
+            under the site header (h-18) and the parameters slide underneath.
+            Nothing here clips its overflow, which is what lets `sticky` work
+            at all — a single `overflow: hidden` anywhere up the tree would
+            silently turn it back into a normal block. ── */}
         <div className="space-y-4">
         <div
-          className="rounded-[26px] p-4"
+          className="rounded-[26px] p-4 lg:sticky lg:top-20 lg:z-10"
           style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
         >
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -413,7 +419,7 @@ export default function ConfiguratorStage() {
           </div>
 
           <div
-            className="relative h-105 w-full overflow-hidden rounded-[20px] transition-colors duration-500 lg:h-[30rem]"
+            className="relative h-105 w-full overflow-hidden rounded-[20px] transition-colors duration-500 lg:h-[clamp(17rem,calc(100vh_-_24rem),30rem)]"
             style={{
               background: isNight
                 ? "radial-gradient(ellipse at 50% 38%, #1c1c22 0%, #0a0a0d 80%)"
@@ -665,7 +671,6 @@ export default function ConfiguratorStage() {
             </FieldCard>
           </div>
         </div>
-        </div>
 
         {/* ── Price ─────────────────────────────────────────────────────────
             Shape taken from vytlacto3d's price block: the headline figure with
@@ -802,6 +807,7 @@ export default function ConfiguratorStage() {
           </div>
         </div>
 
+      </div>
       </div>
 
       {/* ── Closing line — same text + font as the hero heading above, so the
