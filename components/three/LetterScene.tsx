@@ -14,6 +14,8 @@ import {
   MATERIAL_GROUP,
 } from "@/components/three/letterGeometry";
 import type { SignType, LightModeId, MaterialOption } from "@/lib/types";
+import { WALL_SURFACES, DEFAULT_WALL, type WallGrain } from "@/lib/walls";
+import { useWallTexture, usePhotoTexture } from "@/components/three/wallTexture";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TUNABLE CONSTANTS
@@ -56,14 +58,34 @@ const CAMERA_TARGET: [number, number, number] = [0, 0.05, 0];
 const CAMERA_FOV = 30;
 const ORBIT_AZIMUTH = Math.PI / 4;   // ± horizontal drag range (45°)
 const VIEW_TILT = -0.04; // tiny forward pitch of the letter group (radians)
+// How far the camera sits from what it is looking at. Taken from the two
+// constants above rather than read off the live camera, so the framing the
+// photo backdrop is sized for does not change as the viewer drags the sign.
+const NOMINAL_VIEW_DISTANCE = Math.hypot(
+  CAMERA_POS[0] - CAMERA_TARGET[0],
+  CAMERA_POS[1] - CAMERA_TARGET[1],
+  CAMERA_POS[2] - CAMERA_TARGET[2],
+);
 
-// Smooth matte "wall" the letters are mounted on — a soft vertical gradient
-// plus a gentle vignette reads far better than a dead-flat fill.
-// Day wall. It used to be near-white (#fbfaf8 → #ddd8d2), which made a white
-// sign vanish into it completely — white letters, white wall, no edge to see.
-// A soft warm grey keeps every body colour readable, the pale ones included.
-const WALL_GRADIENT_DAY: [string, string, string]   = ["#eceae6", "#dcd8d2", "#c7c1b9"];
-const WALL_GRADIENT_NIGHT: [string, string, string] = ["#302e2c", "#242220", "#191817"];
+// The wall the letters are mounted on. It used to be a flat 110 × 60 plane
+// with a painted gradient; it is a real surface now — plaster, render,
+// concrete or brick — tiled at true scale (components/three/wallTexture.ts),
+// or the customer's own photo of the wall the sign is going on.
+//
+// 46 × 26 units is far wider than the camera can see even at the ends of its
+// orbit, and small enough that the tiling stays crisp.
+const WALL_WIDTH  = 46;
+const WALL_HEIGHT = 26;
+const WALL_BUMP_SCALE = 0.012; // grain catches the key light; higher looks like gravel
+
+// A photo backdrop hangs just in front of the wall. It is sized to what the
+// camera can actually SEE at the wall, not to the whole backdrop plane — the
+// wall is 46 units wide while the shot is about 9, so covering the plane
+// blew every photo up some five times and showed one blurry patch of it.
+// The factor leaves room to drag the view around without running off the
+// photo's edge.
+const PHOTO_WALL_OFFSET = 0.0015;
+const PHOTO_COVER = 2.2;
 
 // Emissive scale per light mode, per face group (front cap / side wall / back cap).
 // front → lit face, halo → back face washing the wall, full → whole letter.
@@ -492,6 +514,10 @@ function HaloGlow({ fontFile, text, color, gain, scale, y, z }: HaloGlowProps) {
 
 type LetterSceneProps = {
   text: string;
+  /** Preview-only: the surface the sign is shown against. */
+  wall?: WallGrain;
+  /** Preview-only: object URL of the customer's own photo, if they picked one. */
+  backgroundUrl?: string | null;
   font: string;
   lightColor: string;
   letterColor: string;
@@ -554,48 +580,12 @@ export default function LetterScene(props: LetterSceneProps) {
   );
 }
 
-// ── Wall backdrop texture ────────────────────────────────────────────────────
-// A painted-in vertical gradient + soft vignette on a canvas, used as the wall
-// material's map. Cheap, deterministic, and reads far better than a flat colour.
-
-function useWallTexture(stops: [string, string, string]): THREE.CanvasTexture | null {
-  const tex = useMemo(() => {
-    if (typeof document === "undefined") return null;
-    const size = 256;
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-
-    const grad = ctx.createLinearGradient(0, 0, 0, size);
-    grad.addColorStop(0, stops[0]);
-    grad.addColorStop(0.55, stops[1]);
-    grad.addColorStop(1, stops[2]);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
-
-    const vignette = ctx.createRadialGradient(
-      size / 2, size * 0.42, size * 0.2,
-      size / 2, size / 2, size * 0.95,
-    );
-    vignette.addColorStop(0, "rgba(0,0,0,0)");
-    vignette.addColorStop(1, "rgba(0,0,0,0.12)");
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, size, size);
-
-    const t = new THREE.CanvasTexture(canvas);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  }, [stops]);
-
-  useEffect(() => () => tex?.dispose(), [tex]);
-  return tex;
-}
-
 // ── Scene content ─────────────────────────────────────────────────────────────
 
 function SceneContent({
   text,
+  wall = DEFAULT_WALL,
+  backgroundUrl,
   font,
   lightColor,
   letterColor,
@@ -658,8 +648,25 @@ function SceneContent({
   // Park the wall just behind the sign's back face so the letters read as
   // surface-mounted (the small gap = a realistic stand-off mount).
   const wallZ = -(depthUnits * finalScale) / 2 - 0.06;
-  const wallStops = isNight ? WALL_GRADIENT_NIGHT : WALL_GRADIENT_DAY;
-  const wallTexture = useWallTexture(wallStops);
+
+  const surface = WALL_SURFACES.find((w) => w.id === wall) ?? WALL_SURFACES[0];
+  const wallTexture = useWallTexture(surface.id, WALL_WIDTH, WALL_HEIGHT);
+  const photo = usePhotoTexture(backgroundUrl ?? null);
+
+  // `background-size: cover`, in world units: fill the framed view, overflow
+  // on the long side, never squash the photo.
+  const { size: viewportSize } = useThree();
+  const photoSize = useMemo<[number, number]>(() => {
+    const visibleHeight =
+      2 * Math.tan((CAMERA_FOV * Math.PI) / 180 / 2) * NOMINAL_VIEW_DISTANCE * PHOTO_COVER;
+    const visibleWidth = visibleHeight * (viewportSize.width / Math.max(1, viewportSize.height));
+
+    const img = photo?.texture.image as { width?: number; height?: number } | undefined;
+    const aspect = img?.width && img?.height ? img.width / img.height : 16 / 9;
+
+    const byWidth: [number, number] = [visibleWidth, visibleWidth / aspect];
+    return byWidth[1] >= visibleHeight ? byWidth : [visibleHeight * aspect, visibleHeight];
+  }, [photo, viewportSize.width, viewportSize.height]);
 
   const glowGain =
     HALO_GLOW_GAIN * (lightMode === "full" ? HALO_GLOW_FULL_FACTOR : 1);
@@ -687,16 +694,36 @@ function SceneContent({
       />
       <directionalLight position={[-4, 1.5, 2.5]} intensity={isNight ? 0.12 : 0.55} />
 
-      {/* ── Smooth matte wall the sign is mounted on ── */}
+      {/* ── The wall the sign is mounted on ── */}
       <mesh position={[0, 0, wallZ]} receiveShadow>
-        <planeGeometry args={[110, 60]} />
+        <planeGeometry args={[WALL_WIDTH, WALL_HEIGHT]} />
         <meshStandardMaterial
           map={wallTexture ?? undefined}
-          color={wallTexture ? "#ffffff" : wallStops[1]}
+          bumpMap={wallTexture ?? undefined}
+          bumpScale={WALL_BUMP_SCALE}
+          color={photo ? photo.tint : isNight ? surface.nightTint : surface.dayTint}
           roughness={1}
           metalness={0}
         />
       </mesh>
+
+      {/* ── …or the customer's own photo of it ──────────────────────────────
+          Its own plane in front of the painted wall rather than a swapped
+          texture: the photo keeps its proportions that way, and the painted
+          surface stays underneath while it loads. It receives the letters'
+          shadow like any other wall, which is what makes a photo read as a
+          place the sign is actually mounted. ── */}
+      {photo && (
+        <mesh position={[0, 0, wallZ + PHOTO_WALL_OFFSET]} receiveShadow>
+          <planeGeometry args={photoSize} />
+          <meshStandardMaterial
+            map={photo.texture}
+            color={isNight ? "#8f8f94" : "#ffffff"}
+            roughness={1}
+            metalness={0}
+          />
+        </mesh>
+      )}
 
       {/* ── The glow the wall actually carries ── */}
       {wallGlowOn && (
