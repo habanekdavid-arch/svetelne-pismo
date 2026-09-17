@@ -4,6 +4,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Lightbulb, LightbulbOff, ArrowDown, Plus } from "lucide-react";
 import EyebrowPill from "@/components/ui/EyebrowPill";
+import WallPicker from "@/components/configurator/WallPicker";
+import { DEFAULT_WALL, MAX_BACKGROUND_BYTES, type WallGrain } from "@/lib/walls";
 import type { Config, LightModeDirection, LightModeId, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
@@ -73,6 +75,12 @@ export default function ConfiguratorStage() {
   const [lightHue, setLightHue] = useState(41);
   const [selectedSwatch, setSelectedSwatch] = useState<string>("yellow");
   const [selectedBodySwatch, setSelectedBodySwatch] = useState<string>("black");
+  // Preview-only: which wall the sign is shown against, and the customer's own
+  // photo of it. Neither is part of Config — the wall is where they imagine
+  // the sign, not something we make — so neither reaches the cart or an order.
+  const [wall, setWall] = useState<WallGrain>(DEFAULT_WALL);
+  const [background, setBackground] = useState<{ url: string; name: string } | null>(null);
+  const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const { setConfig: publishConfig } = useSharedConfig();
   const {
     add: addToCart, checkout,
@@ -276,10 +284,49 @@ export default function ConfiguratorStage() {
     textInputRef.current?.focus();
   }
 
+  // The photo is read straight from the file into an object URL: it stays in
+  // this browser, is never uploaded, and is released the moment it is replaced
+  // or the page goes away.
+  function clearBackground() {
+    setBackground((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setBackgroundError(null);
+  }
+
+  function handleBackground(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setBackgroundError("Vyberte prosím obrázok (JPG, PNG alebo WEBP).");
+      return;
+    }
+    if (file.size > MAX_BACKGROUND_BYTES) {
+      setBackgroundError(`Obrázok je príliš veľký — maximum je ${Math.round(MAX_BACKGROUND_BYTES / 1024 / 1024)} MB.`);
+      return;
+    }
+    setBackgroundError(null);
+    setBackground((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return { url: URL.createObjectURL(file), name: file.name };
+    });
+  }
+
+  function chooseWall(id: WallGrain) {
+    setWall(id);
+    clearBackground();
+  }
+
   function setBodyColor(id: string, value: string) {
     setSelectedBodySwatch(id);
     patch({ bodyColor: value });
   }
+
+  const backgroundUrl = background?.url ?? null;
+  useEffect(() => {
+    return () => {
+      if (backgroundUrl) URL.revokeObjectURL(backgroundUrl);
+    };
+  }, [backgroundUrl]);
 
   // ── Render ───────────────────────────────────────────────────────────────
   // One large rounded panel (vytlacto3d's configurator shell), split into a
@@ -391,11 +438,14 @@ export default function ConfiguratorStage() {
               lightMode={config.lightMode}
               height={config.height}
               previewMode={previewMode}
+              wall={wall}
+              backgroundUrl={backgroundUrl}
             />
           </div>
 
-          {/* Live recap of what's currently set */}
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          {/* Live recap on the left, the wall the sign stands on at the right */}
+          <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap gap-1.5">
             {summary.map((item) => (
               <span
                 key={item}
@@ -409,6 +459,16 @@ export default function ConfiguratorStage() {
                 {item}
               </span>
             ))}
+          </div>
+
+          <WallPicker
+            wall={wall}
+            onWall={chooseWall}
+            photoName={background?.name ?? null}
+            onPhoto={handleBackground}
+            onClearPhoto={clearBackground}
+            error={backgroundError}
+          />
           </div>
         </div>
 
