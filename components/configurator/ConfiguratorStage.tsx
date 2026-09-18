@@ -6,31 +6,30 @@ import { Lightbulb, LightbulbOff, ArrowDown, Plus } from "lucide-react";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import WallPicker from "@/components/configurator/WallPicker";
 import { DEFAULT_WALL, MAX_BACKGROUND_BYTES, type WallGrain } from "@/lib/walls";
-import type { Config, LightModeDirection, LightModeId, SignType } from "@/lib/types";
+import type { Config, LightModeDirection, LightModeId, Placement, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
-import { calculatePrice } from "@/lib/pricing";
+import { calculatePrice, priceBreakdown } from "@/lib/pricing";
 import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
 import {
   fontOptions,
+  fontsFor,
   lightColors,
   bodyColorOptionsFor,
-  MATERIALS,
-  MIN_DEPTH_MM,
-  MAX_SHEET_DEPTH_MM,
-  USUAL_SHEET_DEPTH_MM,
-  PROFILE_DEPTHS_MM,
-  EDGE_PROFILE_MM,
-  isProfileDepth,
-  nearestProfileDepthMm,
-  USUAL_SHEET_DEPTH_MM as SHEET_DEPTH_FALLBACK,
-  MIN_HEIGHT_CM,
-  MAX_HEIGHT_CM,
+  materialById,
+  materialsFor,
+  lightModesFor,
+  heightRange,
+  depthMmFor,
+  clampHeight,
+  bandStarts,
+  DEFAULT_MATERIAL,
+  PLACEMENTS,
   LIGHT_MODES,
 } from "@/lib/options";
 import type { FontOption } from "@/lib/options";
 import type { ColorOption } from "@/lib/types";
-import { useSignSize, formatSignSize } from "@/lib/useSignSize";
+import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
 import type { DragTarget } from "@/components/three/LetterScene";
 
 // 3D preview needs WebGL — never render it on the server. Suspense shows a
@@ -44,7 +43,7 @@ const LetterScene = dynamic(() => import("@/components/three/LetterScene"), {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Light modes that trigger the dark-canvas preview automatically
-const NIGHT_MODES: LightModeId[] = ["halo", "full"];
+const NIGHT_MODES: LightModeId[] = ["back", "edge"];
 
 // ── Light mode glyph preview tunables ───────────────────────────────────────
 const LIGHT_TILE_GLOW_SIZE  = 32;  // px — svg square inside each mode tile
@@ -55,10 +54,9 @@ const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
 // Same "slider + chips" pattern vytlacto3d uses for scale/infill: drag for a
 // precise value, or tap a chip for the common one. Every value must sit inside
 // the slider's own min/max.
-const HEIGHT_CHIPS = [10, 20, 30, 40, 55];
-// Sheet thicknesses for a cut letter. A lit letter has no slider at all — its
-// depth is a stock profile width, picked from the list (ProfilePicker below).
-const SHEET_CHIPS = [4, 6, 8, 10, 15, 20];
+// Height shortcuts are not a fixed list any more: every build has its own
+// range and its own points where the thickness steps up (lib/options.ts
+// bandStarts), and those are exactly the heights worth one tap.
 
 // The light colour is stored either as a swatch's hex or as the hue slider's
 // own hsl(H, 92%, 58%) string, so reading a hue back has to handle both. Used
@@ -106,11 +104,6 @@ export default function ConfiguratorStage() {
   // Remember the last active light mode so we can restore it when switching
   // back from plain → illuminated
   const lastLightModeRef = useRef<LightModeId>("front");
-  // The depth each build was last set to. A customer who picks a 140 mm
-  // profile, looks at the sign unlit and comes back gets their 140 mm back,
-  // not the nearest profile to a sheet thickness.
-  const lastProfileDepthRef = useRef<number | null>(null);
-  const lastSheetDepthRef   = useRef<number | null>(null);
   const textInputRef = useRef<HTMLInputElement | null>(null);
 
   const [config, setConfig] = useState<Config>({
@@ -118,15 +111,16 @@ export default function ConfiguratorStage() {
     // instant the page loads. The user turns on Svetelné/colour themselves.
     text:       "Váš text",
     font:       "archivo-black",
-    material:   "plexi",
+    material:   DEFAULT_MATERIAL,
     signType:   "plain",
+    placement:  "exterior",
     lightMode:  "front",
     // Brand yellow — see lib/options.ts lightColors "yellow" / app/globals.css --color-primary.
     // Inert while signType is "plain"; used once the user switches to Svetelné.
     lightColor: "#FFAE00",
     bodyColor:  bodyColorOptionsFor("plain").find((c) => c.id === "black")!.value,
-    height:     35,
-    thickness:  8,
+    // Millimetres, and inside what 3D tlač s plexi is made in (120–600 mm).
+    height:     300,
     rotation:   0, // sign no longer rotates — kept for the Config shape / pricing
   });
 
@@ -134,17 +128,20 @@ export default function ConfiguratorStage() {
   useEffect(() => { publishConfig(config); }, [config, publishConfig]);
 
   // ── Derived state ────────────────────────────────────────────────────────
-  const price = useMemo(() => calculatePrice(config), [config]);
+  const currentMat = materialById(config.material);
+  const isIlluminated = config.signType === "illuminated";
 
-  const currentMat = MATERIALS.find((m) => m.id === config.material) ?? MATERIALS[0];
+  // What the price list offers for exactly this combination — nothing else is
+  // made, so nothing else is shown (sheet "strom").
+  const availableMaterials = materialsFor(config.signType, config.placement, config.lightMode);
+  const availableLightModes = lightModesFor(config.placement);
+  // …and the fonts are the build's own rows in sheet "parametre".
+  const availableFonts = fontsFor(config.material);
 
-  const filteredMaterials = MATERIALS.filter((m) =>
-    config.signType === "illuminated" ? m.supportsIlluminated : m.supportsPlain,
-  );
-
-  const availableLightModes = LIGHT_MODES.filter((l) =>
-    currentMat.lightModes.includes(l.id),
-  );
+  // Height is the only dimension chosen; the build turns it into a thickness.
+  const { minMm: minHeight, maxMm: maxHeight } = heightRange(config.material);
+  const depthMm = depthMmFor(config.material, config.height);
+  const heightChips = bandStarts(config.material);
 
   const previewChar = (config.text.trim().charAt(0) || "A").toUpperCase();
   const modeTileRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -152,36 +149,10 @@ export default function ConfiguratorStage() {
 
   // The customer's own Deň/Noc choice always wins; the light mode only picks
   // the DEFAULT for the modes that read best in the dark.
-  //
-  // This used to be an OR: halo and full forced night outright, so the Deň
-  // button did nothing at all in those modes and an illuminated sign could
-  // never be seen in daylight — exactly what a customer wants to judge before
-  // buying. Now the automatic choice is only a starting point.
   const autoMode: "day" | "night" =
-    config.signType === "illuminated" && NIGHT_MODES.includes(config.lightMode)
-      ? "night"
-      : "day";
+    isIlluminated && NIGHT_MODES.includes(config.lightMode) ? "night" : "day";
   const previewMode: "day" | "night" = manualMode ?? autoMode;
-
   const isNight = previewMode === "night";
-  const isIlluminated = config.signType === "illuminated";
-  // Advice, not a limit: the thickness the customer set is never overwritten.
-  // A lit letter is built from a stock profile, so a depth that is not one of
-  // them is quoted from the profile it would really be made in; a cut letter
-  // is a sheet, where anything past 10 mm is unusual but doable.
-  const customProfile = isIlluminated && !isProfileDepth(config.thickness);
-  const thicknessNote = isIlluminated
-    ? (customProfile
-        ? `Hrúbka ${config.thickness} mm nie je štandardná šírka profilu. Vyrobíme ju z najbližšieho profilu ${nearestProfileDepthMm(config.thickness)} mm — riešenie a cenu potvrdíme pri overení objednávky.`
-        : null)
-    : (config.thickness > USUAL_SHEET_DEPTH_MM
-        ? `Rezané písmo bežne robíme do ${USUAL_SHEET_DEPTH_MM} mm. Väčšiu hrúbku vieme vyrobiť, cenu a riešenie potvrdíme pri overení objednávky.`
-        : null);
-
-  // Only the sheet slider needs a ceiling, and it never drops below the value
-  // already set — a depth chosen while the sign was lit stays reachable after
-  // switching to Nesvetelné instead of being silently dragged down.
-  const sheetMax = Math.max(MAX_SHEET_DEPTH_MM, config.thickness);
 
   // A lit letter wears a profile finish, a cut letter a lacquered sheet, so the
   // two offer different ranges. The RAL tones are shared and keep their ids, so
@@ -194,18 +165,21 @@ export default function ConfiguratorStage() {
   const currentFont = fontOptions.find((f) => f.id === config.font);
   const currentLightMode = LIGHT_MODES.find((l) => l.id === config.lightMode);
 
-  // How big the sign comes out: the customer sets the height of the letters,
-  // but what has to fit the wall is the whole inscription.
+  // How big the sign comes out — and it is not a nicety any more: the price
+  // list bills by the square metre of the whole inscription, so this IS the
+  // quote's basis (lib/pricing.ts).
   const signSize = useSignSize(config.text, currentFont?.name ?? "", config.height);
   const signSizeLabel = signSize ? formatSignSize(signSize) : null;
+  const price = useMemo(() => calculatePrice(config, signSize), [config, signSize]);
+  const breakdown = useMemo(() => priceBreakdown(config, signSize), [config, signSize]);
 
   // Live one-line recap shown under the 3D preview, so the chosen parameters
   // stay readable without looking back up the settings column.
   const summary = [
     currentFont?.name,
     currentMat.displayName,
-    `${config.height} cm`,
-    `${config.thickness} mm`,
+    `${config.height} mm`,
+    `hrúbka ${depthMm} mm`,
     ...(signSizeLabel ? [`celkovo ${signSizeLabel}`] : []),
     ...(isIlluminated && currentLightMode ? [currentLightMode.name] : []),
   ].filter(Boolean) as string[];
@@ -245,8 +219,6 @@ export default function ConfiguratorStage() {
   useEffect(() => {
     if (!pendingConfig) return;
     setConfig(pendingConfig);
-    if (pendingConfig.signType === "illuminated") lastProfileDepthRef.current = pendingConfig.thickness;
-    else                                          lastSheetDepthRef.current   = pendingConfig.thickness;
     setLightHue((prev) => hueOf(pendingConfig.lightColor, prev));
     setSelectedSwatch(swatchIdFor(lightColors, pendingConfig.lightColor));
     setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(pendingConfig.signType), pendingConfig.bodyColor));
@@ -255,76 +227,64 @@ export default function ConfiguratorStage() {
   }, [pendingConfig, consumePending]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Depth is set from what the sign is built of, the moment that changes.
-  // A lit letter is wrapped in a stock profile, so it lands on one of the
-  // board's widths; a cut letter is a sheet, so a 140 mm profile depth has to
-  // come back down to a thickness a sheet comes in. A depth that already fits
-  // the new build is kept exactly as the customer set it — this snaps a value
-  // that could not be made, it does not "tidy up" a valid one.
-  function depthForBuild(type: SignType, current: number): number | undefined {
-    if (type === "illuminated") {
-      if (isProfileDepth(current)) return undefined;
-      return lastProfileDepthRef.current ?? nearestProfileDepthMm(current);
-    }
-    if (current <= MAX_SHEET_DEPTH_MM && !isProfileDepth(current)) return undefined;
-    return lastSheetDepthRef.current ?? SHEET_DEPTH_FALLBACK;
+  // Every change below has to land on a combination the price list actually
+  // offers: the build decides the fonts and the heights, and the sign type,
+  // placement and lighting decide the builds. So one helper settles the whole
+  // set at once instead of each control clamping the others behind the scenes.
+  function reconcile(next: Partial<Config>): Partial<Config> {
+    const signType  = next.signType  ?? config.signType;
+    const placement = next.placement ?? config.placement;
+    const lightMode = next.lightMode ?? config.lightMode;
+
+    // The light mode has to exist for this placement…
+    const modes = lightModesFor(placement);
+    const mode = modes.some((m) => m.id === lightMode) ? lightMode : (modes[0]?.id ?? "front");
+
+    // …the build has to be one made in this combination…
+    const offered = materialsFor(signType, placement, mode);
+    const wanted = next.material ?? config.material;
+    const material = offered.some((m) => m.id === wanted)
+      ? wanted
+      : (offered[0]?.id ?? config.material);
+
+    // …the font has to be one that build is made in…
+    const fonts = fontsFor(material);
+    const font = fonts.some((f) => f.id === (next.font ?? config.font))
+      ? (next.font ?? config.font)
+      : (fonts[0]?.id ?? config.font);
+
+    // …and the height has to sit inside that build's range, which is also what
+    // decides the thickness. Only a height the build cannot be made in moves.
+    const height = clampHeight(material, next.height ?? config.height);
+
+    return { ...next, signType, placement, lightMode: mode, material, font, height };
   }
 
-  function setThickness(mm: number) {
-    if (isIlluminated) lastProfileDepthRef.current = mm;
-    else               lastSheetDepthRef.current   = mm;
-    patch({ thickness: mm });
+  function apply(update: Partial<Config>) {
+    patch(reconcile(update));
   }
 
   function handleSignTypeChange(type: SignType) {
-    const thickness = depthForBuild(type, config.thickness);
-
     if (type === "plain") {
-      // Remember current lightMode before hiding the panel
-      lastLightModeRef.current = config.lightMode;
-      setManualMode(null); // clear forced night when switching to plain
-      patch({ signType: type, ...(thickness !== undefined && { thickness }) });
+      lastLightModeRef.current = config.lightMode;  // remember it for coming back
+      setManualMode(null);                          // clear forced night
+      apply({ signType: type });
       return;
     }
+    apply({ signType: type, lightMode: lastLightModeRef.current });
+  }
 
-    // Switching to illuminated ─────────────────────────────────────────────
-    // 1. Make sure current material supports illuminated
-    let materialId = config.material;
-    if (!currentMat.supportsIlluminated) {
-      const firstIlluminable = MATERIALS.find((m) => m.supportsIlluminated);
-      materialId = firstIlluminable?.id ?? config.material;
-    }
-
-    // 2. Restore last light mode if still valid for the (possibly new) material
-    const targetMat = MATERIALS.find((m) => m.id === materialId) ?? currentMat;
-    const restoredMode = targetMat.lightModes.includes(lastLightModeRef.current)
-      ? lastLightModeRef.current
-      : (targetMat.lightModes[0] ?? "front");
-
-    patch({
-      signType: type,
-      material: materialId,
-      lightMode: restoredMode,
-      ...(thickness !== undefined && { thickness }),
-    });
+  function handlePlacementChange(placement: Placement) {
+    apply({ placement });
   }
 
   function handleMaterialChange(materialId: string) {
-    const mat = MATERIALS.find((m) => m.id === materialId);
-    if (!mat) return;
-
-    // If new material doesn't support the current lightMode → pick first valid
-    const validMode = mat.lightModes.includes(config.lightMode)
-      ? config.lightMode
-      : (mat.lightModes[0] ?? config.lightMode);
-
-    // Thickness is free for every material — switching material never touches it.
-    patch({ material: materialId, lightMode: validMode });
+    apply({ material: materialId });
   }
 
   function setLightMode(id: LightModeId) {
     lastLightModeRef.current = id;
-    patch({ lightMode: id });
+    apply({ lightMode: id });
   }
 
   function handleModeKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -356,7 +316,7 @@ export default function ConfiguratorStage() {
   // different words. The cart stays closed so it does not cover the field the
   // customer is about to type in; the header's cart badge is the receipt.
   function startAnotherSign() {
-    addToCart(config, { open: false });
+    addToCart(config, { open: false, size: signSize });
     patch({ text: "" });
     textInputRef.current?.focus();
   }
@@ -525,7 +485,7 @@ export default function ConfiguratorStage() {
               font={config.font}
               lightColor={config.lightColor}
               letterColor={config.bodyColor}
-              thickness={config.thickness}
+              thickness={depthMm}
               material={config.material}
               signType={config.signType}
               lightMode={config.lightMode}
@@ -621,6 +581,29 @@ export default function ConfiguratorStage() {
           {/* ── Lighting, then material and colour ── */}
           <div className="space-y-3">
 
+            {/* Placement comes first because the price list hangs off it: what
+                can be built, and how it can be lit, is different indoors and
+                out (sheet "strom"). */}
+            <FieldCard title="Kam príde nápis" description="Exteriér a interiér sa vyrábajú inak.">
+              <div className="grid grid-cols-2 gap-2">
+                {PLACEMENTS.map((pl) => (
+                  <Seg
+                    key={pl.id}
+                    active={config.placement === pl.id}
+                    onClick={() => handlePlacementChange(pl.id)}
+                  >
+                    {pl.label}
+                  </Seg>
+                ))}
+              </div>
+              <p
+                className="mt-3 rounded-2xl px-3.5 py-2.5 text-[11px] leading-5"
+                style={{ background: "var(--color-surface)", color: "var(--color-muted)" }}
+              >
+                {PLACEMENTS.find((pl) => pl.id === config.placement)?.hint}
+              </p>
+            </FieldCard>
+
             <FieldCard title="Svietenie" description="Či nápis svieti, odkiaľ a akou farbou.">
               <div className="grid grid-cols-2 gap-2">
                 {(
@@ -643,7 +626,7 @@ export default function ConfiguratorStage() {
               {isIlluminated && (
                 availableLightModes.length === 0 ? (
                   <p className="mt-3 text-[11px]" style={{ color: "var(--color-muted)" }}>
-                    Tento materiál nepodporuje svietenie.
+                    V tomto umiestnení neponúkame svetelné písmo.
                   </p>
                 ) : (
                   <>
@@ -711,7 +694,7 @@ export default function ConfiguratorStage() {
 
             <FieldCard title="Materiál a farba" description="Z čoho je nápis a akú má farbu.">
               <div className="grid grid-cols-2 gap-2">
-                {filteredMaterials.map((mat) => (
+                {availableMaterials.map((mat) => (
                   <Seg
                     key={mat.id}
                     active={config.material === mat.id}
@@ -726,6 +709,9 @@ export default function ConfiguratorStage() {
                 style={{ background: "var(--color-surface)", color: "var(--color-muted)" }}
               >
                 {currentMat.subtitle}
+              </p>
+              <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted-light)" }}>
+                Ponúkame len stavby, ktoré sa v tomto zadaní naozaj vyrábajú.
               </p>
 
               <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
@@ -754,50 +740,51 @@ export default function ConfiguratorStage() {
 
           {/* ── Typeface and dimensions ── */}
           <div className="space-y-3">
-            <FieldCard title="Font" description="Písmo, ktorým sa nápis vyreže.">
+            <FieldCard title="Font" description="Písma, v ktorých sa táto stavba vyrába.">
               <FontPicker
+                fonts={availableFonts}
                 value={config.font}
                 onChange={(id) => patch({ font: id })}
                 tileRefs={fontTileRefs}
               />
             </FieldCard>
 
-            <FieldCard title="Rozmery" description="Výška písmen a hrúbka materiálu.">
+            <FieldCard title="Rozmery" description="Výšku písmen si volíte, hrúbka z nej vyplýva.">
               <p className="mb-2 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
                 Výška písmen
               </p>
               <SliderBox
                 value={config.height}
-                min={MIN_HEIGHT_CM}
-                max={MAX_HEIGHT_CM}
-                suffix=" cm"
-                chips={HEIGHT_CHIPS}
+                min={minHeight}
+                max={maxHeight}
+                suffix=" mm"
+                chips={heightChips}
                 onChange={(v) => patch({ height: v })}
                 ariaLabel="Výška písmen"
               />
 
-              <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
-                {isIlluminated ? "Hĺbka profilu" : "Hrúbka"}
+              {/* Thickness is not a control any more. In this catalogue every
+                  build is made in a fixed thickness per height band, so it is
+                  shown as what it is — the consequence of the height — instead
+                  of a slider the customer could set to something nobody makes. */}
+              <div
+                className="mt-3 flex items-baseline justify-between gap-3 rounded-2xl px-3.5 py-2.5"
+                style={{ background: "var(--color-surface)" }}
+              >
+                <span className="text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                  Hrúbka
+                </span>
+                <span className="text-[13px] font-black" style={{ color: "var(--color-foreground)" }}>
+                  {depthMm} mm
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                {currentMat.displayName} sa v tejto výške vyrába v hrúbke {depthMm} mm.
               </p>
-              {isIlluminated ? (
-                <ProfilePicker
-                  value={config.thickness}
-                  onChange={setThickness}
-                />
-              ) : (
-                <SliderBox
-                  value={config.thickness}
-                  min={MIN_DEPTH_MM}
-                  max={sheetMax}
-                  suffix=" mm"
-                  chips={SHEET_CHIPS}
-                  onChange={setThickness}
-                  ariaLabel="Hrúbka písma"
-                />
-              )}
-              {thicknessNote && (
-                <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-accent-text)" }}>
-                  {thicknessNote}
+
+              {signSizeLabel && (
+                <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                  Celý nápis: {signSizeLabel} ({formatArea(breakdown.areaM2)})
                 </p>
               )}
             </FieldCard>
@@ -863,15 +850,25 @@ export default function ConfiguratorStage() {
             <div className="grid gap-2 sm:grid-cols-2">
               <TechLine label="Materiál" value={currentMat.displayName} />
               <TechLine label="Písmo" value={currentFont?.name ?? "—"} />
-              <TechLine label="Výška písmen" value={`${config.height} cm`} />
-              <TechLine
-                label={isIlluminated ? "Hĺbka profilu" : "Hrúbka"}
-                value={`${config.thickness} mm`}
-              />
+              <TechLine label="Umiestnenie" value={config.placement === "exterior" ? "Exteriér" : "Interiér"} />
+              <TechLine label="Výška písmen" value={`${config.height} mm`} />
+              <TechLine label="Hrúbka" value={`${depthMm} mm`} />
               {/* The size that has to fit the wall: the whole inscription, not
-                  one letter. Shown as soon as the face is measured. */}
+                  one letter — and, since the price list bills by the square
+                  metre, the basis of the quote above. */}
               <TechLine label="Celkový rozmer nápisu" value={signSizeLabel ?? "—"} />
-              <TechLine label="Počet znakov" value={String(config.text.replace(/\s/g, "").length)} />
+              <TechLine
+                label={breakdown.volumeCm3 !== null ? "Objem materiálu" : "Plocha nápisu"}
+                value={
+                  breakdown.volumeCm3 !== null
+                    ? `${Math.round(breakdown.volumeCm3)} cm³`
+                    : formatArea(breakdown.areaM2)
+                }
+              />
+              <TechLine
+                label="Jednotková cena"
+                value={`${formatEur(breakdown.unit).replace(" €", "")} ${breakdown.unitLabel}`}
+              />
               <TechLine
                 label="Svietenie"
                 value={isIlluminated ? (currentLightMode?.name ?? "—") : "Bez svietenia"}
@@ -898,7 +895,7 @@ export default function ConfiguratorStage() {
                   Zrušiť úpravu
                 </button>
                 <button
-                  onClick={() => applyEdit(config)}
+                  onClick={() => applyEdit(config, signSize)}
                   className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
                   style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
                 >
@@ -921,7 +918,7 @@ export default function ConfiguratorStage() {
                 </button>
 
                 <button
-                  onClick={() => addToCart(config)}
+                  onClick={() => addToCart(config, { size: signSize })}
                   className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
                   style={{
                     background: "var(--color-background)",
@@ -936,7 +933,7 @@ export default function ConfiguratorStage() {
                     order is always placed from there, so a customer who configured
                     two signs does not lose one of them by ordering the other. */}
                 <button
-                  onClick={() => checkout(config)}
+                  onClick={() => checkout(config, signSize)}
                   className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
                   style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
                 >
@@ -1036,89 +1033,6 @@ function Seg({
 }
 
 // Slider in its own inset box: big live value, range, and quick-pick chips.
-// Depth of a lit letter. Not a slider: the side wall of a channel letter is a
-// rolled aluminium profile, and a profile comes in the widths its manufacturer
-// stocks (lib/options.ts PROFILE_DEPTHS_MM, read off the 3D system board), so
-// these are the real builds rather than any number between them. A depth set
-// earlier that is not one of them is kept and shown as its own chip — the
-// configurator never quietly moves a dimension the customer chose.
-function ProfilePicker({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  const custom = !isProfileDepth(value);
-
-  return (
-    <div className="rounded-2xl p-3.5" style={{ background: "var(--color-surface)" }}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-lg font-black leading-none" style={{ color: "var(--color-foreground)" }}>
-          {value}
-          <span className="text-[12px] font-bold"> mm</span>
-        </span>
-        <span className="text-[10px] font-semibold" style={{ color: "var(--color-muted)" }}>
-          {custom
-            ? "hrúbka na mieru"
-            : value === EDGE_PROFILE_MM
-              ? "hranový profil"
-              : "štandardný profil"}
-        </span>
-      </div>
-
-      <div role="radiogroup" aria-label="Hĺbka profilu" className="mt-3.5 flex flex-wrap gap-1.5">
-        {custom && (
-          <span
-            className="rounded-full px-2.5 py-1 text-[10px] font-bold"
-            style={{
-              background: "var(--color-primary)",
-              color: "var(--accent-foreground)",
-              border: "1px solid var(--color-primary)",
-            }}
-          >
-            {value} mm
-          </span>
-        )}
-        {PROFILE_DEPTHS_MM.map((depth) => {
-          const active = value === depth;
-          return (
-            <button
-              key={depth}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => onChange(depth)}
-              className="chip rounded-full px-2.5 py-1 text-[10px] font-bold"
-              style={
-                active
-                  ? {
-                      background: "var(--color-primary)",
-                      color: "var(--accent-foreground)",
-                      border: "1px solid var(--color-primary)",
-                    }
-                  : {
-                      background: "var(--color-background)",
-                      color: "var(--color-foreground)",
-                      border: "1px solid var(--color-border)",
-                    }
-              }
-            >
-              {depth} mm
-            </button>
-          );
-        })}
-      </div>
-
-      <p className="mt-2.5 text-[10px] leading-4" style={{ color: "var(--color-muted)" }}>
-        {EDGE_PROFILE_MM} mm je plytký hranový profil, {PROFILE_DEPTHS_MM[1]}–
-        {PROFILE_DEPTHS_MM[PROFILE_DEPTHS_MM.length - 1]} mm sú štandardné šírky
-        profilov na svetelné písmo — spredu aj zozadu.
-      </p>
-    </div>
-  );
-}
-
 function SliderBox({
   value,
   min,
@@ -1239,10 +1153,13 @@ function SwatchRow({
 // each tile rendering its own name in its own typeface. ──────────────────────
 
 function FontPicker({
+  fonts,
   value,
   onChange,
   tileRefs,
 }: {
+  /** Only the fonts this build is made in — the price list ties the two. */
+  fonts: FontOption[];
   value: string;
   onChange: (id: string) => void;
   tileRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
@@ -1252,14 +1169,14 @@ function FontPicker({
     const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
     if (!forward && !backward) return;
     e.preventDefault();
-    const nextIndex = (index + (forward ? 1 : -1) + fontOptions.length) % fontOptions.length;
-    onChange(fontOptions[nextIndex].id);
+    const nextIndex = (index + (forward ? 1 : -1) + fonts.length) % fonts.length;
+    onChange(fonts[nextIndex].id);
     tileRefs.current[nextIndex]?.focus();
   }
 
   return (
     <div role="radiogroup" aria-label="Font" className="grid grid-cols-2 gap-2">
-      {fontOptions.map((f, i) => (
+      {fonts.map((f, i) => (
         <FontTile
           key={f.id}
           font={f}
@@ -1377,13 +1294,17 @@ function LightModeGlyphPreview({
         </>
       )}
 
-      {/* full — soft outer bloom behind the lit glyph */}
-      {direction === "full" && (
-        <text {...glyph} fill={glowColor} filter={`url(#${haloId})`} opacity={0.5}>{char}</text>
+      {/* edge — the glyph's outline glows, its face stays dark: light coming
+          out of the cut edge of a sheet of plexi, not through it */}
+      {direction === "edge" && (
+        <>
+          <text {...glyph} fill="none" stroke={glowColor} strokeWidth={2.2} filter={`url(#${tightId})`}>{char}</text>
+          <text {...glyph} fill="currentColor" opacity={0.55}>{char}</text>
+        </>
       )}
 
-      {/* front / full — the glyph itself lit */}
-      {(direction === "front" || direction === "full") && (
+      {/* front — the glyph itself lit */}
+      {direction === "front" && (
         <text {...glyph} fill={glowColor} filter={`url(#${tightId})`}>{char}</text>
       )}
     </svg>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
 import { listAllOrders, ORDER_STATUSES, ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders";
-import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
+import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
 import StatusBadge from "@/components/orders/StatusBadge";
@@ -210,8 +210,11 @@ export default async function AdminPage({
                       <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
                         <SpecLine label="Font" value={font?.name ?? o.config.font} />
                         <SpecLine label="Materiál" value={material?.displayName ?? o.config.material} />
-                        <SpecLine label="Výška" value={`${o.config.height} cm`} />
-                        <SpecLine label="Hrúbka" value={`${o.config.thickness} mm`} />
+                        <SpecLine label="Výška" value={`${o.config.height} mm`} />
+                        <SpecLine
+                          label="Hrúbka"
+                          value={`${depthMmFor(o.config.material, o.config.height)} mm`}
+                        />
                       </dl>
                     </div>
 

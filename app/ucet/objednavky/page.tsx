@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUserSession } from "@/lib/user-auth";
 import { listOrdersForUser, orderCountLabel } from "@/lib/orders";
-import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
+import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import StatusBadge from "@/components/orders/StatusBadge";
 import AccountShell, { AccountSection } from "@/components/account/AccountShell";
@@ -83,7 +83,7 @@ export default async function AccountOrdersPage() {
                       <p className="mt-1 text-[13px]" style={{ color: "var(--color-muted)" }}>
                         {font?.name ?? o.config.font} · {material?.displayName ?? o.config.material} ·{" "}
                         {o.config.signType === "plain" ? "Nesvetelné" : (lighting?.name ?? "Svetelné")} ·{" "}
-                        {o.config.height} cm / {o.config.thickness} mm
+                        {o.config.height} mm / {depthMmFor(o.config.material, o.config.height)} mm
                       </p>
                       <p className="mt-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
                         Objednané {new Date(o.createdAt).toLocaleDateString("sk-SK")} · #{o.id}

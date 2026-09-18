@@ -47,10 +47,12 @@ function TagIcon() {
 // promise a material under one name and the configurator offer it under
 // another. Only the icons live here; they are presentation, not catalogue.
 const ICONS: Record<string, React.ReactNode> = {
-  kompozit: <ShieldIcon />,
-  plexi:    <SparkleIcon />,
-  "3dtlac": <LayersIcon />,
-  pvc:      <TagIcon />,
+  "alurol-upper":  <ShieldIcon />,
+  "alurol-lower":  <ShieldIcon />,
+  plexi30:         <SparkleIcon />,
+  print3d:         <LayersIcon />,
+  "print3d-solid": <LayersIcon />,
+  "plexi-uv":      <TagIcon />,
 };
 
 export default function MaterialsSection() {
@@ -73,12 +75,12 @@ export default function MaterialsSection() {
             className="mx-auto mt-4 max-w-md leading-7"
             style={{ color: "var(--color-muted)" }}
           >
-            4 materiály, 4 použitia — vyberte podľa toho, kde bude nápis visieť.
+            Šesť stavieb z cenníka — vyberte podľa toho, kde bude nápis visieť a či má svietiť.
           </p>
         </div>
 
         {/* Cards */}
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {MATERIALS.map((mat) => (
             <article
               key={mat.id}
