@@ -544,13 +544,15 @@ export default function ConfiguratorStage() {
             />
           </div>
 
-          {/* Live recap on the left, the wall the sign stands on at the right */}
-          <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-wrap gap-1.5">
+          {/* Live recap on the left, the wall the sign stands on at the right —
+              one line from sm up, so the parameters and the surfaces read as
+              one strip under the preview. */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap">
+          <div className="flex min-w-0 flex-wrap gap-1.5">
             {summary.map((item) => (
               <span
                 key={item}
-                className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
+                className="whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold"
                 style={{
                   background: "var(--color-surface)",
                   color: "var(--color-muted)",
@@ -566,6 +568,7 @@ export default function ConfiguratorStage() {
             wall={wall}
             onWall={chooseWall}
             photoName={background?.name ?? null}
+            photoUrl={backgroundUrl}
             onPhoto={handleBackground}
             onClearPhoto={clearBackground}
             dragTarget={dragTarget}
