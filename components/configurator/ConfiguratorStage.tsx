@@ -23,12 +23,14 @@ import {
   EDGE_PROFILE_MM,
   isProfileDepth,
   nearestProfileDepthMm,
+  USUAL_SHEET_DEPTH_MM as SHEET_DEPTH_FALLBACK,
   MIN_HEIGHT_CM,
   MAX_HEIGHT_CM,
   LIGHT_MODES,
 } from "@/lib/options";
 import type { FontOption } from "@/lib/options";
 import type { ColorOption } from "@/lib/types";
+import { useSignSize, formatSignSize } from "@/lib/useSignSize";
 
 // 3D preview needs WebGL — never render it on the server. Suspense shows a
 // skeleton until the chunk loads; the scene itself renders instantly on top
@@ -95,6 +97,11 @@ export default function ConfiguratorStage() {
   // Remember the last active light mode so we can restore it when switching
   // back from plain → illuminated
   const lastLightModeRef = useRef<LightModeId>("front");
+  // The depth each build was last set to. A customer who picks a 140 mm
+  // profile, looks at the sign unlit and comes back gets their 140 mm back,
+  // not the nearest profile to a sheet thickness.
+  const lastProfileDepthRef = useRef<number | null>(null);
+  const lastSheetDepthRef   = useRef<number | null>(null);
   const textInputRef = useRef<HTMLInputElement | null>(null);
 
   const [config, setConfig] = useState<Config>({
@@ -178,6 +185,11 @@ export default function ConfiguratorStage() {
   const currentFont = fontOptions.find((f) => f.id === config.font);
   const currentLightMode = LIGHT_MODES.find((l) => l.id === config.lightMode);
 
+  // How big the sign comes out: the customer sets the height of the letters,
+  // but what has to fit the wall is the whole inscription.
+  const signSize = useSignSize(config.text, currentFont?.name ?? "", config.height);
+  const signSizeLabel = signSize ? formatSignSize(signSize) : null;
+
   // Live one-line recap shown under the 3D preview, so the chosen parameters
   // stay readable without looking back up the settings column.
   const summary = [
@@ -185,6 +197,7 @@ export default function ConfiguratorStage() {
     currentMat.displayName,
     `${config.height} cm`,
     `${config.thickness} mm`,
+    ...(signSizeLabel ? [`celkovo ${signSizeLabel}`] : []),
     ...(isIlluminated && currentLightMode ? [currentLightMode.name] : []),
   ].filter(Boolean) as string[];
 
@@ -203,10 +216,11 @@ export default function ConfiguratorStage() {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function patch(update: Partial<Config>) {
-    // Nothing here rewrites another setting. A change to the sign type used to
-    // clamp the thickness to what that type is usually built in, which meant a
-    // customer who had set 40 mm found 10 mm after toggling Nesvetelné — the
-    // configurator changing a choice they had already made.
+    // patch() itself never rewrites a setting the caller did not name. Where a
+    // change really does force another value — a depth that the new build
+    // cannot be made in — the caller works that out and passes both together
+    // (see depthForBuild), so it is one deliberate decision in one place
+    // rather than a clamp hidden in every update.
     setConfig((prev) => ({ ...prev, ...update }));
   }
 
@@ -222,6 +236,8 @@ export default function ConfiguratorStage() {
   useEffect(() => {
     if (!pendingConfig) return;
     setConfig(pendingConfig);
+    if (pendingConfig.signType === "illuminated") lastProfileDepthRef.current = pendingConfig.thickness;
+    else                                          lastSheetDepthRef.current   = pendingConfig.thickness;
     setLightHue((prev) => hueOf(pendingConfig.lightColor, prev));
     setSelectedSwatch(swatchIdFor(lightColors, pendingConfig.lightColor));
     setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(pendingConfig.signType), pendingConfig.bodyColor));
@@ -230,12 +246,35 @@ export default function ConfiguratorStage() {
   }, [pendingConfig, consumePending]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Depth is set from what the sign is built of, the moment that changes.
+  // A lit letter is wrapped in a stock profile, so it lands on one of the
+  // board's widths; a cut letter is a sheet, so a 140 mm profile depth has to
+  // come back down to a thickness a sheet comes in. A depth that already fits
+  // the new build is kept exactly as the customer set it — this snaps a value
+  // that could not be made, it does not "tidy up" a valid one.
+  function depthForBuild(type: SignType, current: number): number | undefined {
+    if (type === "illuminated") {
+      if (isProfileDepth(current)) return undefined;
+      return lastProfileDepthRef.current ?? nearestProfileDepthMm(current);
+    }
+    if (current <= MAX_SHEET_DEPTH_MM && !isProfileDepth(current)) return undefined;
+    return lastSheetDepthRef.current ?? SHEET_DEPTH_FALLBACK;
+  }
+
+  function setThickness(mm: number) {
+    if (isIlluminated) lastProfileDepthRef.current = mm;
+    else               lastSheetDepthRef.current   = mm;
+    patch({ thickness: mm });
+  }
+
   function handleSignTypeChange(type: SignType) {
+    const thickness = depthForBuild(type, config.thickness);
+
     if (type === "plain") {
       // Remember current lightMode before hiding the panel
       lastLightModeRef.current = config.lightMode;
       setManualMode(null); // clear forced night when switching to plain
-      patch({ signType: type });
+      patch({ signType: type, ...(thickness !== undefined && { thickness }) });
       return;
     }
 
@@ -253,7 +292,12 @@ export default function ConfiguratorStage() {
       ? lastLightModeRef.current
       : (targetMat.lightModes[0] ?? "front");
 
-    patch({ signType: type, material: materialId, lightMode: restoredMode });
+    patch({
+      signType: type,
+      material: materialId,
+      lightMode: restoredMode,
+      ...(thickness !== undefined && { thickness }),
+    });
   }
 
   function handleMaterialChange(materialId: string) {
@@ -358,7 +402,10 @@ export default function ConfiguratorStage() {
   // beside it — nothing the customer sets lives below the preview any more.
 
   return (
-    <div className="mx-auto mt-14 max-w-6xl">
+    // Same measure as the sections around it (Hero, Materiály, Ako to
+    // funguje): with the settings beside the preview rather than under it,
+    // the panel needs every pixel it can share with them.
+    <div className="mx-auto mt-14 max-w-7xl">
       <div className="config-shell rounded-[32px] p-4 sm:p-6 md:p-7">
 
         {/* ── Panel header ───────────────────────────────────────────────── */}
@@ -396,19 +443,18 @@ export default function ConfiguratorStage() {
           </span>
         </div>
 
-        {/* ── Preview, full width ──────────────────────────────────────────
-            The preview used to be one narrow column wedged between two
-            columns of settings, so the sign rendered small. It now spans the
-            whole configurator — roughly three times the width — and the
-            parameters sit below it in two groups. */}
-        {/* ── Preview — pinned while the settings scroll past it ────────────
-            Every setting below changes what this shows, so it stays in view
-            instead of being scrolled off the top: from lg up the panel sticks
-            under the site header (h-18) and the parameters slide underneath.
+        {/* ── Preview beside the settings ───────────────────────────────────
+            The preview keeps the wider half of the configurator and, from lg
+            up, stays pinned under the site header (h-18) while the settings
+            column to its right scrolls past it — scroll as far as you like and
+            the sign you are changing is still on screen. The price and the
+            full recap stay under both, across the whole panel.
+
             Nothing here clips its overflow, which is what lets `sticky` work
             at all — a single `overflow: hidden` anywhere up the tree would
             silently turn it back into a normal block. ── */}
         <div className="space-y-4">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(21rem,1fr)]">
         <div
           className="rounded-[26px] p-4 lg:sticky lg:top-20 lg:z-10"
           style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
@@ -443,7 +489,7 @@ export default function ConfiguratorStage() {
           </div>
 
           <div
-            className="relative h-105 w-full overflow-hidden rounded-[20px] transition-colors duration-500 lg:h-[clamp(17rem,calc(100vh_-_24rem),30rem)]"
+            className="relative h-105 w-full overflow-hidden rounded-[20px] transition-colors duration-500 lg:h-[clamp(18rem,calc(100vh_-_17rem),32rem)]"
             style={{
               background: isNight
                 ? "radial-gradient(ellipse at 50% 38%, #1c1c22 0%, #0a0a0d 80%)"
@@ -502,10 +548,17 @@ export default function ConfiguratorStage() {
           </div>
         </div>
 
-        {/* ── Text — first, and across the whole configurator ───────────────
-            It is the one thing every customer changes, and the thing the
-            preview above is showing, so it leads the settings instead of
-            sitting third down a column. ── */}
+        {/* ── Settings column ──────────────────────────────────────────────
+            Text leads it: it is the one thing every customer changes, and the
+            thing the preview is showing.
+
+            From lg up the column is pinned next to the preview and scrolls
+            inside itself, so going through every setting never moves the page
+            and never takes the sign off screen. Below lg it is an ordinary
+            block under the preview — a phone has no room for two columns, let
+            alone two scrollbars. The extra right padding keeps the cards clear
+            of that inner scrollbar. ── */}
+        <div className="space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh_-_7rem)] lg:overflow-y-auto lg:pr-1.5">
         <FieldCard title="Text" description="Napíšte, čo má na nápise svietiť.">
           <input
             ref={textInputRef}
@@ -523,10 +576,14 @@ export default function ConfiguratorStage() {
             Type, lighting direction and LED colour were three separate cards
             for what is really one decision; so were material + colour, and
             height + thickness. Grouping them took the configurator from nine
-            panels down to five without removing a single setting. ── */}
-        <div className="mt-3 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            panels down to five without removing a single setting.
 
-          {/* ── LEFT: lighting, then material and colour ── */}
+            They stack down the column now instead of sitting two abreast: the
+            settings share the width with the preview, and one column is what
+            makes the scroll past a pinned preview read as one list. ── */}
+        <div className="flex flex-col gap-3">
+
+          {/* ── Lighting, then material and colour ── */}
           <div className="space-y-3">
 
             <FieldCard title="Svietenie" description="Či nápis svieti, odkiaľ a akou farbou.">
@@ -660,7 +717,7 @@ export default function ConfiguratorStage() {
 
           </div>
 
-          {/* ── RIGHT: typeface and dimensions ── */}
+          {/* ── Typeface and dimensions ── */}
           <div className="space-y-3">
             <FieldCard title="Font" description="Písmo, ktorým sa nápis vyreže.">
               <FontPicker
@@ -690,7 +747,7 @@ export default function ConfiguratorStage() {
               {isIlluminated ? (
                 <ProfilePicker
                   value={config.thickness}
-                  onChange={(v) => patch({ thickness: v })}
+                  onChange={setThickness}
                 />
               ) : (
                 <SliderBox
@@ -699,7 +756,7 @@ export default function ConfiguratorStage() {
                   max={sheetMax}
                   suffix=" mm"
                   chips={SHEET_CHIPS}
-                  onChange={(v) => patch({ thickness: v })}
+                  onChange={setThickness}
                   ariaLabel="Hrúbka písma"
                 />
               )}
@@ -711,6 +768,8 @@ export default function ConfiguratorStage() {
             </FieldCard>
           </div>
         </div>
+        </div>{/* settings column */}
+        </div>{/* preview + settings */}
 
         {/* ── Price ─────────────────────────────────────────────────────────
             Shape taken from vytlacto3d's price block: the headline figure with
@@ -770,7 +829,13 @@ export default function ConfiguratorStage() {
               <TechLine label="Materiál" value={currentMat.displayName} />
               <TechLine label="Písmo" value={currentFont?.name ?? "—"} />
               <TechLine label="Výška písmen" value={`${config.height} cm`} />
-              <TechLine label="Hrúbka" value={`${config.thickness} mm`} />
+              <TechLine
+                label={isIlluminated ? "Hĺbka profilu" : "Hrúbka"}
+                value={`${config.thickness} mm`}
+              />
+              {/* The size that has to fit the wall: the whole inscription, not
+                  one letter. Shown as soon as the face is measured. */}
+              <TechLine label="Celkový rozmer nápisu" value={signSizeLabel ?? "—"} />
               <TechLine label="Počet znakov" value={String(config.text.replace(/\s/g, "").length)} />
               <TechLine
                 label="Svietenie"
