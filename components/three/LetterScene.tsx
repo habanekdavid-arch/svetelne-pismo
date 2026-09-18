@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Center, Environment, OrbitControls, useTexture } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { MATERIALS, fontOptions, finishForColor } from "@/lib/options";
+import { MATERIALS, fontOptions, finishForColor, MAX_HEIGHT_CM } from "@/lib/options";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   useTTFFont,
@@ -84,6 +84,17 @@ const WALL_BUMP_SCALE = 0.012; // grain catches the key light; higher looks like
 // blew every photo up some five times and showed one blurry patch of it.
 // The factor leaves room to drag the view around without running off the
 // photo's edge.
+// What the tallest letters (MAX_HEIGHT_CM) look like, and how the sizes below
+// them fall off: 1 would be true proportion, less keeps the smallest sign from
+// disappearing while every step stays clearly different from the last.
+const HEIGHT_SCALE_MAX = 1.28;
+const HEIGHT_SCALE_CURVE = 0.72;
+
+// How far a sign reaches from its own centre, in world units — what a lean
+// swings backwards. Wide and short, so a turn sideways needs far more room
+// behind it than a tilt up or down.
+const SIGN_HALF_SPAN_X = 2.6;
+const SIGN_HALF_SPAN_Y = 0.9;
 const PHOTO_WALL_OFFSET = 0.0015;
 const PHOTO_COVER = 2.2;
 
@@ -707,6 +718,8 @@ type LetterSceneProps = {
   previewMode: "day" | "night";
   /** Preview-only: where on the wall the sign sits, in world units. */
   offset?: { x: number; y: number };
+  /** Preview-only: how the sign is turned on the wall, in degrees. */
+  signRotation?: { x: number; y: number };
   /** Preview-only: how far the customer's photo has been pushed behind it. */
   photoOffset?: { x: number; y: number };
   onPhotoOffsetChange?: (offset: { x: number; y: number }) => void;
@@ -793,6 +806,7 @@ function SceneContent({
   previewMode,
   offset,
   onOffsetChange,
+  signRotation,
   photoOffset,
   onPhotoOffsetChange,
   dragTarget = "sign",
@@ -816,7 +830,14 @@ function SceneContent({
 
   const ls = getLightingSettings(signType, lightMode, isNight);
 
-  const heightScale = Math.min(1.15, Math.max(0.78, height / 45));
+  // Height has to be VISIBLE. It used to be squeezed into 0.78–1.15, so a
+  // 10 cm sign and a 55 cm one were within a few per cent of each other on
+  // screen and the slider looked like it did nothing. The whole range now
+  // spans about 3.5×: still not the true 5.5× (a 10 cm nápis would be a
+  // speck, especially once a long text is scaled down to fit), but every step
+  // of the slider is plain to see — against a wall whose brick and grain keep
+  // their real size, which is what gives the eye something to measure by.
+  const heightScale = Math.pow(height / MAX_HEIGHT_CM, HEIGHT_SCALE_CURVE) * HEIGHT_SCALE_MAX;
   const lenScale    = Math.min(1, 6.5 / Math.max(safeText.length, 6));
   const finalScale  = heightScale * lenScale;
 
@@ -848,7 +869,17 @@ function SceneContent({
 
   // Park the wall just behind the sign's back face so the letters read as
   // surface-mounted (the small gap = a realistic stand-off mount).
-  const wallZ = -(depthUnits * finalScale) / 2 - 0.06;
+  //
+  // A turned sign needs more room than that: leaning it swings one end back,
+  // and against a wall standing right behind it that end would sink into the
+  // wall and be cut off. The wall (and the photo on it) steps back by as much
+  // as the lean swings, so the sign stays whole. The backdrop is far wider
+  // than the shot, so stepping it back changes nothing else on screen.
+  const leanGap =
+    Math.abs(Math.sin(THREE.MathUtils.degToRad(signRotation?.y ?? 0))) * SIGN_HALF_SPAN_X +
+    Math.abs(Math.sin(THREE.MathUtils.degToRad(signRotation?.x ?? 0))) * SIGN_HALF_SPAN_Y;
+  const signBackZ = -(depthUnits * finalScale) / 2 - 0.06;
+  const wallZ = signBackZ - leanGap;
 
   // While something in the preview can be dragged, the left button/one finger
   // belongs to it and turning the view moves to the right button/two fingers.
@@ -946,7 +977,18 @@ function SceneContent({
           the customer's photo has to take the wall glow and, through it, the
           shadow with it — a halo left behind where the letters used to be is
           the one thing that would give the composite away. ── */}
-      <group position={[offset?.x ?? 0, offset?.y ?? 0, 0]}>
+      <group
+        position={[offset?.x ?? 0, offset?.y ?? 0, 0]}
+        // Turning the sign turns its wall glow and its shadow with it: on a
+        // photo the wall is rarely square to the camera, and a sign that can
+        // be tilted to sit flat on it is the difference between a montage and
+        // a sticker. Degrees in, radians out — the UI talks in degrees.
+        rotation={[
+          THREE.MathUtils.degToRad(signRotation?.x ?? 0),
+          THREE.MathUtils.degToRad(signRotation?.y ?? 0),
+          0,
+        ]}
+      >
 
       {/* ── The glow the wall actually carries ── */}
       {wallGlowOn && (
@@ -958,7 +1000,11 @@ function SceneContent({
             gain={glowGain}
             scale={finalScale}
             y={0.08}
-            z={wallZ + HALO_GLOW_WALL_OFFSET}
+            // Just behind the letters rather than on the wall itself: a
+            // leaning sign swings its glow with it, and a glow pinned to a
+            // wall that has stepped back would swing straight into it and be
+            // cut off halfway across the nápis.
+            z={signBackZ + HALO_GLOW_WALL_OFFSET}
           />
         </Suspense>
       )}
