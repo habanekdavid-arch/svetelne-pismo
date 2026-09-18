@@ -96,9 +96,6 @@ export default function ConfiguratorStage() {
   // of the wall ends up in the shot.
   const [photoOffset, setPhotoOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragTarget, setDragTarget] = useState<DragTarget>("sign");
-  // How the sign leans on that photo, in degrees. Also preview-only: the sign
-  // itself is made flat, this only matches the angle the wall was shot at.
-  const [signRotation, setSignRotation] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const { setConfig: publishConfig } = useSharedConfig();
   const {
@@ -367,24 +364,10 @@ export default function ConfiguratorStage() {
   // The photo is read straight from the file into an object URL: it stays in
   // this browser, is never uploaded, and is released the moment it is replaced
   // or the page goes away.
-  /** Sign back in the middle and straight, photo back in its frame. */
+  /** Sign back in the middle, photo back in its frame. */
   function recenterPreview() {
     setSignOffset({ x: 0, y: 0 });
     setPhotoOffset({ x: 0, y: 0 });
-    setSignRotation({ x: 0, y: 0 });
-  }
-
-  // Angles one press apart, ending back where they started: lean one way, then
-  // the other, then straight again — two buttons cover both directions without
-  // a second button each.
-  const ROTATION_STEPS = [0, 15, 30, 45, -45, -30, -15];
-
-  function rotateSign(axis: "x" | "y") {
-    setSignRotation((prev) => {
-      const at = ROTATION_STEPS.indexOf(prev[axis]);
-      const next = ROTATION_STEPS[(at + 1) % ROTATION_STEPS.length];
-      return { ...prev, [axis]: next };
-    });
   }
 
   function clearBackground() {
@@ -551,7 +534,6 @@ export default function ConfiguratorStage() {
               wall={wall}
               backgroundUrl={backgroundUrl}
               offset={signOffset}
-              signRotation={signRotation}
               photoOffset={photoOffset}
               onPhotoOffsetChange={backgroundUrl ? setPhotoOffset : undefined}
               dragTarget={dragTarget}
@@ -591,12 +573,9 @@ export default function ConfiguratorStage() {
             onClearPhoto={clearBackground}
             dragTarget={dragTarget}
             onDragTarget={setDragTarget}
-            rotation={signRotation}
-            onRotate={rotateSign}
             moved={
               signOffset.x !== 0 || signOffset.y !== 0 ||
-              photoOffset.x !== 0 || photoOffset.y !== 0 ||
-              signRotation.x !== 0 || signRotation.y !== 0
+              photoOffset.x !== 0 || photoOffset.y !== 0
             }
             onRecenter={recenterPreview}
             error={backgroundError}
