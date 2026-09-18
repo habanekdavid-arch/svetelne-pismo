@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, Move, X } from "lucide-react";
 import { WALL_SURFACES, type WallGrain } from "@/lib/walls";
 
 // The surface the sign is previewed against, sitting on the right of the
@@ -15,6 +15,8 @@ export default function WallPicker({
   photoName,
   onPhoto,
   onClearPhoto,
+  moved = false,
+  onRecenter,
   error,
 }: {
   wall: WallGrain;
@@ -22,6 +24,9 @@ export default function WallPicker({
   photoName: string | null;
   onPhoto: (file: File) => void;
   onClearPhoto: () => void;
+  /** True once the sign has been dragged off the middle of the photo. */
+  moved?: boolean;
+  onRecenter?: () => void;
   error: string | null;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -103,6 +108,35 @@ export default function WallPicker({
           }}
         />
       </div>
+
+      {/* With a photo behind it the sign can be put where it will really hang.
+          The hint is worth the line: nothing else in the preview is draggable,
+          so nobody would think to try. */}
+      {photoName && (
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-flex items-center gap-1 text-[10px] font-semibold"
+            style={{ color: "var(--color-muted)" }}
+          >
+            <Move size={11} strokeWidth={2.25} />
+            Potiahnite nápis na miesto, kde ho chcete mať
+          </span>
+          {moved && onRecenter && (
+            <button
+              type="button"
+              onClick={onRecenter}
+              className="rounded-full px-2 py-0.5 text-[10px] font-bold transition hover:-translate-y-px"
+              style={{
+                background: "var(--color-surface)",
+                color: "var(--color-foreground)",
+                border: "1px solid var(--color-border)",
+              }}
+            >
+              Na stred
+            </button>
+          )}
+        </div>
+      )}
 
       {error && (
         <p className="text-[10px]" style={{ color: "#dc2626" }}>

@@ -87,6 +87,10 @@ export default function ConfiguratorStage() {
   // the sign, not something we make — so neither reaches the cart or an order.
   const [wall, setWall] = useState<WallGrain>(DEFAULT_WALL);
   const [background, setBackground] = useState<{ url: string; name: string } | null>(null);
+  // Where the sign sits on the customer's photo. Preview-only, like the wall
+  // itself: it is where they imagine the sign, not something we make, so it
+  // never reaches Config, the cart or an order.
+  const [signOffset, setSignOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const { setConfig: publishConfig } = useSharedConfig();
   const {
@@ -356,6 +360,7 @@ export default function ConfiguratorStage() {
   // this browser, is never uploaded, and is released the moment it is replaced
   // or the page goes away.
   function clearBackground() {
+    setSignOffset({ x: 0, y: 0 });
     setBackground((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return null;
@@ -373,6 +378,7 @@ export default function ConfiguratorStage() {
       return;
     }
     setBackgroundError(null);
+    setSignOffset({ x: 0, y: 0 });
     setBackground((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return { url: URL.createObjectURL(file), name: file.name };
@@ -516,6 +522,11 @@ export default function ConfiguratorStage() {
               previewMode={previewMode}
               wall={wall}
               backgroundUrl={backgroundUrl}
+              offset={signOffset}
+              // Dragging the sign into place is offered only with the
+              // customer's own photo behind it — on a painted wall there is no
+              // spot to put it on, and the drag would just take the orbit away.
+              onOffsetChange={backgroundUrl ? setSignOffset : undefined}
             />
           </div>
 
@@ -543,6 +554,8 @@ export default function ConfiguratorStage() {
             photoName={background?.name ?? null}
             onPhoto={handleBackground}
             onClearPhoto={clearBackground}
+            moved={signOffset.x !== 0 || signOffset.y !== 0}
+            onRecenter={() => setSignOffset({ x: 0, y: 0 })}
             error={backgroundError}
           />
           </div>
