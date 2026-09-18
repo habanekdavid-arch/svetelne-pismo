@@ -117,8 +117,8 @@ export default function WallPicker({
 
       {/* With a photo behind it, two things can be moved: the sign, to where it
           will really hang, and the photo, to bring the right part of the wall
-          into the shot. A mouse has a button for each; a finger does not, which
-          is what these two chips are for. */}
+          into the shot. These chips say which one a drag takes — turning the
+          view stays on the right button, where it is everywhere else. */}
       {photoName && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span
@@ -142,8 +142,8 @@ export default function WallPicker({
                 onClick={() => onDragTarget?.(t.id)}
                 title={
                   t.id === "sign"
-                    ? "Ľavé tlačidlo myši posúva nápis"
-                    : "Pozadie posuniete aj pravým tlačidlom myši"
+                    ? "Ťahanie posúva nápis"
+                    : "Ťahanie posúva fotku za nápisom"
                 }
                 className="rounded-full px-2.5 py-1 text-[10px] font-semibold transition hover:-translate-y-px"
                 style={{
@@ -176,7 +176,7 @@ export default function WallPicker({
 
       {photoName && (
         <span className="text-[10px]" style={{ color: "var(--color-muted-light)" }}>
-          Na myši: ľavé tlačidlo nápis, pravé pozadie.
+          Ľavé tlačidlo posúva, pravé otáča pohľad (na dotyk: jeden prst posúva, dva otáčajú).
         </span>
       )}
 

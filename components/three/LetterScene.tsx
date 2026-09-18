@@ -633,11 +633,11 @@ function SignPlacement({
     let startOffset = offsetRef.current;
 
     function onDown(e: PointerEvent) {
-      // Left button moves what the picker says; the right button always moves
-      // the photo, so both are reachable without leaving the preview. Touch
-      // has no second button, which is why the picker exists at all.
-      if (e.button !== 0 && e.button !== 2) return;
-      const wantsPhoto = e.button === 2 || targetRef.current === "background";
+      // Left button (or one finger) only: the right button and two fingers
+      // turn the view through OrbitControls, the same as on a painted wall.
+      // What the drag moves is the picker's choice — sign or photo.
+      if (e.button !== 0) return;
+      const wantsPhoto = targetRef.current === "background";
       movingPhoto = wantsPhoto && !!photoChangeRef.current;
       if (wantsPhoto && !movingPhoto) return;
 
@@ -672,21 +672,16 @@ function SignPlacement({
       } catch { /* already released */ }
     }
 
-    // Right-dragging the photo must not also open the browser's menu.
-    function onContextMenu(e: Event) { e.preventDefault(); }
-
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onUp);
-    el.addEventListener("contextmenu", onContextMenu);
 
     return () => {
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
-      el.removeEventListener("contextmenu", onContextMenu);
     };
   }, [gl, camera, size.width, size.height, photoSize]);
 
@@ -855,6 +850,18 @@ function SceneContent({
   // surface-mounted (the small gap = a realistic stand-off mount).
   const wallZ = -(depthUnits * finalScale) / 2 - 0.06;
 
+  // While something in the preview can be dragged, the left button/one finger
+  // belongs to it and turning the view moves to the right button/two fingers.
+  const placing = !!onOffsetChange;
+  const orbitMouseButtons = useMemo(
+    () => (placing ? { RIGHT: THREE.MOUSE.ROTATE } : { LEFT: THREE.MOUSE.ROTATE }),
+    [placing],
+  );
+  const orbitTouches = useMemo(
+    () => (placing ? { TWO: THREE.TOUCH.ROTATE } : { ONE: THREE.TOUCH.ROTATE }),
+    [placing],
+  );
+
   const surface = WALL_SURFACES.find((w) => w.id === wall) ?? WALL_SURFACES[0];
   const wallTexture = useWallTexture(surface.id, WALL_WIDTH, WALL_HEIGHT);
   const photo = usePhotoTexture(backgroundUrl ?? null);
@@ -992,12 +999,14 @@ function SceneContent({
       </Suspense>
 
       {/* Drag to look around the sign — locked to a tasteful arc, no zoom/pan.
-          Off while the sign is being placed on a photo: there a drag moves the
-          sign, and a photo is shot from one angle anyway, so orbiting away from
-          it only breaks the illusion it was taken to create. */}
+          On a photo the buttons split: the left one moves what the picker says
+          (the sign, or the photo behind it), the right one still turns the view
+          exactly as it does on a painted wall. Same on touch — one finger
+          moves, two fingers turn — so nothing is out of reach on a phone. */}
       <OrbitControls
-        enabled={!onOffsetChange}
         makeDefault
+        mouseButtons={orbitMouseButtons}
+        touches={orbitTouches}
         target={CAMERA_TARGET}
         enableZoom={false}
         enablePan={false}
