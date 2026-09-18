@@ -1,4 +1,4 @@
-import type { MaterialOption, LightModeDef, SignType, LightModeId } from "@/lib/types";
+import type { MaterialOption, LightModeDef, ColorOption, ProfileFinish, SignType } from "@/lib/types";
 
 // ── Font options ──────────────────────────────────────────────────────────────
 // Every font is a real TTF (see /public/fonts, fetched by scripts/fetch-fonts.mjs)
@@ -34,32 +34,45 @@ export const fontOptions: FontOption[] = [
 // ── Size limits ─────────────────────────────────────────────────────────────
 // What the workshop actually makes, so the configurator cannot quote a sign
 // nobody would build.
-//
-// Thickness is ONE range for the whole configurator. It used to depend on
-// whether the sign was lit, which meant switching Svetelné/Nesvetelné silently
-// rewrote a thickness the customer had already chosen — the setting moved
-// under their hands. What each build is usually made in is advice now
-// (usualDepthMm below), shown as a note, never applied to the value.
 export const MIN_HEIGHT_CM = 10;
 export const MAX_HEIGHT_CM = 55;
 
+// ── Depth: two different builds, two different scales ───────────────────────
+//
+// A CUT letter is a sheet: its thickness is the sheet's thickness, a few
+// millimetres, chosen freely.
+//
+// A LIT letter is a channel letter: its side wall is a rolled aluminium
+// profile, and a profile is not cut to an arbitrary width — it is stocked in
+// fixed ones. These are the widths on the manufacturer's board (3D system,
+// "System of building channel letters", 3dsystem.pl), which is what our lit
+// letters are built from, whether they light through the face (Spredu) or
+// throw the light back onto the wall (Zozadu):
+export const PROFILE_WIDTHS_MM = [60, 80, 100, 120, 140, 167, 217] as const;
+
+/** The shallow edge profile on the same board — the flattest lit build. */
+export const EDGE_PROFILE_MM = 30;
+
+/** Every depth a lit letter can be built in, shallowest first. */
+export const PROFILE_DEPTHS_MM: number[] = [EDGE_PROFILE_MM, ...PROFILE_WIDTHS_MM];
+
 export const MIN_DEPTH_MM = 4;
-export const MAX_DEPTH_MM = 200;
+/** The deepest profile on the board. */
+export const MAX_DEPTH_MM = PROFILE_DEPTHS_MM[PROFILE_DEPTHS_MM.length - 1];
 
-// What the workshop normally builds: a cut letter is a sheet; a lit letter is
-// a box deep enough for the LEDs; a face-lit letter in the exterior composite
-// is the one build that goes really deep, because the LEDs have to sit far
-// enough behind the face to light it evenly.
-export const USUAL_DEPTH_MM_PLAIN          = 10;
-export const USUAL_DEPTH_MM_ILLUMINATED    = 50;
-export const USUAL_DEPTH_MM_FRONT_EXTERIOR = 200;
-const DEEP_BUILD_MATERIAL = "kompozit";
+/** Sheet thicknesses for a cut letter: what we normally make, and the ceiling. */
+export const USUAL_SHEET_DEPTH_MM = 10;
+export const MAX_SHEET_DEPTH_MM   = 30;
 
-/** The thickness this build is usually made in — guidance for the UI only. */
-export function usualDepthMm(signType: SignType, lightMode?: LightModeId, materialId?: string): number {
-  if (signType !== "illuminated") return USUAL_DEPTH_MM_PLAIN;
-  if (lightMode === "front" && materialId === DEEP_BUILD_MATERIAL) return USUAL_DEPTH_MM_FRONT_EXTERIOR;
-  return USUAL_DEPTH_MM_ILLUMINATED;
+export function isProfileDepth(mm: number): boolean {
+  return PROFILE_DEPTHS_MM.includes(mm);
+}
+
+/** The stock profile a custom depth would actually be built from. */
+export function nearestProfileDepthMm(mm: number): number {
+  return PROFILE_DEPTHS_MM.reduce((best, d) =>
+    Math.abs(d - mm) < Math.abs(best - mm) ? d : best,
+  PROFILE_DEPTHS_MM[0]);
 }
 
 // ── Materials ─────────────────────────────────────────────────────────────────
@@ -205,18 +218,73 @@ export const lightColors = [
 ];
 
 // ── Body/material colours ─────────────────────────────────────────────────────
-
-// Finishes a sign is actually made in. The first four are the standard
-// aluminium-profile colours — the ones a profile is stocked in, so they need
-// no special order — and the rest are common RAL powder coats. Novelty metal
-// finishes (gold, copper) were dropped: they are not stock profile colours,
-// and a flat swatch is a poor promise of what a metallic finish looks like.
-export const letterColorOptions = [
-  { id: "white",    label: "Biela",        value: "#f2f2f2" }, // RAL 9016
-  { id: "black",    label: "Čierna",       value: "#1a1a1a" }, // RAL 9005
-  { id: "charcoal", label: "Antracit",     value: "#3a3a3a" }, // RAL 7016
-  { id: "silver",   label: "Strieborná",   value: "#b0b8c1" }, // prírodný elox
-  { id: "red",      label: "Červená",      value: "#c41e3a" }, // RAL 3020
-  { id: "navy",     label: "Tmavomodrá",   value: "#1e3a8a" }, // RAL 5010
-  { id: "green",    label: "Tmavá zelená", value: "#166534" }, // RAL 6005
+//
+// Taken off the manufacturer's board (3D system, "System of building channel
+// letters"): these are the finishes a 3D profile is actually stocked in, so a
+// customer picking one is picking something that exists on a shelf rather than
+// a colour we would have to have made. Same nine RAL tones for a cut letter —
+// a lacquered sheet is coated in the same range.
+const PROFILE_RAL: ColorOption[] = [
+  { id: "white",  label: "Biela",               value: "#f1f0ea", code: "RAL 9016" },
+  { id: "yellow", label: "Dopravná žltá",       value: "#fad201", code: "RAL 1023" },
+  { id: "orange", label: "Oranžová",            value: "#e75b12", code: "RAL 2004" },
+  { id: "red",    label: "Dopravná červená",    value: "#cc0605", code: "RAL 3020" },
+  { id: "green",  label: "Mätová zelená",       value: "#20603d", code: "RAL 6029" },
+  { id: "blue",   label: "Ultramarínová modrá", value: "#20214f", code: "RAL 5002" },
+  { id: "black",  label: "Čierna",              value: "#0a0a0a", code: "RAL 9005" },
+  { id: "silver", label: "Strieborná",          value: "#a5a5a5", code: "RAL 9006" },
 ];
+
+// Profile-only finishes. The matt white is the same RAL tone with the gloss
+// taken out of it, so it needs its own id (the hex alone cannot tell them
+// apart). The four metal finishes are rolled aluminium, not paint — they are
+// back on the board the customer's own supplier prints, which is why gold is
+// here again after we dropped the novelty metallics.
+const PROFILE_SPECIAL: ColorOption[] = [
+  {
+    id: "white-mat", label: "Biela matná", value: "#eeeee7",
+    code: "RAL 9016 MAT", finish: "matte",
+  },
+  {
+    id: "silver-brushed", label: "Brúsená strieborná", value: "#c7cacd",
+    code: "Silver Brushed", finish: "brushed",
+    swatch: "linear-gradient(110deg,#b9bdc2 0%,#e6e9ec 38%,#aeb3b8 62%,#d5d9dd 100%)",
+  },
+  {
+    id: "gold-brushed", label: "Brúsená zlatá", value: "#c2a25f",
+    code: "Gold Brushed", finish: "brushed",
+    swatch: "linear-gradient(110deg,#a98c4c 0%,#e2c684 38%,#a3854a 62%,#d3b872 100%)",
+  },
+  {
+    id: "silver-mirror", label: "Zrkadlová strieborná", value: "#dfe4e8",
+    code: "Silver Mirror", finish: "mirror",
+    swatch: "linear-gradient(135deg,#ffffff 0%,#c3cad1 45%,#f2f5f8 55%,#aab2ba 100%)",
+  },
+  {
+    id: "gold-mirror", label: "Zrkadlová zlatá", value: "#d9b866",
+    code: "Gold Mirror", finish: "mirror",
+    swatch: "linear-gradient(135deg,#fff3d0 0%,#c9a94f 45%,#f6e3ae 55%,#a9862f 100%)",
+  },
+];
+
+/** Cut (non-lit) letters: lacquered sheet, the RAL range only. */
+export const letterColorOptions: ColorOption[] = PROFILE_RAL;
+
+/** Lit letters: everything the 3D profile is stocked in. */
+export const profileColorOptions: ColorOption[] = [
+  PROFILE_RAL[0],
+  PROFILE_SPECIAL[0],            // matt white sits next to the gloss one
+  ...PROFILE_RAL.slice(1),
+  ...PROFILE_SPECIAL.slice(1),   // the metal finishes close the row
+];
+
+/** Which colours a sign of this kind can be made in. */
+export function bodyColorOptionsFor(signType: SignType): ColorOption[] {
+  return signType === "illuminated" ? profileColorOptions : letterColorOptions;
+}
+
+/** How a chosen colour behaves under light — used by the 3D preview. */
+export function finishForColor(hex: string): ProfileFinish {
+  const v = hex.toLowerCase();
+  return profileColorOptions.find((c) => c.value.toLowerCase() === v)?.finish ?? "gloss";
+}

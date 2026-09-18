@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Center, Environment, OrbitControls, useTexture } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { MATERIALS, fontOptions } from "@/lib/options";
+import { MATERIALS, fontOptions, finishForColor } from "@/lib/options";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   useTTFFont,
@@ -176,6 +176,42 @@ function safeColor(v: string): string {
   return !v || v.includes("gradient") ? "#00c8ff" : v;
 }
 
+function safeColorHex(color: THREE.Color): string {
+  return `#${color.getHexString()}`;
+}
+
+// Turn a chosen finish (lib/options.ts, read off the manufacturer's board) into
+// the PBR surface it physically is. Metalness is deliberate here: a mirrored
+// profile HAS no diffuse colour, it only reflects the environment, which is
+// exactly right for chrome or polished gold — and exactly wrong for a painted
+// panel, which is why the RAL finishes keep the material's own metalness.
+function applyFinish(
+  params: THREE.MeshPhysicalMaterialParameters,
+  hex: string,
+  roughness: number,
+  isSide: boolean,
+): void {
+  switch (finishForColor(hex)) {
+    case "brushed":
+      params.metalness  = 0.85;
+      params.roughness  = isSide ? 0.44 : 0.34;
+      params.anisotropy = isSide ? 0 : 0.85;
+      params.clearcoat  = 0;
+      break;
+    case "mirror":
+      params.metalness  = 0.95;
+      params.roughness  = isSide ? 0.12 : 0.05;
+      params.clearcoat  = 0;
+      break;
+    case "matte":
+      params.roughness  = Math.min(1, roughness * 1.9 + 0.2);
+      params.clearcoat  = 0;
+      break;
+    default:
+      break;
+  }
+}
+
 // Data-driven PBR material builder — all tweakable values live in MaterialOption.pbr.
 // Used for all three face groups: front/back caps use isSide=false (same
 // physical face material, just different emissive), the cut side wall uses
@@ -219,6 +255,14 @@ function buildPhysicalMat(
     params.ior          = p.ior ?? 1.5;
     params.thickness    = p.thickness ?? 0.3;
     params.transparent  = true;
+  } else {
+    // Profile finishes: brushed and mirror aluminium are metal, not paint, so
+    // the colour tints what they reflect instead of being a diffuse fill —
+    // that is what makes silver read as silver and gold as gold rather than as
+    // two flat greys. A matt lacquer is the same paint with the sheen taken
+    // out of it. Skipped for transmissive materials (plexi), whose surface is
+    // the acrylic itself, not a coating.
+    applyFinish(params, safeColorHex(color), roughness, isSide);
   }
 
   return new THREE.MeshPhysicalMaterial(params);
