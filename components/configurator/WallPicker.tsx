@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { ImagePlus, Move, X } from "lucide-react";
 import { WALL_SURFACES, type WallGrain } from "@/lib/walls";
+import type { DragTarget } from "@/components/three/LetterScene";
 
 // The surface the sign is previewed against, sitting on the right of the
 // recap chips under the preview: four painted walls plus the customer's own
@@ -15,6 +16,8 @@ export default function WallPicker({
   photoName,
   onPhoto,
   onClearPhoto,
+  dragTarget = "sign",
+  onDragTarget,
   moved = false,
   onRecenter,
   error,
@@ -24,7 +27,10 @@ export default function WallPicker({
   photoName: string | null;
   onPhoto: (file: File) => void;
   onClearPhoto: () => void;
-  /** True once the sign has been dragged off the middle of the photo. */
+  /** What a plain drag in the preview moves. */
+  dragTarget?: DragTarget;
+  onDragTarget?: (target: DragTarget) => void;
+  /** True once the sign or the photo has been dragged off the middle. */
   moved?: boolean;
   onRecenter?: () => void;
   error: string | null;
@@ -109,18 +115,48 @@ export default function WallPicker({
         />
       </div>
 
-      {/* With a photo behind it the sign can be put where it will really hang.
-          The hint is worth the line: nothing else in the preview is draggable,
-          so nobody would think to try. */}
+      {/* With a photo behind it, two things can be moved: the sign, to where it
+          will really hang, and the photo, to bring the right part of the wall
+          into the shot. A mouse has a button for each; a finger does not, which
+          is what these two chips are for. */}
       {photoName && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span
             className="inline-flex items-center gap-1 text-[10px] font-semibold"
             style={{ color: "var(--color-muted)" }}
           >
             <Move size={11} strokeWidth={2.25} />
-            Potiahnite nápis na miesto, kde ho chcete mať
+            Ťahaním posúvam
           </span>
+
+          {([
+            { id: "sign"       as DragTarget, label: "Nápis" },
+            { id: "background" as DragTarget, label: "Pozadie" },
+          ]).map((t) => {
+            const active = dragTarget === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onDragTarget?.(t.id)}
+                title={
+                  t.id === "sign"
+                    ? "Ľavé tlačidlo myši posúva nápis"
+                    : "Pozadie posuniete aj pravým tlačidlom myši"
+                }
+                className="rounded-full px-2.5 py-1 text-[10px] font-semibold transition hover:-translate-y-px"
+                style={{
+                  background: active ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "var(--color-surface)",
+                  color: active ? "var(--color-accent-text)" : "var(--color-muted)",
+                  border: `1px solid ${active ? "var(--accent)" : "var(--color-border)"}`,
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+
           {moved && onRecenter && (
             <button
               type="button"
@@ -136,6 +172,12 @@ export default function WallPicker({
             </button>
           )}
         </div>
+      )}
+
+      {photoName && (
+        <span className="text-[10px]" style={{ color: "var(--color-muted-light)" }}>
+          Na myši: ľavé tlačidlo nápis, pravé pozadie.
+        </span>
       )}
 
       {error && (
