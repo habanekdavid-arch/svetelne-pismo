@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useLayoutEffect, useMemo } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Center, Environment, OrbitControls, useTexture } from "@react-three/drei";
@@ -554,6 +554,98 @@ function HaloGlow({ fontFile, text, color, gain, scale, y, z }: HaloGlowProps) {
   );
 }
 
+// ── Placing the sign on the customer's own photo ──────────────────────────────
+// With a real wall behind it the sign has somewhere it belongs — over the
+// door, above the window — so it can be dragged there and left there.
+//
+// The drag is read off the canvas element, not off the letters: the strokes of
+// a script face are a few pixels wide, and hunting for one to grab is not what
+// "drag it where you want it" should feel like. Anywhere in the preview works,
+// which is also why OrbitControls is switched off while placing — one drag,
+// one meaning.
+//
+// The grab cursor and the touch-action that stops a drag from scrolling the
+// page are set as CSS on the wrapper and the canvas (see PLACING_CLASSES and
+// the Canvas style below), not by reaching into the renderer from an effect.
+type PlacementProps = {
+  offset: { x: number; y: number };
+  onOffsetChange: (offset: { x: number; y: number }) => void;
+};
+
+/** How much of the framed view the sign may be dragged out to (0.5 = the edge). */
+const PLACEMENT_REACH = 0.45;
+
+function SignPlacement({ offset, onOffsetChange }: PlacementProps) {
+  const { gl, camera, size } = useThree();
+
+  // Read inside the pointer handlers without re-attaching them mid-drag.
+  const offsetRef = useRef(offset);
+  const changeRef = useRef(onOffsetChange);
+  useEffect(() => { offsetRef.current = offset; }, [offset]);
+  useEffect(() => { changeRef.current = onOffsetChange; }, [onOffsetChange]);
+
+  useEffect(() => {
+    const el = gl.domElement;
+
+    // One pixel of drag, in world units at the wall's distance — the sign
+    // follows the pointer exactly, at any canvas size or zoom level.
+    const distance = camera.position.distanceTo(new THREE.Vector3(...CAMERA_TARGET));
+    const visibleHeight = 2 * Math.tan((CAMERA_FOV * Math.PI) / 360) * distance;
+    const worldPerPx = visibleHeight / size.height;
+    const reachY = visibleHeight * PLACEMENT_REACH;
+    const reachX = (visibleHeight * (size.width / size.height)) * PLACEMENT_REACH;
+    const clamp = (v: number, limit: number) => Math.min(limit, Math.max(-limit, v));
+
+    let pointerId: number | null = null;
+    let startX = 0;
+    let startY = 0;
+    let startOffset = offsetRef.current;
+
+    function onDown(e: PointerEvent) {
+      if (e.button !== 0) return;
+      pointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      startOffset = offsetRef.current;
+      // Capture keeps the drag alive when the pointer leaves the canvas. It can
+      // throw for a pointer the browser no longer tracks — the drag still works
+      // through the listeners, so that is not worth an error in the console.
+      try { el.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+    }
+
+    function onMove(e: PointerEvent) {
+      if (pointerId !== e.pointerId) return;
+      changeRef.current({
+        x: clamp(startOffset.x + (e.clientX - startX) * worldPerPx, reachX),
+        // Screen y grows downward, the scene's does not.
+        y: clamp(startOffset.y - (e.clientY - startY) * worldPerPx, reachY),
+      });
+    }
+
+    function onUp(e: PointerEvent) {
+      if (pointerId !== e.pointerId) return;
+      pointerId = null;
+      try {
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      } catch { /* already released */ }
+    }
+
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+    };
+  }, [gl, camera, size.width, size.height]);
+
+  return null;
+}
+
 // ── Component types ───────────────────────────────────────────────────────────
 
 type LetterSceneProps = {
@@ -571,10 +663,21 @@ type LetterSceneProps = {
   lightMode: LightModeId;
   height: number;
   previewMode: "day" | "night";
+  /** Preview-only: where on the wall the sign sits, in world units. */
+  offset?: { x: number; y: number };
+  /**
+   * Passing this turns on placement: the sign can be dragged across the
+   * backdrop. Set only with the customer's own photo behind it, where the
+   * sign has a real place to be put.
+   */
+  onOffsetChange?: (offset: { x: number; y: number }) => void;
   onFailedGlyphs?: (count: number) => void;
 };
 
 // ── Main export ───────────────────────────────────────────────────────────────
+
+// While the sign can be placed, the preview reads as something to grab.
+const PLACING_CLASSES = "cursor-grab active:cursor-grabbing";
 
 export default function LetterScene(props: LetterSceneProps) {
   const { signType, lightMode, previewMode } = props;
@@ -588,7 +691,7 @@ export default function LetterScene(props: LetterSceneProps) {
     : BLOOM_INTENSITY_BASE;
 
   return (
-    <div className="relative h-full w-full">
+    <div className={`relative h-full w-full ${props.onOffsetChange ? PLACING_CLASSES : ""}`}>
       <Canvas
         camera={{ position: CAMERA_POS, fov: CAMERA_FOV }}
         gl={{ antialias: true, alpha: true }}
@@ -599,7 +702,9 @@ export default function LetterScene(props: LetterSceneProps) {
           gl.toneMappingExposure = TONEMAP_EXPOSURE;
           gl.outputColorSpace    = THREE.SRGBColorSpace;
         }}
-        style={{ background: "transparent" }}
+        // touchAction none while placing: without it a drag on a phone is
+        // taken as a page scroll and the sign never moves.
+        style={{ background: "transparent", touchAction: props.onOffsetChange ? "none" : undefined }}
       >
         <Suspense fallback={null}>
           <SceneContent {...props} />
@@ -639,6 +744,8 @@ function SceneContent({
   lightMode,
   height,
   previewMode,
+  offset,
+  onOffsetChange,
   onFailedGlyphs,
 }: LetterSceneProps) {
   const safeText  = text?.trim() || "Váš text";
@@ -769,6 +876,13 @@ function SceneContent({
         </mesh>
       )}
 
+      {/* ── The sign and the glow it throws, as one movable thing ──────────
+          Everything that IS the sign lives in this group: dragging it across
+          the customer's photo has to take the wall glow and, through it, the
+          shadow with it — a halo left behind where the letters used to be is
+          the one thing that would give the composite away. ── */}
+      <group position={[offset?.x ?? 0, offset?.y ?? 0, 0]}>
+
       {/* ── The glow the wall actually carries ── */}
       {wallGlowOn && (
         <Suspense fallback={null}>
@@ -808,6 +922,8 @@ function SceneContent({
         </group>
       </Center>
 
+      </group>
+
       {/* ── Image-based lighting — own Suspense so the HDRI fetch doesn't block text ── */}
       <Suspense fallback={null}>
         <Environment
@@ -817,8 +933,12 @@ function SceneContent({
         />
       </Suspense>
 
-      {/* Drag to look around the sign — locked to a tasteful arc, no zoom/pan. */}
+      {/* Drag to look around the sign — locked to a tasteful arc, no zoom/pan.
+          Off while the sign is being placed on a photo: there a drag moves the
+          sign, and a photo is shot from one angle anyway, so orbiting away from
+          it only breaks the illusion it was taken to create. */}
       <OrbitControls
+        enabled={!onOffsetChange}
         makeDefault
         target={CAMERA_TARGET}
         enableZoom={false}
@@ -830,6 +950,10 @@ function SceneContent({
         minAzimuthAngle={-ORBIT_AZIMUTH}
         maxAzimuthAngle={ORBIT_AZIMUTH}
       />
+
+      {onOffsetChange && (
+        <SignPlacement offset={offset ?? { x: 0, y: 0 }} onOffsetChange={onOffsetChange} />
+      )}
     </>
   );
 }
