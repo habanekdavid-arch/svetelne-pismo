@@ -37,7 +37,7 @@ export default function HeroConfigurator() {
             Napíš text, vyber font, materiál, farbu tela aj režim svietenia —
             v 3D náhľade hneď uvidíš, ako bude nápis vyzerať na stene, a cena sa
             prepočíta okamžite. Vyrábame na mieru z plexiskla, hliníkového
-            kompozitu, 3D tlače aj penovej dosky, do interiéru aj exteriéru.
+            hliníkového profilu, plexi aj 3D tlače, do interiéru aj exteriéru.
           </p>
         </div>
 

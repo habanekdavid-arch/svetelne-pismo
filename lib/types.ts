@@ -1,11 +1,15 @@
 export type SignType = "illuminated" | "plain";
 
-export type LightModeId = "front" | "halo" | "full";
+/** Where the sign hangs — the price list offers different builds for each. */
+export type Placement = "exterior" | "interior";
+
+/** Sheet "strom": svietenie spredu / zozadu / hranami. */
+export type LightModeId = "front" | "back" | "edge";
 
 // Where the glow visually reads as coming from — drives both the 3D emissive
 // mix (LetterScene.tsx FACE_EMISSIVE) and the flat glyph preview tiles
 // (ConfiguratorStage.tsx LightModeGlyphPreview).
-export type LightModeDirection = "front" | "back" | "full";
+export type LightModeDirection = "front" | "back" | "edge";
 
 export type MaterialPbr = {
   roughness: number;
@@ -28,6 +32,19 @@ export type MaterialPbr = {
 
 export type MaterialUseTag = "interiér" | "exteriér" | "oboje";
 
+/** A height range and the thickness that build is made in at that height. */
+export type HeightBand = {
+  minMm: number;
+  maxMm: number;
+  depthMm: number;
+};
+
+/** Unit price up to a given sign area, in € per m² (price list, sheet "ceny"). */
+export type PriceTier = {
+  maxM2: number;
+  perM2: number;
+};
+
 // Catalog entries are named by customer-facing benefit, not by the underlying
 // technical material — displayName/subtitle/useTag are what the UI renders;
 // id/pbr are internal only and must never be shown to the user.
@@ -40,10 +57,15 @@ export type MaterialOption = {
   /** What the material is, how it behaves and where it belongs. */
   bullets: string[];
   useTag: MaterialUseTag;
-  priceMultiplier: number;
-  supportsIlluminated: boolean;
-  supportsPlain: boolean;
-  lightModes: LightModeId[];
+  /** Fonts this build is made in — FontOption ids, from the price list. */
+  fonts: string[];
+  /** Height ranges and the thickness each one is built in. */
+  bands: HeightBand[];
+  /** € per m² lit / unlit. A build with neither is not sold that way. */
+  litPrice?: PriceTier[];
+  plainPrice?: PriceTier[];
+  /** Solid 3D print is priced by volume instead: € per cm³. */
+  volumePricePerCm3?: number;
   pbr: MaterialPbr;
 };
 
@@ -72,18 +94,23 @@ export type LightModeDef = {
   name: string;
   description: string;
   direction: LightModeDirection;
-  price: number;
 };
 
 export type Config = {
   text: string;
-  font: string;
-  material: string;       // MaterialDef.id
+  font: string;           // FontOption.id
+  material: string;       // MaterialOption.id — the build
   signType: SignType;
+  placement: Placement;
   lightMode: LightModeId;
   lightColor: string;
   bodyColor: string;
+  /**
+   * Letter height in MILLIMETRES — the unit the price list is written in, and
+   * the only dimension a customer sets. Thickness follows from it through the
+   * build's bands (lib/options.ts depthMmFor), so it is derived everywhere
+   * rather than stored: one number, one source of truth.
+   */
   height: number;
-  thickness: number;
   rotation: number;       // group Y rotation, degrees
 };

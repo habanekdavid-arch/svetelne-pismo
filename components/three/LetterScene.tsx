@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Center, Environment, OrbitControls, useTexture } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { MATERIALS, fontOptions, finishForColor, MAX_HEIGHT_CM } from "@/lib/options";
+import { MATERIALS, fontOptions, finishForColor } from "@/lib/options";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   useTTFFont,
@@ -27,7 +27,7 @@ const ENV_INTENSITY_NIGHT = 0.4;   // night — dim ambient so emissives pop
 const TONEMAP_EXPOSURE    = 0.95;
 
 // PBR texture tiling (tiles per letter face) — asset folder names kept as-is,
-// only the material catalog ids ("kompozit" / "3dtlac") changed.
+// only the material catalog ids ("alurol-*" / "print3d*") changed.
 const KOMPOZIT_REPEAT = 2;   // metal_plate — 2× gives realistic scale
 const THREED_REPEAT   = 8;   // ribbed_corduroy — 8× simulates fine FDM layer lines
 
@@ -36,9 +36,11 @@ const THREED_REPEAT   = 8;   // ribbed_corduroy — 8× simulates fine FDM layer
 const BLOOM_LUMINANCE_THRESHOLD = 0.85;
 const BLOOM_LUMINANCE_SMOOTHING = 0.4;
 const BLOOM_RADIUS              = 0.75;
-const BLOOM_INTENSITY_BASE      = 0.9;   // front
-const BLOOM_INTENSITY_FULL      = 0.35;   // full — the whole body glows, so it flares far sooner
-const BLOOM_INTENSITY_HALO      = 1.15;  // halo — the glow texture is already bright; bloom only flares it
+// Softened across the board — bloom is what turns a bright face into a white
+// blob, so each mode gets only as much flare as it needs to read as light.
+const BLOOM_INTENSITY_BASE      = 0.55; // front — the lit face
+const BLOOM_INTENSITY_EDGE      = 0.45; // edges — a thin bright rim, easy to overdo
+const BLOOM_INTENSITY_HALO      = 0.85; // back — the glow texture is already bright
 
 // Depth (mm) → world-unit scale. The range the workshop makes is 4–10 mm for
 // a cut letter and up to 200 mm for the deepest lit build (lib/options.ts), so
@@ -84,40 +86,43 @@ const WALL_BUMP_SCALE = 0.012; // grain catches the key light; higher looks like
 // blew every photo up some five times and showed one blurry patch of it.
 // The factor leaves room to drag the view around without running off the
 // photo's edge.
-// What the tallest letters (MAX_HEIGHT_CM) look like, and how the sizes below
-// them fall off: 1 would be true proportion, less keeps the smallest sign from
-// disappearing while every step stays clearly different from the last.
+// Letter height, in millimetres, that fills the preview at HEIGHT_SCALE_MAX,
+// and how the sizes below it fall off: 1 would be true proportion, less keeps
+// the smallest sign from disappearing while every step stays clearly
+// different from the last. 600 mm is the tallest most builds go to; the alurol
+// profile goes further and simply keeps growing past it.
+const HEIGHT_REFERENCE_MM = 600;
 const HEIGHT_SCALE_MAX = 1.28;
 const HEIGHT_SCALE_CURVE = 0.72;
 
 const PHOTO_WALL_OFFSET = 0.0015;
 const PHOTO_COVER = 2.2;
 
-// Emissive scale per light mode, per face group (front cap / side wall / back cap).
-// front → lit face, halo → back face washing the wall, full → whole letter.
+// Emissive scale per light mode, per face group (front cap / side wall / back
+// cap). The three modes are the ones the price list sells: spredu, zozadu,
+// hranami.
 //
-// `full` used to be a flat 1.00 across all three faces, which at the base
-// intensity below blew out to a solid white slab with no letterform left in
-// it. Real fully-lit channel letters are brightest on the face and softer
-// round the returns, so the sides and back are pulled down and the face
-// eased off — the shape stays readable instead of becoming a glare.
+// All three were toned down: a lit sign at night is bright, but on a screen a
+// face driven to the top of the range clips to a flat slab of colour with the
+// letterform boiled out of it. Keeping the face under that ceiling is what
+// leaves the shape — and the seam between face and return — readable.
 const FACE_EMISSIVE: Record<LightModeId, { front: number; side: number; back: number }> = {
-  front: { front: 1.00, side: 0.06, back: 0.04 },
-  // Halo: nothing the camera can see emits. The face and the returns stay the
-  // material's own colour — a back-lit letter reads as a dark silhouette — and
-  // the light lives entirely on the wall behind it (see HaloGlow below). The
-  // side used to carry 0.16, which drew a bright rule around every glyph and
-  // made the sign look like a neon tube rather than a back-lit letter.
-  halo:  { front: 0.00, side: 0.06, back: 1.00 },
-  // Full: the whole body lights up, but a lit letter is still an object —
-  // in a photo of one you can see the seam between the face and the return,
-  // and the returns sit a shade darker. These used to be high enough that the
-  // face clipped to a flat slab of colour with the letterform boiled out of
-  // it, which is what "príliš intenzívne" was describing.
-  full:  { front: 0.58, side: 0.38, back: 0.30 },
+  // Front-lit: the face carries the light, the returns barely pick any up.
+  front: { front: 0.72, side: 0.05, back: 0.03 },
+  // Back-lit: nothing the camera can see emits. The face and the returns stay
+  // the material's own colour — a back-lit letter reads as a dark silhouette —
+  // and the light lives entirely on the wall behind it (see HaloGlow below).
+  back:  { front: 0.00, side: 0.05, back: 0.80 },
+  // Edge-lit: the light leaves through the cut edge of the acrylic, so the
+  // side wall is the bright part and the face only catches what travels
+  // through the sheet.
+  edge:  { front: 0.14, side: 0.85, back: 0.10 },
 };
-const EMISSIVE_BASE_INTENSITY   = 3.2;
-const EMISSIVE_NIGHT_MULTIPLIER = 1.55;
+// Eased off from 3.2 / 1.55: with the face scales above, the old pair pushed
+// every mode past the point where the glow stops being light on a letter and
+// becomes a white shape.
+const EMISSIVE_BASE_INTENSITY   = 2.3;
+const EMISSIVE_NIGHT_MULTIPLIER = 1.3;
 
 // ── Halo wall glow ──────────────────────────────────────────────────────────
 // The wall glow is a texture built from the glyph outlines themselves
@@ -134,14 +139,13 @@ const EMISSIVE_NIGHT_MULTIPLIER = 1.55;
 // passes the bloom threshold, so the halo blooms the way a real one flares on
 // camera. The framebuffer is HalfFloat (see the Canvas below), so values over
 // 1 survive to the bloom pass instead of being clipped.
-const HALO_GLOW_GAIN        = 2.8;
+const HALO_GLOW_GAIN        = 2.1;
 // How far the glow's own colour is pulled toward white before the gain is
 // applied. Without it a saturated LED colour can never clip to white, and the
 // halo stays flatly amber across its whole spread. With it the core clips —
 // bright warm white right at the contour, easing back into the LED's own
 // colour as it fades — which is what a back-lit sign looks like in a photo.
 const HALO_GLOW_WHITE_MIX   = 0.34;
-const HALO_GLOW_FULL_FACTOR = 0.15; // a fully lit sign spills too, far less
 const HALO_GLOW_WALL_OFFSET = 0.004; // in front of the wall, to avoid z-fighting
 
 // How far a transmissive material's (plexi) body colour is pulled toward
@@ -447,10 +451,10 @@ type LetterVariantProps = TexLetterProps & {
 function LetterVariant({ material, fallback, geometry, ...rest }: LetterVariantProps) {
   const fallbackMesh = <SolidLetterMesh geometry={geometry} materials={fallback} />;
 
-  if (material === "kompozit") {
+  if (material === "alurol-upper" || material === "alurol-lower") {
     return <Suspense fallback={fallbackMesh}><KompozitLetters geometry={geometry} {...rest} /></Suspense>;
   }
-  if (material === "3dtlac") {
+  if (material === "print3d" || material === "print3d-solid") {
     return <Suspense fallback={fallbackMesh}><ThreeDLetters geometry={geometry} {...rest} /></Suspense>;
   }
   return fallbackMesh;
@@ -739,8 +743,8 @@ export default function LetterScene(props: LetterSceneProps) {
   // would just fog the preview.
   const bloomActive = signType === "illuminated" && previewMode === "night";
   const bloomIntensity =
-    lightMode === "halo" ? BLOOM_INTENSITY_HALO
-    : lightMode === "full" ? BLOOM_INTENSITY_FULL
+    lightMode === "back" ? BLOOM_INTENSITY_HALO
+    : lightMode === "edge" ? BLOOM_INTENSITY_EDGE
     : BLOOM_INTENSITY_BASE;
 
   return (
@@ -829,7 +833,7 @@ function SceneContent({
   // speck, especially once a long text is scaled down to fit), but every step
   // of the slider is plain to see — against a wall whose brick and grain keep
   // their real size, which is what gives the eye something to measure by.
-  const heightScale = Math.pow(height / MAX_HEIGHT_CM, HEIGHT_SCALE_CURVE) * HEIGHT_SCALE_MAX;
+  const heightScale = Math.pow(height / HEIGHT_REFERENCE_MM, HEIGHT_SCALE_CURVE) * HEIGHT_SCALE_MAX;
   const lenScale    = Math.min(1, 6.5 / Math.max(safeText.length, 6));
   const finalScale  = heightScale * lenScale;
 
@@ -894,10 +898,10 @@ function SceneContent({
     return byWidth[1] >= visibleHeight ? byWidth : [visibleHeight * aspect, visibleHeight];
   }, [photo, viewportSize.width, viewportSize.height]);
 
-  const glowGain =
-    HALO_GLOW_GAIN * (lightMode === "full" ? HALO_GLOW_FULL_FACTOR : 1);
-  const wallGlowOn =
-    isIlluminated && isNight && (lightMode === "halo" || lightMode === "full");
+  // Only the back-lit build throws light onto the wall; an edge-lit letter
+  // sends it sideways, away from the wall, and a front-lit one forward.
+  const glowGain = HALO_GLOW_GAIN;
+  const wallGlowOn = isIlluminated && isNight && lightMode === "back";
 
   return (
     <>
