@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Center, Environment, OrbitControls, useTexture } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { MATERIALS, fontOptions, finishForColor } from "@/lib/options";
+import { MATERIALS, fontOptions, finishForColor, MAX_HEIGHT_CM } from "@/lib/options";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   useTTFFont,
@@ -84,6 +84,12 @@ const WALL_BUMP_SCALE = 0.012; // grain catches the key light; higher looks like
 // blew every photo up some five times and showed one blurry patch of it.
 // The factor leaves room to drag the view around without running off the
 // photo's edge.
+// What the tallest letters (MAX_HEIGHT_CM) look like, and how the sizes below
+// them fall off: 1 would be true proportion, less keeps the smallest sign from
+// disappearing while every step stays clearly different from the last.
+const HEIGHT_SCALE_MAX = 1.28;
+const HEIGHT_SCALE_CURVE = 0.72;
+
 // How far a sign reaches from its own centre, in world units — what a lean
 // swings backwards. Wide and short, so a turn sideways needs far more room
 // behind it than a tilt up or down.
@@ -824,7 +830,14 @@ function SceneContent({
 
   const ls = getLightingSettings(signType, lightMode, isNight);
 
-  const heightScale = Math.min(1.15, Math.max(0.78, height / 45));
+  // Height has to be VISIBLE. It used to be squeezed into 0.78–1.15, so a
+  // 10 cm sign and a 55 cm one were within a few per cent of each other on
+  // screen and the slider looked like it did nothing. The whole range now
+  // spans about 3.5×: still not the true 5.5× (a 10 cm nápis would be a
+  // speck, especially once a long text is scaled down to fit), but every step
+  // of the slider is plain to see — against a wall whose brick and grain keep
+  // their real size, which is what gives the eye something to measure by.
+  const heightScale = Math.pow(height / MAX_HEIGHT_CM, HEIGHT_SCALE_CURVE) * HEIGHT_SCALE_MAX;
   const lenScale    = Math.min(1, 6.5 / Math.max(safeText.length, 6));
   const finalScale  = heightScale * lenScale;
 
