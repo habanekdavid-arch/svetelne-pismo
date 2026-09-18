@@ -14,16 +14,21 @@ import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
 import {
   fontOptions,
   lightColors,
-  letterColorOptions,
+  bodyColorOptionsFor,
   MATERIALS,
   MIN_DEPTH_MM,
-  MAX_DEPTH_MM,
-  usualDepthMm,
+  MAX_SHEET_DEPTH_MM,
+  USUAL_SHEET_DEPTH_MM,
+  PROFILE_DEPTHS_MM,
+  EDGE_PROFILE_MM,
+  isProfileDepth,
+  nearestProfileDepthMm,
   MIN_HEIGHT_CM,
   MAX_HEIGHT_CM,
   LIGHT_MODES,
 } from "@/lib/options";
 import type { FontOption } from "@/lib/options";
+import type { ColorOption } from "@/lib/types";
 
 // 3D preview needs WebGL — never render it on the server. Suspense shows a
 // skeleton until the chunk loads; the scene itself renders instantly on top
@@ -48,9 +53,9 @@ const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
 // precise value, or tap a chip for the common one. Every value must sit inside
 // the slider's own min/max.
 const HEIGHT_CHIPS = [10, 20, 30, 40, 55];
-// One set for every sign. The shortcuts used to change with the sign type,
-// which made the same slider mean different things from one click to the next.
-const THICKNESS_CHIPS = [4, 10, 25, 50, 100, 200];
+// Sheet thicknesses for a cut letter. A lit letter has no slider at all — its
+// depth is a stock profile width, picked from the list (ProfilePicker below).
+const SHEET_CHIPS = [4, 6, 8, 10, 15, 20];
 
 // The light colour is stored either as a swatch's hex or as the hue slider's
 // own hsl(H, 92%, 58%) string, so reading a hue back has to handle both. Used
@@ -103,7 +108,7 @@ export default function ConfiguratorStage() {
     // Brand yellow — see lib/options.ts lightColors "yellow" / app/globals.css --color-primary.
     // Inert while signType is "plain"; used once the user switches to Svetelné.
     lightColor: "#FFAE00",
-    bodyColor:  letterColorOptions.find((c) => c.id === "black")!.value,
+    bodyColor:  bodyColorOptionsFor("plain").find((c) => c.id === "black")!.value,
     height:     35,
     thickness:  8,
     rotation:   0, // sign no longer rotates — kept for the Config shape / pricing
@@ -145,11 +150,30 @@ export default function ConfiguratorStage() {
   const isNight = previewMode === "night";
   const isIlluminated = config.signType === "illuminated";
   // Advice, not a limit: the thickness the customer set is never overwritten.
-  const usualThickness = usualDepthMm(config.signType, config.lightMode, config.material);
-  const thicknessNote =
-    config.thickness > usualThickness
-      ? `${isIlluminated ? "Svetelné" : "Rezané"} písmo v tejto stavbe bežne robíme do ${usualThickness} mm. Väčšiu hrúbku vieme vyrobiť, cenu a riešenie potvrdíme pri overení objednávky.`
-      : null;
+  // A lit letter is built from a stock profile, so a depth that is not one of
+  // them is quoted from the profile it would really be made in; a cut letter
+  // is a sheet, where anything past 10 mm is unusual but doable.
+  const customProfile = isIlluminated && !isProfileDepth(config.thickness);
+  const thicknessNote = isIlluminated
+    ? (customProfile
+        ? `Hrúbka ${config.thickness} mm nie je štandardná šírka profilu. Vyrobíme ju z najbližšieho profilu ${nearestProfileDepthMm(config.thickness)} mm — riešenie a cenu potvrdíme pri overení objednávky.`
+        : null)
+    : (config.thickness > USUAL_SHEET_DEPTH_MM
+        ? `Rezané písmo bežne robíme do ${USUAL_SHEET_DEPTH_MM} mm. Väčšiu hrúbku vieme vyrobiť, cenu a riešenie potvrdíme pri overení objednávky.`
+        : null);
+
+  // Only the sheet slider needs a ceiling, and it never drops below the value
+  // already set — a depth chosen while the sign was lit stays reachable after
+  // switching to Nesvetelné instead of being silently dragged down.
+  const sheetMax = Math.max(MAX_SHEET_DEPTH_MM, config.thickness);
+
+  // A lit letter wears a profile finish, a cut letter a lacquered sheet, so the
+  // two offer different ranges. The RAL tones are shared and keep their ids, so
+  // switching Svetelné/Nesvetelné never loses the colour that is already set.
+  const bodyColors = bodyColorOptionsFor(config.signType);
+  const currentBodyColor =
+    bodyColors.find((c) => c.id === selectedBodySwatch) ??
+    bodyColors.find((c) => c.value.toLowerCase() === config.bodyColor.toLowerCase());
 
   const currentFont = fontOptions.find((f) => f.id === config.font);
   const currentLightMode = LIGHT_MODES.find((l) => l.id === config.lightMode);
@@ -200,7 +224,7 @@ export default function ConfiguratorStage() {
     setConfig(pendingConfig);
     setLightHue((prev) => hueOf(pendingConfig.lightColor, prev));
     setSelectedSwatch(swatchIdFor(lightColors, pendingConfig.lightColor));
-    setSelectedBodySwatch(swatchIdFor(letterColorOptions, pendingConfig.bodyColor));
+    setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(pendingConfig.signType), pendingConfig.bodyColor));
     consumePending();
     document.getElementById("konfigurator")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [pendingConfig, consumePending]);
@@ -613,16 +637,25 @@ export default function ConfiguratorStage() {
               </p>
 
               <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
-                {isIlluminated ? "Farba tela" : "Farba materiálu"}
+                {isIlluminated ? "Farba profilu" : "Farba materiálu"}
                 <span className="ml-1.5 font-semibold" style={{ color: "var(--color-foreground)" }}>
-                  — {letterColorOptions.find((c) => c.id === selectedBodySwatch)?.label ?? ""}
+                  — {currentBodyColor?.label ?? ""}
                 </span>
+                {currentBodyColor?.code && (
+                  <span className="ml-1.5 font-semibold">({currentBodyColor.code})</span>
+                )}
               </p>
               <SwatchRow
-                options={letterColorOptions}
+                options={bodyColors}
                 selectedId={selectedBodySwatch}
                 onSelect={(c) => setBodyColor(c.id, c.value)}
               />
+              {isIlluminated && (
+                <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                  Farby a povrchy, v ktorých sa hliníkový profil svetelného písma
+                  štandardne vyrába — vrátane brúsených a zrkadlových povrchov.
+                </p>
+              )}
             </FieldCard>
 
           </div>
@@ -652,17 +685,24 @@ export default function ConfiguratorStage() {
               />
 
               <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
-                Hrúbka
+                {isIlluminated ? "Hĺbka profilu" : "Hrúbka"}
               </p>
-              <SliderBox
-                value={config.thickness}
-                min={MIN_DEPTH_MM}
-                max={MAX_DEPTH_MM}
-                suffix=" mm"
-                chips={THICKNESS_CHIPS}
-                onChange={(v) => patch({ thickness: v })}
-                ariaLabel="Hrúbka písma"
-              />
+              {isIlluminated ? (
+                <ProfilePicker
+                  value={config.thickness}
+                  onChange={(v) => patch({ thickness: v })}
+                />
+              ) : (
+                <SliderBox
+                  value={config.thickness}
+                  min={MIN_DEPTH_MM}
+                  max={sheetMax}
+                  suffix=" mm"
+                  chips={SHEET_CHIPS}
+                  onChange={(v) => patch({ thickness: v })}
+                  ariaLabel="Hrúbka písma"
+                />
+              )}
               {thicknessNote && (
                 <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-accent-text)" }}>
                   {thicknessNote}
@@ -896,6 +936,89 @@ function Seg({
 }
 
 // Slider in its own inset box: big live value, range, and quick-pick chips.
+// Depth of a lit letter. Not a slider: the side wall of a channel letter is a
+// rolled aluminium profile, and a profile comes in the widths its manufacturer
+// stocks (lib/options.ts PROFILE_DEPTHS_MM, read off the 3D system board), so
+// these are the real builds rather than any number between them. A depth set
+// earlier that is not one of them is kept and shown as its own chip — the
+// configurator never quietly moves a dimension the customer chose.
+function ProfilePicker({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const custom = !isProfileDepth(value);
+
+  return (
+    <div className="rounded-2xl p-3.5" style={{ background: "var(--color-surface)" }}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-lg font-black leading-none" style={{ color: "var(--color-foreground)" }}>
+          {value}
+          <span className="text-[12px] font-bold"> mm</span>
+        </span>
+        <span className="text-[10px] font-semibold" style={{ color: "var(--color-muted)" }}>
+          {custom
+            ? "hrúbka na mieru"
+            : value === EDGE_PROFILE_MM
+              ? "hranový profil"
+              : "štandardný profil"}
+        </span>
+      </div>
+
+      <div role="radiogroup" aria-label="Hĺbka profilu" className="mt-3.5 flex flex-wrap gap-1.5">
+        {custom && (
+          <span
+            className="rounded-full px-2.5 py-1 text-[10px] font-bold"
+            style={{
+              background: "var(--color-primary)",
+              color: "var(--accent-foreground)",
+              border: "1px solid var(--color-primary)",
+            }}
+          >
+            {value} mm
+          </span>
+        )}
+        {PROFILE_DEPTHS_MM.map((depth) => {
+          const active = value === depth;
+          return (
+            <button
+              key={depth}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange(depth)}
+              className="chip rounded-full px-2.5 py-1 text-[10px] font-bold"
+              style={
+                active
+                  ? {
+                      background: "var(--color-primary)",
+                      color: "var(--accent-foreground)",
+                      border: "1px solid var(--color-primary)",
+                    }
+                  : {
+                      background: "var(--color-background)",
+                      color: "var(--color-foreground)",
+                      border: "1px solid var(--color-border)",
+                    }
+              }
+            >
+              {depth} mm
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mt-2.5 text-[10px] leading-4" style={{ color: "var(--color-muted)" }}>
+        {EDGE_PROFILE_MM} mm je plytký hranový profil, {PROFILE_DEPTHS_MM[1]}–
+        {PROFILE_DEPTHS_MM[PROFILE_DEPTHS_MM.length - 1]} mm sú štandardné šírky
+        profilov na svetelné písmo — spredu aj zozadu.
+      </p>
+    </div>
+  );
+}
+
 function SliderBox({
   value,
   min,
@@ -975,28 +1098,31 @@ function SwatchRow({
   onSelect,
   splitWhite = false,
 }: {
-  options: { id: string; label: string; value: string }[];
+  options: ColorOption[];
   selectedId: string;
-  onSelect: (option: { id: string; label: string; value: string }) => void;
+  onSelect: (option: ColorOption) => void;
   splitWhite?: boolean;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((c) => {
         const active = selectedId === c.id;
+        // A brushed or mirror finish is not a flat colour — its swatch carries
+        // the sheen so the button looks like the thing it orders.
+        const fill = c.swatch
+          ?? (splitWhite && c.id === "white" ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)" : c.value);
+        const label = c.code ? `${c.label} (${c.code})` : c.label;
         return (
           <button
             key={c.id}
             type="button"
             onClick={() => onSelect(c)}
-            title={c.label}
-            aria-label={c.label}
+            title={label}
+            aria-label={label}
             aria-pressed={active}
             className="h-7 w-7 rounded-full transition duration-200 hover:scale-110"
             style={{
-              background: splitWhite && c.id === "white"
-                ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)"
-                : c.value,
+              background: fill,
               boxShadow: active
                 ? "0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary)"
                 : "0 0 0 1px var(--color-border)",

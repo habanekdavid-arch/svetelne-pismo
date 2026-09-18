@@ -16,8 +16,18 @@ export function calculatePrice(config: Config): number {
   const materialMultiplier = material?.priceMultiplier ?? 1;
   const lightingPrice      = lightMode?.price ?? 0;
 
-  const letterPrice    = letters * config.height * 0.85;
-  const thicknessPrice = config.thickness * 4;
+  const letterPrice = letters * config.height * 0.85;
+
+  // Depth is priced by what it costs to build, and the two builds are not the
+  // same thing. A cut letter's thickness is solid material, so every extra
+  // millimetre is paid for. A lit letter's depth is the width of the aluminium
+  // profile wrapped around it — a deeper profile costs more per metre, but far
+  // from four euros a millimetre, which at the 60–217 mm widths the profiles
+  // actually come in (lib/options.ts PROFILE_DEPTHS_MM) would dwarf the rest
+  // of the sign.
+  const thicknessPrice = config.signType === "illuminated"
+    ? config.thickness * 0.5
+    : config.thickness * 4;
 
   return Math.round(
     base +
