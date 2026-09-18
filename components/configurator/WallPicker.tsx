@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, RotateCw, X } from "lucide-react";
 import { WALL_SURFACES, type WallGrain } from "@/lib/walls";
 import { drawWallThumbnail } from "@/components/three/wallTexture";
 import type { DragTarget } from "@/components/three/LetterScene";
@@ -25,6 +25,8 @@ export default function WallPicker({
   onClearPhoto,
   dragTarget = "sign",
   onDragTarget,
+  rotation = { x: 0, y: 0 },
+  onRotate,
   moved = false,
   onRecenter,
   error,
@@ -39,6 +41,9 @@ export default function WallPicker({
   /** What a plain drag in the preview moves. */
   dragTarget?: DragTarget;
   onDragTarget?: (target: DragTarget) => void;
+  /** How the sign is turned on the wall, in degrees. */
+  rotation?: { x: number; y: number };
+  onRotate?: (axis: "x" | "y") => void;
   /** True once the sign or the photo has been dragged off the middle. */
   moved?: boolean;
   onRecenter?: () => void;
@@ -142,6 +147,41 @@ export default function WallPicker({
               </button>
             );
           })}
+
+          {/* Two taps, two axes: a photo is never shot square to the wall, so
+              the sign has to be able to lean with it. Each press steps on
+              through the same ring of angles and comes back to 0°, so there is
+              always a way out without a second button per direction. */}
+          {onRotate && (
+            <>
+              <span className="ml-1 text-[10px] font-semibold" style={{ color: "var(--color-muted)" }}>
+                Otočiť
+              </span>
+              {([
+                { axis: "y" as const, label: "vodorovne", value: rotation.y },
+                { axis: "x" as const, label: "zvisle",    value: rotation.x },
+              ]).map((r) => (
+                <button
+                  key={r.axis}
+                  type="button"
+                  onClick={() => onRotate(r.axis)}
+                  title={`Otočiť nápis ${r.label} (teraz ${r.value}°)`}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition hover:-translate-y-px"
+                  style={{
+                    background: r.value !== 0
+                      ? "color-mix(in srgb, var(--accent) 15%, transparent)"
+                      : "var(--color-surface)",
+                    color: r.value !== 0 ? "var(--color-accent-text)" : "var(--color-muted)",
+                    border: `1px solid ${r.value !== 0 ? "var(--accent)" : "var(--color-border)"}`,
+                  }}
+                >
+                  <RotateCw size={10} strokeWidth={2.5} className={r.axis === "x" ? "rotate-90" : undefined} />
+                  {r.label}
+                  <span style={{ color: "var(--color-foreground)" }}>{r.value}°</span>
+                </button>
+              ))}
+            </>
+          )}
 
           {moved && onRecenter && (
             <button
