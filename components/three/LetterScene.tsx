@@ -567,46 +567,84 @@ function HaloGlow({ fontFile, text, color, gain, scale, y, z }: HaloGlowProps) {
 // The grab cursor and the touch-action that stops a drag from scrolling the
 // page are set as CSS on the wrapper and the canvas (see PLACING_CLASSES and
 // the Canvas style below), not by reaching into the renderer from an effect.
+export type DragTarget = "sign" | "background";
+
 type PlacementProps = {
   offset: { x: number; y: number };
   onOffsetChange: (offset: { x: number; y: number }) => void;
+  /** Where the photo sits behind the sign, in world units. */
+  photoOffset: { x: number; y: number };
+  onPhotoOffsetChange?: (offset: { x: number; y: number }) => void;
+  /** What a plain drag moves — the mouse's right button always moves the photo. */
+  target: DragTarget;
+  /** World size of the photo plane, for how far it can be pushed. */
+  photoSize: [number, number];
 };
 
 /** How much of the framed view the sign may be dragged out to (0.5 = the edge). */
 const PLACEMENT_REACH = 0.45;
 
-function SignPlacement({ offset, onOffsetChange }: PlacementProps) {
+function SignPlacement({
+  offset,
+  onOffsetChange,
+  photoOffset,
+  onPhotoOffsetChange,
+  target,
+  photoSize,
+}: PlacementProps) {
   const { gl, camera, size } = useThree();
 
   // Read inside the pointer handlers without re-attaching them mid-drag.
   const offsetRef = useRef(offset);
   const changeRef = useRef(onOffsetChange);
+  const photoRef  = useRef(photoOffset);
+  const photoChangeRef = useRef(onPhotoOffsetChange);
+  const targetRef = useRef(target);
   useEffect(() => { offsetRef.current = offset; }, [offset]);
   useEffect(() => { changeRef.current = onOffsetChange; }, [onOffsetChange]);
+  useEffect(() => { photoRef.current = photoOffset; }, [photoOffset]);
+  useEffect(() => { photoChangeRef.current = onPhotoOffsetChange; }, [onPhotoOffsetChange]);
+  useEffect(() => { targetRef.current = target; }, [target]);
 
   useEffect(() => {
     const el = gl.domElement;
 
-    // One pixel of drag, in world units at the wall's distance — the sign
-    // follows the pointer exactly, at any canvas size or zoom level.
+    // One pixel of drag, in world units at the wall's distance — whatever is
+    // being dragged follows the pointer exactly, at any canvas size.
     const distance = camera.position.distanceTo(new THREE.Vector3(...CAMERA_TARGET));
     const visibleHeight = 2 * Math.tan((CAMERA_FOV * Math.PI) / 360) * distance;
+    const visibleWidth  = visibleHeight * (size.width / size.height);
     const worldPerPx = visibleHeight / size.height;
-    const reachY = visibleHeight * PLACEMENT_REACH;
-    const reachX = (visibleHeight * (size.width / size.height)) * PLACEMENT_REACH;
+
+    // The sign may be pushed most of the way to the edge of the shot; the
+    // photo only as far as it has spare image — past that it would slide off
+    // its own frame and show the painted wall behind it.
+    const signReach  = { x: visibleWidth * PLACEMENT_REACH, y: visibleHeight * PLACEMENT_REACH };
+    const photoReach = {
+      x: Math.max(0, (photoSize[0] - visibleWidth) / 2),
+      y: Math.max(0, (photoSize[1] - visibleHeight) / 2),
+    };
     const clamp = (v: number, limit: number) => Math.min(limit, Math.max(-limit, v));
 
     let pointerId: number | null = null;
+    let movingPhoto = false;
     let startX = 0;
     let startY = 0;
     let startOffset = offsetRef.current;
 
     function onDown(e: PointerEvent) {
-      if (e.button !== 0) return;
+      // Left button moves what the picker says; the right button always moves
+      // the photo, so both are reachable without leaving the preview. Touch
+      // has no second button, which is why the picker exists at all.
+      if (e.button !== 0 && e.button !== 2) return;
+      const wantsPhoto = e.button === 2 || targetRef.current === "background";
+      movingPhoto = wantsPhoto && !!photoChangeRef.current;
+      if (wantsPhoto && !movingPhoto) return;
+
       pointerId = e.pointerId;
       startX = e.clientX;
       startY = e.clientY;
-      startOffset = offsetRef.current;
+      startOffset = movingPhoto ? photoRef.current : offsetRef.current;
       // Capture keeps the drag alive when the pointer leaves the canvas. It can
       // throw for a pointer the browser no longer tracks — the drag still works
       // through the listeners, so that is not worth an error in the console.
@@ -615,33 +653,42 @@ function SignPlacement({ offset, onOffsetChange }: PlacementProps) {
 
     function onMove(e: PointerEvent) {
       if (pointerId !== e.pointerId) return;
-      changeRef.current({
-        x: clamp(startOffset.x + (e.clientX - startX) * worldPerPx, reachX),
+      const reach = movingPhoto ? photoReach : signReach;
+      const next = {
+        x: clamp(startOffset.x + (e.clientX - startX) * worldPerPx, reach.x),
         // Screen y grows downward, the scene's does not.
-        y: clamp(startOffset.y - (e.clientY - startY) * worldPerPx, reachY),
-      });
+        y: clamp(startOffset.y - (e.clientY - startY) * worldPerPx, reach.y),
+      };
+      if (movingPhoto) photoChangeRef.current?.(next);
+      else             changeRef.current(next);
     }
 
     function onUp(e: PointerEvent) {
       if (pointerId !== e.pointerId) return;
       pointerId = null;
+      movingPhoto = false;
       try {
         if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
       } catch { /* already released */ }
     }
 
+    // Right-dragging the photo must not also open the browser's menu.
+    function onContextMenu(e: Event) { e.preventDefault(); }
+
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onUp);
+    el.addEventListener("contextmenu", onContextMenu);
 
     return () => {
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("contextmenu", onContextMenu);
     };
-  }, [gl, camera, size.width, size.height]);
+  }, [gl, camera, size.width, size.height, photoSize]);
 
   return null;
 }
@@ -665,6 +712,11 @@ type LetterSceneProps = {
   previewMode: "day" | "night";
   /** Preview-only: where on the wall the sign sits, in world units. */
   offset?: { x: number; y: number };
+  /** Preview-only: how far the customer's photo has been pushed behind it. */
+  photoOffset?: { x: number; y: number };
+  onPhotoOffsetChange?: (offset: { x: number; y: number }) => void;
+  /** What a plain drag moves while placing. */
+  dragTarget?: DragTarget;
   /**
    * Passing this turns on placement: the sign can be dragged across the
    * backdrop. Set only with the customer's own photo behind it, where the
@@ -746,6 +798,9 @@ function SceneContent({
   previewMode,
   offset,
   onOffsetChange,
+  photoOffset,
+  onPhotoOffsetChange,
+  dragTarget = "sign",
   onFailedGlyphs,
 }: LetterSceneProps) {
   const safeText  = text?.trim() || "Váš text";
@@ -865,7 +920,10 @@ function SceneContent({
           shadow like any other wall, which is what makes a photo read as a
           place the sign is actually mounted. ── */}
       {photo && (
-        <mesh position={[0, 0, wallZ + PHOTO_WALL_OFFSET]} receiveShadow>
+        <mesh
+          position={[photoOffset?.x ?? 0, photoOffset?.y ?? 0, wallZ + PHOTO_WALL_OFFSET]}
+          receiveShadow
+        >
           <planeGeometry args={photoSize} />
           <meshStandardMaterial
             map={photo.texture}
@@ -952,7 +1010,14 @@ function SceneContent({
       />
 
       {onOffsetChange && (
-        <SignPlacement offset={offset ?? { x: 0, y: 0 }} onOffsetChange={onOffsetChange} />
+        <SignPlacement
+          offset={offset ?? { x: 0, y: 0 }}
+          onOffsetChange={onOffsetChange}
+          photoOffset={photoOffset ?? { x: 0, y: 0 }}
+          onPhotoOffsetChange={onPhotoOffsetChange}
+          target={dragTarget}
+          photoSize={photoSize}
+        />
       )}
     </>
   );

@@ -31,6 +31,7 @@ import {
 import type { FontOption } from "@/lib/options";
 import type { ColorOption } from "@/lib/types";
 import { useSignSize, formatSignSize } from "@/lib/useSignSize";
+import type { DragTarget } from "@/components/three/LetterScene";
 
 // 3D preview needs WebGL — never render it on the server. Suspense shows a
 // skeleton until the chunk loads; the scene itself renders instantly on top
@@ -91,6 +92,10 @@ export default function ConfiguratorStage() {
   // itself: it is where they imagine the sign, not something we make, so it
   // never reaches Config, the cart or an order.
   const [signOffset, setSignOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // …and how far the photo itself has been pushed behind it, so the right part
+  // of the wall ends up in the shot.
+  const [photoOffset, setPhotoOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [dragTarget, setDragTarget] = useState<DragTarget>("sign");
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const { setConfig: publishConfig } = useSharedConfig();
   const {
@@ -359,8 +364,14 @@ export default function ConfiguratorStage() {
   // The photo is read straight from the file into an object URL: it stays in
   // this browser, is never uploaded, and is released the moment it is replaced
   // or the page goes away.
-  function clearBackground() {
+  /** Sign back in the middle, photo back in its frame. */
+  function recenterPreview() {
     setSignOffset({ x: 0, y: 0 });
+    setPhotoOffset({ x: 0, y: 0 });
+  }
+
+  function clearBackground() {
+    recenterPreview();
     setBackground((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return null;
@@ -378,7 +389,7 @@ export default function ConfiguratorStage() {
       return;
     }
     setBackgroundError(null);
-    setSignOffset({ x: 0, y: 0 });
+    recenterPreview();
     setBackground((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return { url: URL.createObjectURL(file), name: file.name };
@@ -523,6 +534,9 @@ export default function ConfiguratorStage() {
               wall={wall}
               backgroundUrl={backgroundUrl}
               offset={signOffset}
+              photoOffset={photoOffset}
+              onPhotoOffsetChange={backgroundUrl ? setPhotoOffset : undefined}
+              dragTarget={dragTarget}
               // Dragging the sign into place is offered only with the
               // customer's own photo behind it — on a painted wall there is no
               // spot to put it on, and the drag would just take the orbit away.
@@ -554,8 +568,13 @@ export default function ConfiguratorStage() {
             photoName={background?.name ?? null}
             onPhoto={handleBackground}
             onClearPhoto={clearBackground}
-            moved={signOffset.x !== 0 || signOffset.y !== 0}
-            onRecenter={() => setSignOffset({ x: 0, y: 0 })}
+            dragTarget={dragTarget}
+            onDragTarget={setDragTarget}
+            moved={
+              signOffset.x !== 0 || signOffset.y !== 0 ||
+              photoOffset.x !== 0 || photoOffset.y !== 0
+            }
+            onRecenter={recenterPreview}
             error={backgroundError}
           />
           </div>
