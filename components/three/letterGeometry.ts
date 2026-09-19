@@ -26,12 +26,19 @@ import * as THREE from "three";
 import { FontLoader, type Font } from "three-stdlib";
 import { TTFLoader } from "three/examples/jsm/loaders/TTFLoader.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { signLines } from "@/lib/sign-text";
 
 export type { Font };
 
 // ── Tunables ─────────────────────────────────────────────────────────────────
 
 export const GLYPH_SIZE = 0.78;
+
+// Two lines are as far as a sign goes here, and they sit a little more than a
+// letter height apart — the spacing a sign maker leaves so the rows read as
+// one nápis rather than two.
+export const LINE_HEIGHT = GLYPH_SIZE * 1.34;
+
 export const CURVE_SEGMENTS = 10;      // 8–12: smooth enough for round script strokes, cheap enough per-glyph
 export const BEVEL_SIZE = 0.018;       // small — just enough for edges to catch light
 export const BEVEL_THICKNESS = 0.014;
@@ -69,10 +76,18 @@ export function parseFont(typefaceData: any): Font {
 // included, unlike the old baked-in three.js typeface.json fonts which only
 // shipped a fixed ASCII-ish subset.
 
-let ttfLoaderInstance: TTFLoader | null = null;
-function getTTFLoader(): TTFLoader {
-  if (!ttfLoaderInstance) ttfLoaderInstance = new TTFLoader();
-  return ttfLoaderInstance;
+// A loader PER FILE, deliberately not one shared instance. The winding flag
+// below lives on the loader and is read when the download finishes, not when
+// it starts: with one shared loader, two fonts loading at once (the preview's
+// and the picker's, say) would both be parsed with whichever flag was set
+// last — so a TrueType face could come out reversed and a CFF one not. That
+// is what made some fonts render with their counters filled in and their
+// accents missing, seemingly at random. A TTFLoader is a tiny object; one per
+// load costs nothing next to the font it parses.
+function makeTTFLoader(reversed: boolean): TTFLoader {
+  const loader = new TTFLoader();
+  loader.reversed = reversed;
+  return loader;
 }
 
 /**
@@ -105,9 +120,7 @@ export function useTTFFont(url: string): Font {
   if (cached?.status === "error") throw cached.error;
   if (cached?.status === "pending") throw cached.promise;
 
-  const loader = getTTFLoader();
-  loader.reversed = needsReversedWinding(url);
-  const promise = loader
+  const promise = makeTTFLoader(needsReversedWinding(url))
     .loadAsync(url)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .then((json: any) => {
@@ -197,28 +210,53 @@ export function buildSolidLetterGeometry(
   text: string,
   depth: number,
 ): SolidLetterBuild {
-  const shapes = font.generateShapes(text, GLYPH_SIZE) as THREE.Shape[];
+  const lines = signLines(text);
   const perGlyph: THREE.BufferGeometry[] = [];
   let failedCount = 0;
+  let shapeCount = 0;
 
-  for (const shape of shapes) {
-    // Overlapping/self-intersecting strokes (common in script fonts) can
-    // make the bevelled triangulation degenerate — retry once without a
-    // bevel before giving up on the glyph so one bad character doesn't take
-    // down the whole word.
-    let geo: THREE.BufferGeometry | null = null;
-    try {
-      geo = extrudeShape(shape, depth, false);
-    } catch {
+  // Line by line, each one built at the origin and then moved into place:
+  // dropped a line down by LINE_HEIGHT and slid sideways by half its own
+  // width, so the rows end up centred on each other. three's own newline
+  // handling would stack them left-aligned, which on a sign looks like a
+  // mistake rather than a choice.
+  lines.forEach((line, index) => {
+    const shapes = font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[];
+    shapeCount += shapes.length;
+    const lineGeos: THREE.BufferGeometry[] = [];
+
+    for (const shape of shapes) {
+      // Overlapping/self-intersecting strokes (common in script fonts) can
+      // make the bevelled triangulation degenerate — retry once without a
+      // bevel before giving up on the glyph so one bad character doesn't take
+      // down the whole word.
+      let geo: THREE.BufferGeometry | null = null;
       try {
-        geo = extrudeShape(shape, depth, true);
-      } catch (err) {
-        console.warn("[letterGeometry] Skipping a glyph — invalid geometry even without bevel:", err);
-        failedCount++;
+        geo = extrudeShape(shape, depth, false);
+      } catch {
+        try {
+          geo = extrudeShape(shape, depth, true);
+        } catch (err) {
+          console.warn("[letterGeometry] Skipping a glyph — invalid geometry even without bevel:", err);
+          failedCount++;
+        }
       }
+      if (geo) lineGeos.push(geo);
     }
-    if (geo) perGlyph.push(geo);
-  }
+    if (lineGeos.length === 0) return;
+
+    const bounds = new THREE.Box3();
+    for (const geo of lineGeos) {
+      geo.computeBoundingBox();
+      if (geo.boundingBox) bounds.union(geo.boundingBox);
+    }
+    const dx = -(bounds.min.x + bounds.max.x) / 2;
+    const dy = -index * LINE_HEIGHT;
+    for (const geo of lineGeos) {
+      geo.translate(dx, dy, 0);
+      perGlyph.push(geo);
+    }
+  });
 
   if (perGlyph.length === 0) {
     return { geometry: null, failedCount };
@@ -229,7 +267,7 @@ export function buildSolidLetterGeometry(
 
   if (!merged) {
     console.warn("[letterGeometry] mergeGeometries failed — geometries were incompatible");
-    return { geometry: null, failedCount: shapes.length };
+    return { geometry: null, failedCount: shapeCount };
   }
 
   // Center the geometry's own local origin on its bounding-box centroid so
@@ -312,18 +350,36 @@ function polygon(ctx: CanvasRenderingContext2D, pts: THREE.Vector2[], toPx: (p: 
 export function buildHaloGlowTexture(font: Font, text: string): HaloGlowBuild {
   if (typeof document === "undefined") return EMPTY_HALO;
 
-  const shapes = font.generateShapes(text, GLYPH_SIZE) as THREE.Shape[];
-
   const outlines: Outline[] = [];
   const box = new THREE.Box2();
   box.makeEmpty();
-  for (const shape of shapes) {
-    const outer = shape.getPoints(HALO_CURVE_SEGMENTS);
-    if (outer.length < 3) continue;
-    const holes = shape.holes.map((h) => h.getPoints(HALO_CURVE_SEGMENTS)).filter((h) => h.length >= 3);
-    outlines.push({ outer, holes });
-    for (const p of outer) box.expandByPoint(p);
-  }
+
+  // Laid out exactly like the letters above — same line height, same centring
+  // per row — because the glow has to sit behind the sign, not beside it.
+  signLines(text).forEach((line, index) => {
+    const shapes = font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[];
+    const lineOutlines: Outline[] = [];
+    const lineBox = new THREE.Box2();
+    lineBox.makeEmpty();
+
+    for (const shape of shapes) {
+      const outer = shape.getPoints(HALO_CURVE_SEGMENTS);
+      if (outer.length < 3) continue;
+      const holes = shape.holes.map((h) => h.getPoints(HALO_CURVE_SEGMENTS)).filter((h) => h.length >= 3);
+      lineOutlines.push({ outer, holes });
+      for (const p of outer) lineBox.expandByPoint(p);
+    }
+    if (lineOutlines.length === 0) return;
+
+    const dx = -(lineBox.min.x + lineBox.max.x) / 2;
+    const dy = -index * LINE_HEIGHT;
+    for (const o of lineOutlines) {
+      for (const p of o.outer) p.set(p.x + dx, p.y + dy);
+      for (const h of o.holes) for (const p of h) p.set(p.x + dx, p.y + dy);
+      outlines.push(o);
+      for (const p of o.outer) box.expandByPoint(p);
+    }
+  });
   if (outlines.length === 0) return EMPTY_HALO;
 
   const margin = HALO_GLOW_MARGIN * GLYPH_SIZE;

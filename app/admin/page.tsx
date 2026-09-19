@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
@@ -194,7 +195,7 @@ export default async function AdminPage({
                           aria-hidden="true"
                         />
                         <p className="truncate text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                          {o.config.text}
+                          {oneLine(o.config.text)}
                         </p>
                       </div>
                       <p className="mt-2 text-sm" style={{ color: "var(--color-muted)" }}>
