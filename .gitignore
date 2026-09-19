@@ -51,3 +51,6 @@ next-env.d.ts
 skills-lock.json
 
 .env*
+
+# ...except the template, which documents what the others must contain.
+!.env.example

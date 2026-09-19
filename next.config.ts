@@ -5,6 +5,16 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   transpilePackages: ["three"],
+  // The price is worked out from the sign measured against the real font file
+  // (lib/sign-metrics.server.ts), which reads it off disk. Files under
+  // /public are served by the CDN and are NOT in the serverless bundle unless
+  // they are named here — without this the measurement silently fails in
+  // production and every quote falls back to an estimate.
+  outputFileTracingIncludes: {
+    "/api/quote": ["./public/fonts_rozsvietto/**"],
+    "/api/orders": ["./public/fonts_rozsvietto/**"],
+    "/api/stripe/webhook": ["./public/fonts_rozsvietto/**"],
+  },
   images: {
     remotePatterns: [
       {

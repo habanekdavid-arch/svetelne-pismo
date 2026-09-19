@@ -38,9 +38,19 @@ export type SignSize = {
    * bills by).
    */
   letterAreaM2: number;
+  /**
+   * The biggest single letter, in millimetres. A sign is made and packed
+   * letter by letter, so this — not the width of the whole nápis — is what
+   * decides the size of the box it ships in.
+   */
+  maxLetterWidthMm: number;
+  maxLetterHeightMm: number;
 };
 
-type Shape = { w: number; h: number; ink: number; letters: number };
+type Shape = {
+  w: number; h: number; ink: number;
+  letters: number; maxW: number; maxH: number;
+};
 
 /**
  * How big the finished sign actually is.
@@ -104,11 +114,14 @@ export function useSignSize(
           metrics[metrics.length - 1].actualBoundingBoxDescent;
         if (cancelled || !(cap > 0) || !(width > 0) || !(height > 0)) return;
 
+        const boxes = letterBoxes(ctx, lines);
         setShape({
           w: width / cap,
           h: height / cap,
           ink: coverage(lines, fontFamily, width, height, cap),
-          letters: letterBoxes(ctx, lines) / (cap * cap),
+          letters: boxes.area / (cap * cap),
+          maxW: boxes.maxW / cap,
+          maxH: boxes.maxH / cap,
         });
       } catch {
         // A size readout is a nicety — never let it take the configurator down.
@@ -126,26 +139,38 @@ export function useSignSize(
     heightMm: shape.h * letterHeightMm,
     inkRatio: shape.ink,
     letterAreaM2: (shape.letters * letterHeightMm * letterHeightMm) / 1_000_000,
+    maxLetterWidthMm: shape.maxW * letterHeightMm,
+    maxLetterHeightMm: shape.maxH * letterHeightMm,
   };
 }
 
 /**
- * Every letter's own ink rectangle, added up — in square cap heights, so it
- * scales with whatever height the sign is ordered in. Spaces bill nothing:
- * nothing is made for them.
+ * Every letter's own ink rectangle — the sum, which is what the sign is billed
+ * by, and the biggest single one, which is what decides its packing box. In
+ * cap heights, so both scale with whatever height the sign is ordered in.
+ * Spaces count for nothing: nothing is made for them.
  */
-function letterBoxes(ctx: CanvasRenderingContext2D, lines: string[]): number {
-  let total = 0;
+function letterBoxes(
+  ctx: CanvasRenderingContext2D,
+  lines: string[],
+): { area: number; maxW: number; maxH: number } {
+  let area = 0;
+  let maxW = 0;
+  let maxH = 0;
   for (const line of lines) {
     for (const char of Array.from(line)) {
       if (!char.trim()) continue;
       const m = ctx.measureText(char);
       const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
       const h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
-      if (w > 0 && h > 0) total += w * h;
+      if (w > 0 && h > 0) {
+        area += w * h;
+        maxW = Math.max(maxW, w);
+        maxH = Math.max(maxH, h);
+      }
     }
   }
-  return total;
+  return { area, maxW, maxH };
 }
 
 /**
