@@ -76,30 +76,65 @@ export function parseFont(typefaceData: any): Font {
 // included, unlike the old baked-in three.js typeface.json fonts which only
 // shipped a fixed ASCII-ish subset.
 
-// A loader PER FILE, deliberately not one shared instance. The winding flag
-// below lives on the loader and is read when the download finishes, not when
-// it starts: with one shared loader, two fonts loading at once (the preview's
-// and the picker's, say) would both be parsed with whichever flag was set
-// last — so a TrueType face could come out reversed and a CFF one not. That
-// is what made some fonts render with their counters filled in and their
-// accents missing, seemingly at random. A TTFLoader is a tiny object; one per
-// load costs nothing next to the font it parses.
-function makeTTFLoader(reversed: boolean): TTFLoader {
+// Which way round a font draws its outlines is a property of the FILE, not of
+// its extension — one of these .ttf files turned out to be drawn the CFF way
+// round. Read it the wrong way and every letter with a counter (a, e, o, á)
+// comes out inside out: the hole becomes the shape and the letter's own body
+// becomes the hole, so it renders as an empty outline while the letters
+// without a counter look perfectly fine. That is exactly what "some fonts are
+// broken" looked like.
+//
+// So it is measured, not guessed. A ring glyph is parsed both ways and the
+// reading where the OUTER contour is the bigger of the two wins. Both
+// readings produce "one shape with one hole" — that alone says nothing, which
+// is why the areas have to be compared.
+const WINDING_PROBE = ["o", "e", "a", "O", "b", "p"];
+
+function parseWithWinding(buffer: ArrayBuffer, reversed: boolean): Font {
   const loader = new TTFLoader();
   loader.reversed = reversed;
-  return loader;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return parseFont(loader.parse(buffer) as any);
 }
 
-/**
- * OpenType/CFF faces (.otf — Gotham, Comic Helvetic here) draw their outlines
- * the other way round from TrueType: outer contours run counter-clockwise
- * instead of clockwise. Extruded as-is, the fill flips — counters fill in, the
- * letter itself hollows out and separate marks like the accent on "á"
- * disappear into the shape below them. TTFLoader can reverse the commands; it
- * just has to be told which files need it.
- */
-function needsReversedWinding(url: string): boolean {
-  return /\.otf(\?|$)/i.test(url);
+function contourArea(points: THREE.Vector2[]): number {
+  return Math.abs(THREE.ShapeUtils.area(points));
+}
+
+/** True when a ring glyph really is a ring: a body with a smaller hole in it. */
+function drawsCountersCorrectly(font: Font): boolean {
+  for (const char of WINDING_PROBE) {
+    let shapes: THREE.Shape[];
+    try {
+      shapes = font.generateShapes(char, 1) as THREE.Shape[];
+    } catch {
+      continue;
+    }
+    const shape = shapes[0];
+    if (!shape || shape.holes.length === 0) continue; // no counter here — try the next probe
+
+    const outer = contourArea(shape.getPoints(WINDING_PROBE_SEGMENTS));
+    const hole = Math.max(
+      ...shape.holes.map((h) => contourArea(h.getPoints(WINDING_PROBE_SEGMENTS))),
+    );
+    return outer > hole;
+  }
+  return true; // nothing to judge it by — take the file as it is
+}
+
+/** Coarse is plenty: this compares two areas that differ several times over. */
+const WINDING_PROBE_SEGMENTS = 6;
+
+async function loadTTFFont(url: string): Promise<Font> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  const buffer = await res.arrayBuffer();
+
+  const asDrawn = parseWithWinding(buffer, false);
+  if (drawsCountersCorrectly(asDrawn)) return asDrawn;
+
+  const reversed = parseWithWinding(buffer, true);
+  return drawsCountersCorrectly(reversed) ? reversed : asDrawn;
 }
 
 type FontCacheEntry =
@@ -120,11 +155,8 @@ export function useTTFFont(url: string): Font {
   if (cached?.status === "error") throw cached.error;
   if (cached?.status === "pending") throw cached.promise;
 
-  const promise = makeTTFLoader(needsReversedWinding(url))
-    .loadAsync(url)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .then((json: any) => {
-      const font = parseFont(json);
+  const promise = loadTTFFont(url)
+    .then((font) => {
       ttfFontCache.set(url, { status: "success", font });
       return font;
     })
