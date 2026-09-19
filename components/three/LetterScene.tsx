@@ -38,9 +38,9 @@ const BLOOM_LUMINANCE_SMOOTHING = 0.4;
 const BLOOM_RADIUS              = 0.75;
 // Softened across the board — bloom is what turns a bright face into a white
 // blob, so each mode gets only as much flare as it needs to read as light.
-const BLOOM_INTENSITY_BASE      = 0.55; // front — the lit face
-const BLOOM_INTENSITY_EDGE      = 0.45; // edges — a thin bright rim, easy to overdo
-const BLOOM_INTENSITY_HALO      = 0.85; // back — the glow texture is already bright
+const BLOOM_INTENSITY_BASE      = 0.34; // front — the lit face
+const BLOOM_INTENSITY_EDGE      = 0.28; // edges — a thin bright rim, easy to overdo
+const BLOOM_INTENSITY_HALO      = 0.58; // back — the glow texture is already bright
 
 // Depth (mm) → world-unit scale. The range the workshop makes is 4–10 mm for
 // a cut letter and up to 200 mm for the deepest lit build (lib/options.ts), so
@@ -108,21 +108,21 @@ const PHOTO_COVER = 2.2;
 // leaves the shape — and the seam between face and return — readable.
 const FACE_EMISSIVE: Record<LightModeId, { front: number; side: number; back: number }> = {
   // Front-lit: the face carries the light, the returns barely pick any up.
-  front: { front: 0.72, side: 0.05, back: 0.03 },
+  front: { front: 0.52, side: 0.04, back: 0.02 },
   // Back-lit: nothing the camera can see emits. The face and the returns stay
   // the material's own colour — a back-lit letter reads as a dark silhouette —
   // and the light lives entirely on the wall behind it (see HaloGlow below).
-  back:  { front: 0.00, side: 0.05, back: 0.80 },
+  back:  { front: 0.00, side: 0.04, back: 0.58 },
   // Edge-lit: the light leaves through the cut edge of the acrylic, so the
   // side wall is the bright part and the face only catches what travels
   // through the sheet.
-  edge:  { front: 0.14, side: 0.85, back: 0.10 },
+  edge:  { front: 0.10, side: 0.62, back: 0.07 },
 };
-// Eased off from 3.2 / 1.55: with the face scales above, the old pair pushed
-// every mode past the point where the glow stops being light on a letter and
-// becomes a white shape.
-const EMISSIVE_BASE_INTENSITY   = 2.3;
-const EMISSIVE_NIGHT_MULTIPLIER = 1.3;
+// Eased off twice now (3.2 / 1.55 → 2.3 / 1.3 → here): past a point the glow
+// stops being light ON a letter and becomes a white shape instead, and on a
+// screen that point comes far sooner than on a real façade.
+const EMISSIVE_BASE_INTENSITY   = 1.75;
+const EMISSIVE_NIGHT_MULTIPLIER = 1.15;
 
 // ── Halo wall glow ──────────────────────────────────────────────────────────
 // The wall glow is a texture built from the glyph outlines themselves
@@ -139,7 +139,7 @@ const EMISSIVE_NIGHT_MULTIPLIER = 1.3;
 // passes the bloom threshold, so the halo blooms the way a real one flares on
 // camera. The framebuffer is HalfFloat (see the Canvas below), so values over
 // 1 survive to the bloom pass instead of being clipped.
-const HALO_GLOW_GAIN        = 2.1;
+const HALO_GLOW_GAIN        = 1.65;
 // How far the glow's own colour is pulled toward white before the gain is
 // applied. Without it a saturated LED colour can never clip to white, and the
 // halo stays flatly amber across its whole spread. With it the core clips —

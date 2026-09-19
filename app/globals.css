@@ -7,23 +7,31 @@
    render its own name in its own font. Family names match FontOption.name
    in lib/options.ts exactly. Variable-font files get a weight range; the
    handful of single-static-weight files get one explicit weight. */
-/* The catalogue's fonts — one @font-face per WEIGHT, because the price list
-   ties a build to a weight (Montserrat SemiBold and ExtraBold are two
+/* The catalogue's fonts — one @font-face per ROW of the price list, because
+   the list ties a build to a weight (Montserrat SemiBold and ExtraBold are two
    different rows). The family names match fontOptions[].name in
    lib/options.ts, which is what the font picker previews with and what
-   lib/useSignSize.ts measures the sign with. */
-@font-face { font-family: "Archivo Black";        src: url("/fonts/archivo-black.ttf")        format("truetype"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "Montserrat SemiBold";  src: url("/fonts/montserrat-semibold.ttf")  format("truetype"); font-weight: 600; font-display: swap; }
-@font-face { font-family: "Montserrat Bold";      src: url("/fonts/montserrat-bold.ttf")      format("truetype"); font-weight: 700; font-display: swap; }
-@font-face { font-family: "Montserrat ExtraBold"; src: url("/fonts/montserrat-extrabold.ttf") format("truetype"); font-weight: 800; font-display: swap; }
-@font-face { font-family: "Oswald Regular";       src: url("/fonts/oswald-regular.ttf")       format("truetype"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "Oswald SemiBold";      src: url("/fonts/oswald-semibold.ttf")      format("truetype"); font-weight: 600; font-display: swap; }
-@font-face { font-family: "Oswald Bold";          src: url("/fonts/oswald-bold.ttf")          format("truetype"); font-weight: 700; font-display: swap; }
-@font-face { font-family: "Baloo2 SemiBold";      src: url("/fonts/baloo2-semibold.ttf")      format("truetype"); font-weight: 600; font-display: swap; }
-@font-face { font-family: "Baloo2 ExtraBold";     src: url("/fonts/baloo2-extrabold.ttf")     format("truetype"); font-weight: 800; font-display: swap; }
-@font-face { font-family: "Poppins SemiBold";     src: url("/fonts/poppins-semibold.ttf")     format("truetype"); font-weight: 600; font-display: swap; }
-@font-face { font-family: "Poppins ExtraBold";    src: url("/fonts/poppins-extrabold.ttf")    format("truetype"); font-weight: 800; font-display: swap; }
-@font-face { font-family: "Pacifico";             src: url("/fonts/pacifico.ttf")             format("truetype"); font-weight: 400; font-display: swap; }
+   lib/useSignSize.ts measures the sign with; the files are the ones in
+   /public/fonts_rozsvietto that the 3D preview extrudes, so the preview and
+   the measurement can never disagree about which face a sign is in. */
+@font-face { font-family: "Archivo Black";          src: url("/fonts_rozsvietto/archivo-black/ArchivoBlack-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Gotham Medium";          src: url("/fonts_rozsvietto/gotham/Gotham/Gotham%20Medium/Gotham%20Medium.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "Gotham Bold";            src: url("/fonts_rozsvietto/gotham/Gotham/Gotham%20Bold/Gotham%20Bold.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "Gotham Ultra";           src: url("/fonts_rozsvietto/gotham/Gotham/Gotham%20Ultra/Gotham%20Ultra.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "Montserrat SemiBold";    src: url("/fonts_rozsvietto/montserrat/Montserrat-SemiBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Montserrat Bold";        src: url("/fonts_rozsvietto/montserrat/Montserrat-Bold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Montserrat ExtraBold";   src: url("/fonts_rozsvietto/montserrat/Montserrat-ExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Poppins SemiBold";       src: url("/fonts_rozsvietto/poppins/Poppins-SemiBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Poppins ExtraBold";      src: url("/fonts_rozsvietto/poppins/Poppins-ExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Baloo2 SemiBold";        src: url("/fonts_rozsvietto/baloo-2/static/Baloo2-SemiBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Baloo2 ExtraBold";       src: url("/fonts_rozsvietto/baloo-2/static/Baloo2-ExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Comic Helvetic Medium";  src: url("/fonts_rozsvietto/comic-helvetic/ComicHelvetic_Medium.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "Comic Helvetic HeavyBold"; src: url("/fonts_rozsvietto/comic-helvetic/ComicHelvetic_Heavy.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "Oswald Regular";         src: url("/fonts_rozsvietto/Oswald/static/Oswald-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Oswald SemiBold";        src: url("/fonts_rozsvietto/Oswald/static/Oswald-SemiBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Oswald Bold";            src: url("/fonts_rozsvietto/Oswald/static/Oswald-Bold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Pacifico";               src: url("/fonts_rozsvietto/Pacifico/Pacifico-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Momo Signature";         src: url("/fonts_rozsvietto/Momo_Signature,Pacifico/Momo_Signature/MomoSignature-Regular.ttf") format("truetype"); font-display: swap; }
 
 /* Enable dark: variant when <html> or any ancestor has class="dark" */
 @variant dark (&:where(.dark, .dark *));
