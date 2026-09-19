@@ -321,8 +321,15 @@ export async function listGroupsByIds(ids: string[]): Promise<Map<string, OrderG
   const unique = [...new Set(ids.filter(Boolean))];
   if (unique.length === 0) return new Map();
   const sql = await getDb();
-  const rows = (await sql`
-    SELECT * FROM order_groups WHERE id = ANY(${unique})
-  `) as Row[];
-  return new Map(rows.map((r) => [r.id as string, mapGroup(r)]));
+  try {
+    const rows = (await sql`
+      SELECT * FROM order_groups WHERE id = ANY(${unique})
+    `) as Row[];
+    return new Map(rows.map((r) => [r.id as string, mapGroup(r)]));
+  } catch (err) {
+    // This only decorates the admin list with delivery and payment. Losing it
+    // is a missing panel; taking the whole page down with it would be worse.
+    console.error("[objednávky] skupiny sa nepodarilo načítať:", err);
+    return new Map();
+  }
 }
