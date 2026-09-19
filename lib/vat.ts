@@ -1,14 +1,15 @@
 // VAT helpers for the price breakdown.
 //
 // IMPORTANT — which way round the headline price runs:
-// calculatePrice() returns the single number the configurator has always shown
-// the customer as "Orientačná cena". It is treated here as the GROSS price,
-// i.e. VAT already included, and the net base is derived from it. That keeps
-// the headline figure identical to what customers see today; reading it as a
-// net price instead would silently raise every quote by 23 %.
+// The figures in the price list (e-shop_rozsvietto_cennik.xlsx, sheet "ceny":
+// 960 / 870 / 650 €/m² and so on) are read as NET, trade prices. calculatePrice()
+// in lib/pricing.ts therefore adds VAT — netToGross() — and the number the
+// customer sees as "Orientačná cena s DPH" is that gross figure; this file
+// splits it back for the breakdown underneath.
 //
-// If the catalogue prices in lib/pricing.ts are in fact net, flip to
-// netToGross() for the headline and this file is the only place to change.
+// If the price list turns out to be quoted WITH VAT already in it, the fix is
+// one line: drop the netToGross() in lib/pricing.ts's calculatePrice() and
+// every quote falls by 23 %. Nothing else needs to change.
 
 export const VAT_RATE = 0.23; // Slovakia, 23 % since 2025
 
@@ -25,6 +26,18 @@ export function vatFromGross(gross: number): number {
 /** Add VAT to a net price. */
 export function netToGross(net: number): number {
   return net * (1 + VAT_RATE);
+}
+
+/**
+ * The bare amount, Slovak style — "604,80", no currency symbol. For places
+ * that supply their own unit ("… €/m²"), where formatEur's symbol would be
+ * doubled up.
+ */
+export function formatAmount(value: number): string {
+  return new Intl.NumberFormat("sk-SK", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 /** Slovak money formatting: comma decimal separator, space thousands, € suffix. */

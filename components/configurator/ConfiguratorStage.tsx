@@ -11,7 +11,7 @@ import type { Config, LightModeDirection, LightModeId, Placement, SignType } fro
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
 import { calculatePrice, priceBreakdown } from "@/lib/pricing";
-import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
+import { formatEur, netFromGross, vatFromGross, VAT_RATE, formatAmount } from "@/lib/vat";
 import {
   fontOptions,
   fontsFor,
@@ -806,7 +806,8 @@ export default function ConfiguratorStage() {
 
               {signSizeLabel && (
                 <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
-                  Celý nápis: {signSizeLabel} ({formatArea(breakdown.areaM2)})
+                  Celý nápis: {signSizeLabel} — účtovaná plocha písmen{" "}
+                  {formatArea(breakdown.areaM2)}
                 </p>
               )}
             </FieldCard>
@@ -875,12 +876,12 @@ export default function ConfiguratorStage() {
               <TechLine label="Umiestnenie" value={config.placement === "exterior" ? "Exteriér" : "Interiér"} />
               <TechLine label="Výška písmen" value={`${config.height} mm`} />
               <TechLine label="Hrúbka" value={`${depthMm} mm`} />
-              {/* The size that has to fit the wall: the whole inscription, not
-                  one letter — and, since the price list bills by the square
-                  metre, the basis of the quote above. */}
+              {/* The size that has to fit the wall: the whole inscription,
+                  spaces and all. It is what the customer measures the façade
+                  by — but it is NOT what the quote is worked out from. */}
               <TechLine label="Celkový rozmer nápisu" value={signSizeLabel ?? "—"} />
               <TechLine
-                label={breakdown.volumeCm3 !== null ? "Objem materiálu" : "Plocha nápisu"}
+                label={breakdown.volumeCm3 !== null ? "Objem materiálu" : "Účtovaná plocha písmen"}
                 value={
                   breakdown.volumeCm3 !== null
                     ? `${Math.round(breakdown.volumeCm3)} cm³`
@@ -889,7 +890,7 @@ export default function ConfiguratorStage() {
               />
               <TechLine
                 label="Jednotková cena"
-                value={`${formatEur(breakdown.unit).replace(" €", "")} ${breakdown.unitLabel}`}
+                value={`${formatAmount(breakdown.unit)} ${breakdown.unitLabel}`}
               />
               <TechLine
                 label="Svietenie"

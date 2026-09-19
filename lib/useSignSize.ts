@@ -30,9 +30,17 @@ export type SignSize = {
    * letterform, not the rectangle around it.
    */
   inkRatio: number;
+  /**
+   * The sign's billable area in m²: every letter's own rectangle, added up.
+   * That is how signage is quoted — each letter is a piece that gets made —
+   * and it is neither the box around the whole nápis (which would charge for
+   * the gap between two words) nor the bare glyph outline (which no workshop
+   * bills by).
+   */
+  letterAreaM2: number;
 };
 
-type Shape = { w: number; h: number; ink: number };
+type Shape = { w: number; h: number; ink: number; letters: number };
 
 /**
  * How big the finished sign actually is.
@@ -100,6 +108,7 @@ export function useSignSize(
           w: width / cap,
           h: height / cap,
           ink: coverage(lines, fontFamily, width, height, cap),
+          letters: letterBoxes(ctx, lines) / (cap * cap),
         });
       } catch {
         // A size readout is a nicety — never let it take the configurator down.
@@ -116,7 +125,27 @@ export function useSignSize(
     widthMm:  shape.w * letterHeightMm,
     heightMm: shape.h * letterHeightMm,
     inkRatio: shape.ink,
+    letterAreaM2: (shape.letters * letterHeightMm * letterHeightMm) / 1_000_000,
   };
+}
+
+/**
+ * Every letter's own ink rectangle, added up — in square cap heights, so it
+ * scales with whatever height the sign is ordered in. Spaces bill nothing:
+ * nothing is made for them.
+ */
+function letterBoxes(ctx: CanvasRenderingContext2D, lines: string[]): number {
+  let total = 0;
+  for (const line of lines) {
+    for (const char of Array.from(line)) {
+      if (!char.trim()) continue;
+      const m = ctx.measureText(char);
+      const w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+      const h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+      if (w > 0 && h > 0) total += w * h;
+    }
+  }
+  return total;
 }
 
 /**
