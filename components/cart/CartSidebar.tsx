@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
 import { useCart, describeConfig } from "@/lib/cart-context";
 import { MATERIALS, fontOptions } from "@/lib/options";
@@ -147,7 +148,7 @@ export default function CartSidebar() {
 
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-xs font-semibold" style={{ color: "var(--color-foreground)" }}>
-                              {item.config.text || "Váš text"}
+                              {oneLine(item.config.text) || "Váš text"}
                             </div>
                             <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>
                               {[font?.name, mat?.displayName].filter(Boolean).join(" · ")} · {describeConfig(item.config)}

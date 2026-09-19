@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { signLines } from "@/lib/sign-text";
 
 // Measured big, then scaled down: the ratio is what matters, and rounding
 // error in it shrinks the larger the measuring size.
@@ -12,6 +13,11 @@ const CAP_SAMPLE = "H";
 
 /** Resolution the ink coverage is counted at — enough to be stable, cheap to draw. */
 const COVERAGE_PX = 256;
+
+// Must match the 3D layout (components/three/letterGeometry.ts LINE_HEIGHT /
+// GLYPH_SIZE): a two-line sign is measured the way it is built, or the price
+// would be worked out from a size nobody is making.
+const LINE_HEIGHT_RATIO = 1.34;
 
 export type SignSize = {
   /** Overall width of the whole inscription, in millimetres. */
@@ -72,13 +78,29 @@ export function useSignSize(
         if (!ctx || cancelled) return;
         ctx.font = face;
 
-        const ink = ctx.measureText(sample);
+        const lines = signLines(sample);
+        if (lines.length === 0) return;
         const cap = ctx.measureText(CAP_SAMPLE).actualBoundingBoxAscent;
-        const width  = ink.actualBoundingBoxLeft + ink.actualBoundingBoxRight;
-        const height = ink.actualBoundingBoxAscent + ink.actualBoundingBoxDescent;
+        const metrics = lines.map((line) => ctx.measureText(line));
+
+        // A two-line sign is as wide as its widest row, and as tall as the
+        // drop between the rows plus what sticks out at the very top and the
+        // very bottom — which is the rectangle that has to fit the wall.
+        const width = Math.max(
+          ...metrics.map((m) => m.actualBoundingBoxLeft + m.actualBoundingBoxRight),
+        );
+        const drop = (lines.length - 1) * LINE_HEIGHT_RATIO * cap;
+        const height =
+          metrics[0].actualBoundingBoxAscent +
+          drop +
+          metrics[metrics.length - 1].actualBoundingBoxDescent;
         if (cancelled || !(cap > 0) || !(width > 0) || !(height > 0)) return;
 
-        setShape({ w: width / cap, h: height / cap, ink: coverage(sample, fontFamily, width, height) });
+        setShape({
+          w: width / cap,
+          h: height / cap,
+          ink: coverage(lines, fontFamily, width, height, cap),
+        });
       } catch {
         // A size readout is a nicety — never let it take the configurator down.
       }
@@ -103,7 +125,13 @@ export function useSignSize(
  * printed material by, and it costs nothing to keep alongside the measurement
  * that already had to happen.
  */
-function coverage(text: string, fontFamily: string, inkW: number, inkH: number): number {
+function coverage(
+  lines: string[],
+  fontFamily: string,
+  inkW: number,
+  inkH: number,
+  cap: number,
+): number {
   try {
     const canvas = document.createElement("canvas");
     canvas.width = COVERAGE_PX;
@@ -111,13 +139,19 @@ function coverage(text: string, fontFamily: string, inkW: number, inkH: number):
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return 0.42;
 
-    // Scale the measuring size so the inscription fills the canvas width.
-    const size = (MEASURE_PX * COVERAGE_PX) / inkW;
-    ctx.font = `${size}px "${fontFamily}"`;
+    // Scale the measuring size so the inscription fills the canvas width, and
+    // draw the rows at the same spacing the sign is built in.
+    const scale = COVERAGE_PX / inkW;
+    ctx.font = `${MEASURE_PX * scale}px "${fontFamily}"`;
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
     ctx.fillStyle = "#000";
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    const step = LINE_HEIGHT_RATIO * cap * scale;
+    const top = (canvas.height - step * (lines.length - 1)) / 2;
+    lines.forEach((line, i) => {
+      ctx.fillText(line, canvas.width / 2, top + i * step);
+    });
 
     const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
     let painted = 0;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { oneLine } from "@/lib/sign-text";
 import { X, Check, Lock } from "lucide-react";
 import type { Config } from "@/lib/types";
 import { useCart, describeConfig, type CartItem } from "@/lib/cart-context";
@@ -203,7 +204,7 @@ export default function OrderModal({ cartItems, onClose }: Props) {
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-                            {c.text || "Váš text"}
+                            {oneLine(c.text) || "Váš text"}
                           </p>
                           <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
                             {[f?.name, mat?.displayName].filter(Boolean).join(" · ")} · {describeConfig(c)}

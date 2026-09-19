@@ -6,6 +6,7 @@ import { Lightbulb, LightbulbOff, ArrowDown, Plus } from "lucide-react";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import WallPicker from "@/components/configurator/WallPicker";
 import { DEFAULT_WALL, MAX_BACKGROUND_BYTES, type WallGrain } from "@/lib/walls";
+import { MAX_LINES } from "@/lib/sign-text";
 import type { Config, LightModeDirection, LightModeId, Placement, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
@@ -58,6 +59,15 @@ const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
 // range and its own points where the thickness steps up (lib/options.ts
 // bandStarts), and those are exactly the heights worth one tap.
 
+// Two lines, and no more: a third Enter does nothing rather than quietly
+// dropping the row when the sign is built (letterGeometry.ts splitLines).
+const MAX_TEXT_LENGTH = 40;
+
+function limitLines(value: string): string {
+  const lines = value.split("\n");
+  return lines.length <= MAX_LINES ? value : lines.slice(0, MAX_LINES).join("\n");
+}
+
 // The light colour is stored either as a swatch's hex or as the hue slider's
 // own hsl(H, 92%, 58%) string, so reading a hue back has to handle both. Used
 // when a sign comes back from the cart to be changed: the controls have to
@@ -104,7 +114,7 @@ export default function ConfiguratorStage() {
   // Remember the last active light mode so we can restore it when switching
   // back from plain → illuminated
   const lastLightModeRef = useRef<LightModeId>("front");
-  const textInputRef = useRef<HTMLInputElement | null>(null);
+  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [config, setConfig] = useState<Config>({
     // Plain black "Váš text" on load — a blank, legible canvas, visible the
@@ -285,6 +295,14 @@ export default function ConfiguratorStage() {
   function setLightMode(id: LightModeId) {
     lastLightModeRef.current = id;
     apply({ lightMode: id });
+  }
+
+  function handleTextKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== "Enter") return;
+    // A newline is a real character here, not a submit — but only the first
+    // one. Past two lines the key does nothing, so the field always shows
+    // exactly what will be made.
+    if (config.text.split("\n").length >= MAX_LINES) e.preventDefault();
   }
 
   function handleModeKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -554,17 +572,22 @@ export default function ConfiguratorStage() {
             alone two scrollbars. The extra right padding keeps the cards clear
             of that inner scrollbar. ── */}
         <div className="space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh_-_7rem)] lg:overflow-y-auto lg:pr-1.5">
-        <FieldCard title="Text" description="Napíšte, čo má na nápise svietiť.">
-          <input
+        <FieldCard title="Text" description="Napíšte, čo má na nápise svietiť. Enter = druhý riadok.">
+          <textarea
             ref={textInputRef}
             value={config.text}
-            onChange={(e) => patch({ text: e.target.value })}
-            maxLength={30}
-            className="w-full rounded-2xl px-5 py-4 text-center text-lg font-extrabold outline-none transition-colors"
+            onChange={(e) => patch({ text: limitLines(e.target.value) })}
+            onKeyDown={handleTextKeyDown}
+            rows={2}
+            maxLength={MAX_TEXT_LENGTH}
+            className="w-full resize-none rounded-2xl px-5 py-4 text-center text-lg font-extrabold leading-8 outline-none transition-colors"
             style={{ background: "var(--color-surface)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
             placeholder="Napíšte váš text…"
             aria-label="Text na nápis"
           />
+          <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+            Nápis môže mať {MAX_LINES} riadky — druhý pridáte Enterom.
+          </p>
         </FieldCard>
 
         {/* ── The rest — four cards instead of eight ────────────────────────
