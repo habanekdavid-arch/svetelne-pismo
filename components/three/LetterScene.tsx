@@ -190,35 +190,17 @@ function safeColorHex(color: THREE.Color): string {
   return `#${color.getHexString()}`;
 }
 
-// Turn a chosen finish (lib/options.ts, read off the manufacturer's board) into
-// the PBR surface it physically is. Metalness is deliberate here: a mirrored
-// profile HAS no diffuse colour, it only reflects the environment, which is
-// exactly right for chrome or polished gold — and exactly wrong for a painted
-// panel, which is why the RAL finishes keep the material's own metalness.
+// Turn a chosen finish into the PBR surface it physically is. Only the matt
+// lacquer differs from the default now — the brushed and mirrored metals were
+// taken out of the catalogue, so the code that rendered them went with them.
 function applyFinish(
   params: THREE.MeshPhysicalMaterialParameters,
   hex: string,
   roughness: number,
-  isSide: boolean,
 ): void {
-  switch (finishForColor(hex)) {
-    case "brushed":
-      params.metalness  = 0.85;
-      params.roughness  = isSide ? 0.44 : 0.34;
-      params.anisotropy = isSide ? 0 : 0.85;
-      params.clearcoat  = 0;
-      break;
-    case "mirror":
-      params.metalness  = 0.95;
-      params.roughness  = isSide ? 0.12 : 0.05;
-      params.clearcoat  = 0;
-      break;
-    case "matte":
-      params.roughness  = Math.min(1, roughness * 1.9 + 0.2);
-      params.clearcoat  = 0;
-      break;
-    default:
-      break;
+  if (finishForColor(hex) === "matte") {
+    params.roughness = Math.min(1, roughness * 1.9 + 0.2);
+    params.clearcoat = 0;
   }
 }
 
@@ -266,13 +248,10 @@ function buildPhysicalMat(
     params.thickness    = p.thickness ?? 0.3;
     params.transparent  = true;
   } else {
-    // Profile finishes: brushed and mirror aluminium are metal, not paint, so
-    // the colour tints what they reflect instead of being a diffuse fill —
-    // that is what makes silver read as silver and gold as gold rather than as
-    // two flat greys. A matt lacquer is the same paint with the sheen taken
-    // out of it. Skipped for transmissive materials (plexi), whose surface is
-    // the acrylic itself, not a coating.
-    applyFinish(params, safeColorHex(color), roughness, isSide);
+    // A matt lacquer is the same paint with the sheen taken out of it. Skipped
+    // for transmissive materials (plexi), whose surface is the acrylic itself,
+    // not a coating.
+    applyFinish(params, safeColorHex(color), roughness);
   }
 
   return new THREE.MeshPhysicalMaterial(params);

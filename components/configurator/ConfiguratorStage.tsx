@@ -730,8 +730,7 @@ export default function ConfiguratorStage() {
               />
               {isIlluminated && (
                 <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
-                  Farby a povrchy, v ktorých sa hliníkový profil svetelného písma
-                  štandardne vyrába — vrátane brúsených a zrkadlových povrchov.
+                  Farby, v ktorých sa profil svetelného písma štandardne vyrába.
                 </p>
               )}
             </FieldCard>
@@ -1121,10 +1120,9 @@ function SwatchRow({
     <div className="flex flex-wrap gap-2">
       {options.map((c) => {
         const active = selectedId === c.id;
-        // A brushed or mirror finish is not a flat colour — its swatch carries
-        // the sheen so the button looks like the thing it orders.
-        const fill = c.swatch
-          ?? (splitWhite && c.id === "white" ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)" : c.value);
+        const fill = splitWhite && c.id === "white"
+          ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)"
+          : c.value;
         const label = c.code ? `${c.label} (${c.code})` : c.label;
         return (
           <button

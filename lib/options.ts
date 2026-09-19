@@ -397,45 +397,26 @@ const PROFILE_RAL: ColorOption[] = [
   { id: "silver", label: "Strieborná",          value: "#a5a5a5", code: "RAL 9006" },
 ];
 
-// Profile-only finishes. The matt white is the same RAL tone with the gloss
-// taken out of it, so it needs its own id (the hex alone cannot tell them
-// apart). The four metal finishes are rolled aluminium, not paint.
-const PROFILE_SPECIAL: ColorOption[] = [
-  {
-    id: "white-mat", label: "Biela matná", value: "#eeeee7",
-    code: "RAL 9016 MAT", finish: "matte",
-  },
-  {
-    id: "silver-brushed", label: "Brúsená strieborná", value: "#c7cacd",
-    code: "Silver Brushed", finish: "brushed",
-    swatch: "linear-gradient(110deg,#b9bdc2 0%,#e6e9ec 38%,#aeb3b8 62%,#d5d9dd 100%)",
-  },
-  {
-    id: "gold-brushed", label: "Brúsená zlatá", value: "#c2a25f",
-    code: "Gold Brushed", finish: "brushed",
-    swatch: "linear-gradient(110deg,#a98c4c 0%,#e2c684 38%,#a3854a 62%,#d3b872 100%)",
-  },
-  {
-    id: "silver-mirror", label: "Zrkadlová strieborná", value: "#dfe4e8",
-    code: "Silver Mirror", finish: "mirror",
-    swatch: "linear-gradient(135deg,#ffffff 0%,#c3cad1 45%,#f2f5f8 55%,#aab2ba 100%)",
-  },
-  {
-    id: "gold-mirror", label: "Zrkadlová zlatá", value: "#d9b866",
-    code: "Gold Mirror", finish: "mirror",
-    swatch: "linear-gradient(135deg,#fff3d0 0%,#c9a94f 45%,#f6e3ae 55%,#a9862f 100%)",
-  },
-];
+// The one finish that is not a colour of its own: the same white with the
+// gloss taken out of it, so it needs its own id (the hex alone cannot tell
+// them apart).
+//
+// The brushed and mirrored metal finishes from the profile board are NOT here.
+// They were asked to stay out of the configurator — "len normálne farby" — and
+// a finish that is out is out: no option, no swatch, and no code behind it.
+const PROFILE_MATT: ColorOption = {
+  id: "white-mat", label: "Biela matná", value: "#eeeee7",
+  code: "RAL 9016 MAT", finish: "matte",
+};
 
 /** Cut (non-lit) letters: lacquered sheet, the RAL range only. */
 export const letterColorOptions: ColorOption[] = PROFILE_RAL;
 
-/** Lit letters: everything the profile is stocked in. */
+/** Lit letters: the same RAL range, plus the matt white. */
 export const profileColorOptions: ColorOption[] = [
   PROFILE_RAL[0],
-  PROFILE_SPECIAL[0],            // matt white sits next to the gloss one
+  PROFILE_MATT,                  // matt white sits next to the gloss one
   ...PROFILE_RAL.slice(1),
-  ...PROFILE_SPECIAL.slice(1),   // the metal finishes close the row
 ];
 
 /** Which colours a sign of this kind can be made in. */

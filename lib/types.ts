@@ -70,23 +70,18 @@ export type MaterialOption = {
 };
 
 // ── Colours and finishes ─────────────────────────────────────────────────────
-// A lit letter's side wall is a rolled aluminium profile, and a profile is
-// stocked in fixed finishes — the ones on the manufacturer's board (3D system,
-// "System of building channel letters"). `finish` is what the surface does to
-// light: a matt lacquer scatters it, a brushed or mirror-polished aluminium
-// reflects it. LetterScene reads it to build the right PBR surface.
-export type ProfileFinish = "gloss" | "matte" | "brushed" | "mirror";
+// What the surface does to light: a gloss lacquer keeps its sheen, a matt one
+// scatters it. LetterScene reads it to build the right PBR surface.
+export type ProfileFinish = "gloss" | "matte";
 
 export type ColorOption = {
   id: string;
   label: string;
   /** The flat colour used by the 3D preview and stored in Config.bodyColor. */
   value: string;
-  /** Manufacturer's own designation, e.g. "RAL 9016" or "Gold Brushed". */
+  /** Manufacturer's own designation, e.g. "RAL 9016". */
   code?: string;
   finish?: ProfileFinish;
-  /** CSS background for the swatch button when a flat fill misreads it. */
-  swatch?: string;
 };
 
 export type LightModeDef = {
