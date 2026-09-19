@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil } from "lucide-react";
 import type { Address, UserProfile } from "@/lib/profile";
+import { AccountSection } from "@/components/account/AccountShell";
+import DataTile from "@/components/account/DataTile";
 
 // The details collected at registration, shown back to the customer and
 // editable in place. Read-only until "Upraviť" is pressed, so the page opens
@@ -11,10 +14,12 @@ export default function AccountDetails({
   name,
   email,
   initial,
+  ordersCount,
 }: {
   name: string;
   email: string;
   initial: UserProfile;
+  ordersCount: number;
 }) {
   const [saved, setSaved] = useState<UserProfile>(initial);
   const [draft, setDraft] = useState<UserProfile>(initial);
@@ -56,56 +61,98 @@ export default function AccountDetails({
   }
 
   if (!editing) {
+    const hasCompany = saved.accountType === "COMPANY" || saved.soleTrader || saved.vatPayer;
+    const billingFilled = Boolean(saved.billing.street || saved.billing.city || saved.billing.zip);
+
     return (
-      <div className="mt-6 space-y-6">
+      <div className="space-y-5">
         {justSaved && (
           <p className="text-sm font-semibold" style={{ color: "var(--color-accent-text)" }}>
             Údaje sú uložené.
           </p>
         )}
 
-        <Group title="Kontakt">
-          <Row label="Meno" value={name} />
-          <Row label="E-mail" value={email} />
-          <Row label="Telefón" value={saved.phone} />
-          <Row label="Typ účtu" value={saved.accountType === "COMPANY" ? "Firma" : "Súkromná osoba"} />
-        </Group>
+        <AccountSection title="Osobné údaje">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            <DataTile label="Meno a priezvisko" value={name} />
+            <DataTile label="E-mail" value={email} />
+            <DataTile label="Telefón" value={saved.phone} />
+            <DataTile label="Typ účtu">
+              <span className={saved.accountType === "COMPANY" ? "badge-info" : "badge-ok"}>
+                {saved.accountType === "COMPANY" ? "Firma" : "Súkromná osoba"}
+              </span>
+            </DataTile>
+            <DataTile label="Počet objednávok" value={String(ordersCount)} />
+          </div>
+        </AccountSection>
 
-        {(saved.accountType === "COMPANY" || saved.soleTrader || saved.vatPayer) && (
-          <Group title="Firemné údaje">
-            {saved.companyName && <Row label="Názov firmy" value={saved.companyName} />}
-            <Row label="IČO" value={saved.ico} />
-            <Row label="DIČ" value={saved.dic} />
-            {saved.vatPayer && <Row label="IČ DPH" value={saved.icDph} />}
-            <Row label="Platca DPH" value={saved.vatPayer ? "Áno" : "Nie"} />
-            <Row label="Živnostník / SZČO" value={saved.soleTrader ? "Áno" : "Nie"} />
-          </Group>
+        {/* Len pre firmy a živnostníkov — súkromná osoba tu nemá čo vypĺňať. */}
+        {hasCompany && (
+          <AccountSection title="Firemné údaje">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {saved.companyName && <DataTile label="Názov firmy" value={saved.companyName} />}
+              <DataTile label="IČO" value={saved.ico} />
+              <DataTile label="DIČ" value={saved.dic} />
+              {saved.vatPayer && <DataTile label="IČ DPH" value={saved.icDph} />}
+              <DataTile label="Platca DPH">
+                <span className={saved.vatPayer ? "badge-ok" : "badge-info"}>
+                  {saved.vatPayer ? "Áno" : "Nie"}
+                </span>
+              </DataTile>
+              <DataTile label="Živnostník / SZČO">
+                <span className={saved.soleTrader ? "badge-ok" : "badge-info"}>
+                  {saved.soleTrader ? "Áno" : "Nie"}
+                </span>
+              </DataTile>
+            </div>
+          </AccountSection>
         )}
 
-        <Group title="Fakturačná adresa">
-          <AddressRows address={saved.billing} fallback="Rovnaká ako doručovacia" />
-        </Group>
+        <AccountSection title="Doručovacia adresa">
+          <AddressTiles address={saved.shipping} />
+        </AccountSection>
 
-        <Group title="Doručovacia adresa">
-          <AddressRows address={saved.shipping} />
-        </Group>
+        {/* Fakturačná sa ukáže, až keď sa naozaj líši od doručovacej — inak by
+            to boli štyri prázdne dlaždice s pomlčkami. */}
+        {billingFilled && (
+          <AccountSection title="Fakturačná adresa">
+            <AddressTiles address={saved.billing} />
+          </AccountSection>
+        )}
 
-        <button
-          type="button"
-          onClick={() => {
-            setDraft(saved);
-            setEditing(true);
-          }}
-          className="rounded-2xl px-5 py-3 text-sm font-bold transition hover:opacity-90"
-          style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+        <AccountSection
+          title="Upraviť moje údaje"
+          subtitle="Fakturačná a dodacia adresa sa predvyplní pri ďalšej objednávke."
         >
-          Upraviť údaje
-        </button>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(saved);
+                setEditing(true);
+              }}
+              className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition hover:opacity-90"
+              style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+            >
+              <span
+                className="flex h-6 w-6 items-center justify-center rounded-full"
+                style={{ background: "var(--color-background)" }}
+              >
+                <Pencil size={14} strokeWidth={2.5} style={{ color: "var(--accent)" }} />
+              </span>
+              Upraviť údaje
+            </button>
+          </div>
+        </AccountSection>
       </div>
     );
   }
 
   return (
+    <AccountSection
+      title="Upraviť moje údaje"
+      subtitle="Fakturačná a dodacia adresa sa predvyplní pri ďalšej objednávke."
+    >
     <form onSubmit={handleSave} className="mt-6 space-y-6">
       <section>
         <h3 className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
@@ -215,52 +262,19 @@ export default function AccountDetails({
         </button>
       </div>
     </form>
+    </AccountSection>
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+/** Štyri dlaždice jednej adresy — rovnaké poradie ako v objednávkovom formulári. */
+function AddressTiles({ address }: { address: Address }) {
   return (
-    <section>
-      <h3 className="mb-3 text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-        {title}
-      </h3>
-      <dl
-        className="divide-y rounded-2xl px-4"
-        style={{ background: "var(--color-surface)", borderColor: "var(--color-border)" }}
-      >
-        {children}
-      </dl>
-    </section>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-3 text-sm">
-      <dt style={{ color: "var(--color-muted)" }}>{label}</dt>
-      <dd className="text-right font-semibold" style={{ color: "var(--color-foreground)" }}>
-        {value || "—"}
-      </dd>
+    <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+      <DataTile label="Ulica a číslo" value={address.street} />
+      <DataTile label="Mesto" value={address.city} />
+      <DataTile label="PSČ" value={address.zip} />
+      <DataTile label="Krajina" value={address.country} />
     </div>
-  );
-}
-
-function AddressRows({ address, fallback }: { address: Address; fallback?: string }) {
-  const empty = !address.street && !address.city && !address.zip;
-  if (empty && fallback) {
-    return (
-      <div className="py-3 text-sm" style={{ color: "var(--color-muted)" }}>
-        {fallback}
-      </div>
-    );
-  }
-  return (
-    <>
-      <Row label="Ulica a číslo" value={address.street} />
-      <Row label="Mesto" value={address.city} />
-      <Row label="PSČ" value={address.zip} />
-      <Row label="Krajina" value={address.country} />
-    </>
   );
 }
 

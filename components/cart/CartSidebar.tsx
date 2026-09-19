@@ -153,11 +153,18 @@ export default function CartSidebar() {
                             <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>
                               {[font?.name, mat?.displayName].filter(Boolean).join(" · ")} · {describeConfig(item.config)}
                             </div>
-                            {editingId === item.id && (
+                            {editingId === item.id ? (
                               <div className="text-[11px] font-bold" style={{ color: "var(--color-accent-text)" }}>
                                 Práve upravujete v konfigurátore
                               </div>
-                            )}
+                            ) : item.draft ? (
+                              /* Uložilo sa sem samo, ako sa nápis skladal —
+                                 nech je jasné, ktorý riadok je ten otvorený
+                                 v konfigurátore a prečo sa mení sám. */
+                              <div className="text-[11px] font-bold" style={{ color: "var(--color-accent-text)" }}>
+                                Rozpracované v konfigurátore
+                              </div>
+                            ) : null}
                             {/* The one part of the spec a line of text can't
                                 carry: the body colour, and the LED colour when
                                 the sign is illuminated. */}

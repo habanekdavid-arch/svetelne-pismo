@@ -616,3 +616,53 @@ html.dark .field-card:hover {
 .btn-press:hover  { opacity: 0.88; }
 .btn-press:active { transform: scale(0.96); }
 
+
+/* ── Zákaznícka zóna ────────────────────────────────────────────────────────
+   Dlaždica s jedným údajom — štítok navrchu, hodnota pod ním. Prevzaté
+   z účtu na vytlačto3d:
+
+     rounded-2xl border border-neutral-100 bg-neutral-50 p-4
+     hover:-translate-y-0.5 hover:border-[#FFAE00]/40
+     hover:shadow-md hover:shadow-[#FFAE00]/10
+
+   Hover je v CSS, nie v inline štýloch, aby sa dal napísať cez tokeny a
+   fungoval v svetlej aj tmavej téme. */
+.data-tile {
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 1rem;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.data-tile:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--accent) 10%, transparent),
+              0 2px 4px -2px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* Štítok stavu v dlaždici — zelený pre súkromnú osobu, neutrálny pre firmu.
+   Mieša sa s akcentom/zelenou cez color-mix, takže na tmavom pozadí zostane
+   čitateľný namiesto toho, aby svietil ako na bielom. */
+.badge-ok,
+.badge-info {
+  display: inline-block;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-ok {
+  background: color-mix(in srgb, #22c55e 18%, var(--color-background));
+  color: #15803d;
+}
+
+.badge-info {
+  background: color-mix(in srgb, var(--accent) 18%, var(--color-background));
+  color: var(--color-foreground);
+}
+
+/* Rovnaký prepínač ako ostatné tokeny vyššie — html.dark, nie media query. */
+html.dark .badge-ok { color: #4ade80; }

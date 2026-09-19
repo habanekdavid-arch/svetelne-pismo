@@ -24,7 +24,6 @@ export default async function AccountOrdersPage() {
   return (
     <AccountShell title="Moje objednávky" description="Tu nájdete svoje objednávky, ich stav a históriu.">
       <AccountSection
-        eyebrow="Moje objednávky"
         title="História objednávok"
         badge={
           <div

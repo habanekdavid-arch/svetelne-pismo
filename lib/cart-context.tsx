@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { Config } from "@/lib/types";
@@ -33,6 +34,15 @@ export type CartItem = {
    */
   size: SignSize | null;
   addedAt: number;
+  /**
+   * The sign currently open in the configurator. It is put in the cart the
+   * moment it has any text and kept in step with every parameter that gets
+   * clicked, so nothing is ever lost to a closed tab — and because it lives
+   * in the cart, it survives a refresh like everything else here.
+   *
+   * There is at most one. "Pridať do košíka" turns it into an ordinary line.
+   */
+  draft?: boolean;
 };
 
 type Ctx = {
@@ -42,6 +52,12 @@ type Ctx = {
   isOpen: boolean;
   /** `open: false` adds without pulling the drawer over the configurator. */
   add: (config: Config, options?: { open?: boolean; size?: SignSize | null }) => void;
+  /**
+   * Keeps the configurator's current sign in the cart as it is configured.
+   * Called on every change; creates the draft line, updates it in place, or
+   * drops it when the text is emptied.
+   */
+  syncDraft: (config: Config, size?: SignSize | null) => void;
   checkout: (config: Config, size?: SignSize | null) => void;
   remove: (id: string) => void;
   /** Cart item currently open in the configurator, if any. */
@@ -56,7 +72,7 @@ type Ctx = {
    * value rather than a callback registry: the configurator is the only
    * consumer, and an effect there reads it exactly once.
    */
-  pendingConfig: Config | null;
+  pendingConfig: { config: Config; scroll: boolean } | null;
   consumePending: () => void;
   clear: () => void;
   open: () => void;
@@ -70,7 +86,7 @@ const STORAGE_KEY = "rozsvietto.cart.v2";
 
 const CartContext = createContext<Ctx>({
   items: [], count: 0, total: 0, isOpen: false,
-  add: () => {}, checkout: () => {}, remove: () => {}, clear: () => {}, open: () => {}, close: () => {},
+  add: () => {}, syncDraft: () => {}, checkout: () => {}, remove: () => {}, clear: () => {}, open: () => {}, close: () => {},
   editingId: null, beginEdit: () => {}, applyEdit: () => {}, cancelEdit: () => {},
   pendingConfig: null, consumePending: () => {},
 });
@@ -102,7 +118,11 @@ function sameConfig(a: Config, b: Config): boolean {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [pendingConfig, setPendingConfig] = useState<Config | null>(null);
+  const [pendingConfig, setPendingConfig] = useState<{ config: Config; scroll: boolean } | null>(null);
+  // The last sign the customer explicitly put in the cart. While the
+  // configurator still shows exactly that sign there is nothing to draft —
+  // the line is already there, and drafting it again would double it.
+  const confirmedRef = useRef<Config | null>(null);
   // Start empty on both server and first client render so the markup matches,
   // then adopt the stored cart. Items and the hydrated flag are one piece of
   // state so restoring the cart is a single update, not two cascading ones.
@@ -140,6 +160,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     // error. This is one call, once, and it settles immediately.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStored({ items: restored, hydrated: true });
+
+    // Pick the half-configured sign back up where it was left. No scrolling:
+    // this happens on every page load, and a page that jumps to the
+    // configurator by itself would be worse than one that does not.
+    const draft = restored.find((i) => i.draft);
+    if (draft) setPendingConfig({ config: draft.config, scroll: false });
   }, []);
 
   useEffect(() => {
@@ -159,14 +185,61 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
-  const add = useCallback((config: Config, options?: { open?: boolean; size?: SignSize | null }) => {
-    const size = options?.size ?? null;
-    setItems((prev) => [
-      ...prev,
-      { id: makeId(), config, size, price: calculatePrice(config, size), addedAt: Date.now() },
-    ]);
-    if (options?.open !== false) setIsOpen(true);
+  // ── The sign being configured ────────────────────────────────────────────
+  // It is in the cart from its first letter, and every click keeps the same
+  // line up to date rather than making a new one.
+  const syncDraft = useCallback((config: Config, size: SignSize | null = null) => {
+    // While a cart line is open for changes, the configurator is editing THAT
+    // line — "Uložiť zmeny" writes it back, and a draft alongside it would be
+    // the same sign twice.
+    if (editingId) return;
+
+    const dropIt =
+      !config.text.trim() ||
+      // Already in the cart as a confirmed line: nothing to draft until the
+      // customer changes something.
+      (confirmedRef.current !== null && sameConfig(confirmedRef.current, config));
+
+    setItems((prev) => {
+      const existing = prev.find((i) => i.draft);
+      if (dropIt) return existing ? prev.filter((i) => !i.draft) : prev;
+
+      const price = calculatePrice(config, size);
+      if (existing) {
+        // Nothing changed that the cart shows — leave the array alone so the
+        // effect that writes localStorage does not fire on every keystroke.
+        if (sameConfig(existing.config, config) && existing.price === price) return prev;
+        return prev.map((i) =>
+          i.draft ? { ...i, config, size, price } : i,
+        );
+      }
+      return [
+        ...prev,
+        { id: makeId(), config, size, price, addedAt: Date.now(), draft: true },
+      ];
+    });
+    // editingId changes only when a cart line is opened or closed for
+    // changes — rare enough that this keeps its identity across the typing
+    // the configurator's effect calls it for.
+  }, [editingId, setItems]);
+
+  /** Turns the draft into an ordinary cart line. */
+  const confirmDraft = useCallback((config: Config, size: SignSize | null) => {
+    confirmedRef.current = config;
+    setItems((prev) => {
+      const price = calculatePrice(config, size);
+      const existing = prev.find((i) => i.draft);
+      if (existing) {
+        return prev.map((i) => (i.draft ? { ...i, config, size, price, draft: false } : i));
+      }
+      return [...prev, { id: makeId(), config, size, price, addedAt: Date.now() }];
+    });
   }, [setItems]);
+
+  const add = useCallback((config: Config, options?: { open?: boolean; size?: SignSize | null }) => {
+    confirmDraft(config, options?.size ?? null);
+    if (options?.open !== false) setIsOpen(true);
+  }, [confirmDraft]);
 
   // ── Editing a sign that is already in the cart ──────────────────────────
   // The line stays where it is while it is being changed, so a customer who
@@ -176,7 +249,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const item = s.items.find((i) => i.id === id);
       if (item) {
         setEditingId(id);
-        setPendingConfig(item.config);
+        setPendingConfig({ config: item.config, scroll: true });
         setIsOpen(false);
       }
       return s;
@@ -202,22 +275,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // only opens the cart. (Ordering two identical signs is still possible: use
   // "Pridať do košíka" twice, which never deduplicates.)
   const checkout = useCallback((config: Config, size: SignSize | null = null) => {
-    setItems((prev) =>
-      prev.some((i) => sameConfig(i.config, config))
-        ? prev
-        : [...prev, { id: makeId(), config, size, price: calculatePrice(config, size), addedAt: Date.now() }],
-    );
+    // The sign being configured is already a draft line here, so this just
+    // settles it and opens the drawer — no chance of the same sign twice.
+    confirmDraft(config, size);
     setIsOpen(true);
-  }, [setItems]);
+  }, [confirmDraft]);
 
   const remove = useCallback((id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    setItems((prev) => {
+      const gone = prev.find((i) => i.id === id);
+      // Throwing the draft away has to stick: without this, the configurator
+      // still shows that sign and would put it straight back.
+      if (gone?.draft) confirmedRef.current = gone.config;
+      return prev.filter((i) => i.id !== id);
+    });
     setEditingId((current) => (current === id ? null : current));
   }, [setItems]);
 
   const clear = useCallback(() => {
     setItems(() => []);
     setEditingId(null);
+    // An emptied cart starts over: the next change in the configurator is a
+    // new draft, not a repeat of what was just ordered.
+    confirmedRef.current = null;
   }, [setItems]);
   const open  = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
@@ -227,10 +307,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<Ctx>(
     () => ({
       items, count: items.length, total, isOpen,
-      add, checkout, remove, clear, open, close,
+      add, syncDraft, checkout, remove, clear, open, close,
       editingId, beginEdit, applyEdit, cancelEdit, pendingConfig, consumePending,
     }),
-    [items, total, isOpen, add, checkout, remove, clear, open, close,
+    [items, total, isOpen, add, syncDraft, checkout, remove, clear, open, close,
      editingId, beginEdit, applyEdit, cancelEdit, pendingConfig, consumePending],
   );
 
