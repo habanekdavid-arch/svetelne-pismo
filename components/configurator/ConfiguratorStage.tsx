@@ -10,6 +10,7 @@ import { MAX_LINES } from "@/lib/sign-text";
 import type { Config, LightModeDirection, LightModeId, Placement, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { calculatePrice, priceBreakdown } from "@/lib/pricing";
 import { formatEur, netFromGross, vatFromGross, VAT_RATE, formatAmount } from "@/lib/vat";
 import {
@@ -107,7 +108,7 @@ export default function ConfiguratorStage() {
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const { setConfig: publishConfig } = useSharedConfig();
   const {
-    add: addToCart, checkout,
+    add: addToCart, checkout, syncDraft,
     editingId, applyEdit, cancelEdit, pendingConfig, consumePending,
   } = useCart();
 
@@ -183,6 +184,22 @@ export default function ConfiguratorStage() {
   const price = useMemo(() => calculatePrice(config, signSize), [config, signSize]);
   const breakdown = useMemo(() => priceBreakdown(config, signSize), [config, signSize]);
 
+  // ── The sign goes in the cart by itself ────────────────────────────────────
+  // From the first letter typed, and in step with every parameter clicked
+  // after that. The cart is stored in the browser, so this is also what makes
+  // a half-configured sign survive a refresh — nothing has to be pressed for
+  // the work to be kept.
+  //
+  // Debounced: a cart line is rewritten (and re-stored) on every change, and
+  // typing should not do that per keystroke.
+  const [touched, setTouched] = useState(false);
+  const draftConfig = useDebouncedValue(config, 500);
+  const draftSize = useDebouncedValue(signSize, 500);
+  useEffect(() => {
+    if (!touched) return;
+    syncDraft(draftConfig, draftSize);
+  }, [touched, draftConfig, draftSize, syncDraft]);
+
   // Live one-line recap shown under the 3D preview, so the chosen parameters
   // stay readable without looking back up the settings column.
   const summary = [
@@ -209,6 +226,11 @@ export default function ConfiguratorStage() {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function patch(update: Partial<Config>) {
+    // First touch of the configurator. Until then there is nothing of the
+    // customer's to keep — the page opens on a sample sign, and putting THAT
+    // in the cart would show a visitor who has not done anything a basket
+    // with one item in it.
+    setTouched(true);
     // patch() itself never rewrites a setting the caller did not name. Where a
     // change really does force another value — a depth that the new build
     // cannot be made in — the caller works that out and passes both together
@@ -228,12 +250,18 @@ export default function ConfiguratorStage() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!pendingConfig) return;
-    setConfig(pendingConfig);
-    setLightHue((prev) => hueOf(pendingConfig.lightColor, prev));
-    setSelectedSwatch(swatchIdFor(lightColors, pendingConfig.lightColor));
-    setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(pendingConfig.signType), pendingConfig.bodyColor));
+    const incoming = pendingConfig.config;
+    setConfig(incoming);
+    setLightHue((prev) => hueOf(incoming.lightColor, prev));
+    setSelectedSwatch(swatchIdFor(lightColors, incoming.lightColor));
+    setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(incoming.signType), incoming.bodyColor));
     consumePending();
-    document.getElementById("konfigurator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Only when the customer asked for it ("Upraviť" in the cart). The same
+    // hand-off also restores the half-configured sign after a refresh, and a
+    // page that scrolls itself down on every load would be its own bug.
+    if (pendingConfig.scroll) {
+      document.getElementById("konfigurator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [pendingConfig, consumePending]);
   /* eslint-enable react-hooks/set-state-in-effect */
 

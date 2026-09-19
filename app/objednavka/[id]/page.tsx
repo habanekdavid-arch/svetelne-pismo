@@ -49,7 +49,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
       title="Objednávka"
       description={`Číslo ${group.id.split("-")[0].toUpperCase()}`}
     >
-      <AccountSection eyebrow="Stav" title={headline(group, cancelled)}>
+      <AccountSection title={headline(group, cancelled)}>
         <p className="mt-3 text-sm leading-6" style={{ color: "var(--color-muted)" }}>
           {body(group, cancelled)}
         </p>
