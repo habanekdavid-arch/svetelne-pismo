@@ -36,6 +36,9 @@ function sizeOf(config: Config, size: SignSize | null): SignSize {
     heightMm: config.height,
     inkRatio: FALLBACK_INK_RATIO,
     letterAreaM2: ((widthMm * config.height) / 1_000_000) * FALLBACK_LETTER_SHARE,
+    // One letter is about as wide as it is tall in these display faces.
+    maxLetterWidthMm: config.height * FALLBACK_WIDTH_PER_HEIGHT,
+    maxLetterHeightMm: config.height,
   };
 }
 

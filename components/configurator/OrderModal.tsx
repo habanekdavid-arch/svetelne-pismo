@@ -8,8 +8,23 @@ import { useCart, describeConfig, type CartItem } from "@/lib/cart-context";
 import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor } from "@/lib/options";
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange } from "@/lib/session-client";
+import DeliveryStep, {
+  emptyAddress,
+  type DeliveryChoice,
+  type QuotedDeliveryMethod,
+} from "@/components/checkout/DeliveryStep";
+import { formatEur } from "@/lib/vat";
 
 type SessionUser = { name: string; email: string };
+
+/** What app/api/quote returns: server-decided prices and delivery options. */
+type Quote = {
+  items: { label: string; price: number; priceCents: number; widthMm: number; heightMm: number }[];
+  itemsCents: number;
+  parcel: { weightKg: number; longestCm: number };
+  deliveryMethods: QuotedDeliveryMethod[];
+  canPayOnline: boolean;
+};
 
 // The last step of checkout, opened from the cart drawer. Every order goes
 // through the cart now — the configurator's "Objednať" puts the sign there
@@ -51,12 +66,57 @@ export default function OrderModal({ cartItems, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const [deliveryErrors, setDeliveryErrors] = useState<{
+    point?: string; address?: string; phone?: string;
+  }>({});
   const trackedRef = useRef(false);
 
-  // Straight from the cart lines: each was quoted from the sign's measured
-  // size (lib/useSignSize.ts). Re-running calculatePrice() here would fall
-  // back to an estimated width and quote a different number than the cart.
-  const price = cartItems.reduce((sum, i) => sum + i.price, 0);
+  // The basket, priced by the server. The cart's own figures are a preview
+  // measured in this browser; these are the ones the card is charged, so from
+  // here on the modal shows nothing else (app/api/quote).
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteFailed, setQuoteFailed] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [delivery, setDelivery] = useState<DeliveryChoice>({
+    method: "personal", point: null, address: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (configs.length === 0) return;
+    fetch("/api/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: configs }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: Quote) => {
+        if (cancelled) return;
+        setQuote(data);
+        // Start on the first method offered — the cheapest parcel option when
+        // the sign fits one, collection in person when it does not.
+        const first = data.deliveryMethods[0];
+        if (first) {
+          setDelivery({
+            method: first.id,
+            point: null,
+            address: first.needsAddress ? emptyAddress() : null,
+          });
+        }
+      })
+      .catch(() => { if (!cancelled) setQuoteFailed(true); });
+    return () => { cancelled = true; };
+    // configs is rebuilt on every render from cartItems, so the cart lines are
+    // what this actually depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems]);
+
+  // The server's figures once they arrive; the cart's own total meanwhile, so
+  // the modal is never blank. Only the server's is ever charged.
+  const selectedMethod = quote?.deliveryMethods.find((m) => m.id === delivery.method) ?? null;
+  const deliveryPrice = selectedMethod?.price ?? 0;
+  const itemsPrice = quote ? quote.itemsCents / 100 : cartItems.reduce((sum, i) => sum + i.price, 0);
+  const price = itemsPrice + deliveryPrice;
 
   // Detail fields for the single-sign summary. With a cart the modal shows a
   // per-item list instead, so these are only read when configs.length === 1.
@@ -86,9 +146,27 @@ export default function OrderModal({ cartItems, onClose }: Props) {
     return Object.keys(e).length === 0;
   }
 
+  /** The delivery step is only complete when the chosen method has what it needs. */
+  function validateDelivery(): boolean {
+    const method = selectedMethod;
+    const e: { point?: string; address?: string; phone?: string } = {};
+    if (method?.needsPoint && !delivery.point) e.point = "Vyberte prosím výdajné miesto";
+    if (method?.needsAddress) {
+      const a = delivery.address;
+      if (!a?.street.trim() || !a?.houseNumber.trim() || !a?.city.trim() || !a?.zip.trim()) {
+        e.address = "Vyplňte prosím celú adresu";
+      }
+    }
+    if (method?.id.startsWith("packeta") && !phone.trim()) {
+      e.phone = "Packeta potrebuje telefónne číslo";
+    }
+    setDeliveryErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate() || submitting) return;
+    if (!validate() || !validateDelivery() || submitting) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -96,9 +174,33 @@ export default function OrderModal({ cartItems, onClose }: Props) {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: configs, name, email }),
+        body: JSON.stringify({ items: configs, name, email, phone, delivery }),
       });
       if (!res.ok) throw new Error(`request failed: ${res.status}`);
+      const placed = await res.json();
+
+      // Card payment on: hand the customer straight to Stripe. The order is
+      // already saved, so a cancelled payment loses nothing — they can come
+      // back to it from "Moje objednávky".
+      if (placed?.payOnline && placed?.groupId) {
+        const pay = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ groupId: placed.groupId }),
+        });
+        const data = await pay.json().catch(() => null);
+        if (pay.ok && data?.url) {
+          clearCart();
+          window.location.href = data.url;
+          return;
+        }
+        // Stripe would not open. The order stands; say so rather than pretend.
+        setSubmitError(
+          "Objednávku sme uložili, ale platbu sa nepodarilo otvoriť. Nájdete ju v sekcii Moje objednávky.",
+        );
+        setSubmitting(false);
+        return;
+      }
 
       setSubmitted(true);
       clearCart();
@@ -211,7 +313,7 @@ export default function OrderModal({ cartItems, onClose }: Props) {
                           </p>
                         </div>
                         <span className="shrink-0 text-sm font-black" style={{ color: "var(--color-foreground)" }}>
-                          {cartItems[idx]?.price ?? 0} €
+                          {formatEur(quote?.items[idx]?.price ?? cartItems[idx]?.price ?? 0)}
                         </span>
                       </li>
                     );
@@ -248,15 +350,39 @@ export default function OrderModal({ cartItems, onClose }: Props) {
               )}
 
               <div
-                className="mt-4 flex items-baseline justify-between border-t pt-4"
+                className="mt-4 space-y-1.5 border-t pt-4"
                 style={{ borderColor: "var(--color-border)" }}
               >
-                <span className="text-xs font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
-                  Orientačná cena
-                </span>
-                <span className="text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
-                  {price} €
-                </span>
+                {selectedMethod && (
+                  <>
+                    <div className="flex items-baseline justify-between text-[12px]">
+                      <span style={{ color: "var(--color-muted)" }}>Nápisy</span>
+                      <span style={{ color: "var(--color-foreground)" }}>{formatEur(itemsPrice)}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between text-[12px]">
+                      <span style={{ color: "var(--color-muted)" }}>{selectedMethod.name}</span>
+                      <span style={{ color: "var(--color-foreground)" }}>{selectedMethod.priceLabel}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex items-baseline justify-between pt-1">
+                  <span className="text-xs font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
+                    {selectedMethod?.price === null ? "Za nápisy, s DPH" : "Spolu s DPH"}
+                  </span>
+                  <span className="text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
+                    {formatEur(price)}
+                  </span>
+                </div>
+                {selectedMethod?.price === null && (
+                  <p className="text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                    Cenu dopravy dohodneme a potvrdíme pred výrobou — teraz ju neúčtujeme.
+                  </p>
+                )}
+                {quoteFailed && (
+                  <p className="text-[11px] leading-5 text-red-400">
+                    Cenu sa nepodarilo prepočítať na serveri. Zobrazená suma je orientačná.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -327,18 +453,48 @@ export default function OrderModal({ cartItems, onClose }: Props) {
                   )}
                 </div>
 
+                {quote ? (
+                  <DeliveryStep
+                    methods={quote.deliveryMethods}
+                    value={delivery}
+                    onChange={setDelivery}
+                    phone={phone}
+                    onPhoneChange={setPhone}
+                    weightKg={quote.parcel.weightKg}
+                    errors={deliveryErrors}
+                  />
+                ) : (
+                  !quoteFailed && (
+                    <div
+                      className="mb-6 h-28 animate-pulse rounded-xl"
+                      style={{ background: "var(--color-surface)" }}
+                      aria-hidden="true"
+                    />
+                  )
+                )}
+
                 {submitError && (
                   <p className="mb-3 text-[12px] text-red-400">{submitError}</p>
                 )}
 
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || (!quote && !quoteFailed)}
                   className="w-full rounded-full py-3.5 text-xs font-black transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
                   style={{ background: "var(--accent)", color: "#000" }}
                 >
-                  {submitting ? "Odosielam…" : "Odoslať objednávku"}
+                  {submitting
+                    ? "Odosielam…"
+                    : quote?.canPayOnline && selectedMethod?.price !== null
+                      ? `Zaplatiť ${formatEur(price)}`
+                      : "Odoslať objednávku"}
                 </button>
+
+                {quote?.canPayOnline && selectedMethod?.price !== null && (
+                  <p className="mt-2 text-center text-[11px]" style={{ color: "var(--color-muted)" }}>
+                    Platbu vybavíte bezpečne cez Stripe. Objednávku uložíme ešte pred platbou.
+                  </p>
+                )}
               </form>
             )}
           </>
