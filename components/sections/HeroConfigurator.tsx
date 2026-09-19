@@ -25,17 +25,19 @@ export default function HeroConfigurator() {
             className="reveal delay-1 main-heading text-4xl md:text-6xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            Poď si s nami vytvoriť svetelný nápis,
+            Poď si s nami vytvoriť
             <br />
-            ktorý tvojej značke svieti aj po zotmení
+            tvoj svetelný text
           </h1>
 
           <p
-            className="reveal delay-2 mx-auto mt-5 max-w-md text-sm leading-6"
+            className="reveal delay-2 mx-auto mt-5 max-w-2xl text-base leading-relaxed"
             style={{ color: "var(--color-muted)" }}
           >
-            Napíš text, vyber font, materiál, farbu a svietenie.
-            Náhľad aj cena sa menia okamžite podľa tvojich nastavení.
+            Napíš text, vyber font, materiál, farbu tela aj režim svietenia —
+            v 3D náhľade hneď uvidíš, ako bude nápis vyzerať na stene, a cena sa
+            prepočíta okamžite. Vyrábame na mieru z plexiskla, hliníkového
+            hliníkového profilu, plexi aj 3D tlače, do interiéru aj exteriéru.
           </p>
         </div>
 

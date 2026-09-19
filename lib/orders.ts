@@ -12,6 +12,12 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 
 export const ORDER_STATUSES: OrderStatus[] = ["new", "in_progress", "done", "cancelled"];
 
+/** "1 objednávka" / "3 objednávky" / "7 objednávok" — Slovak counts three ways. */
+export function orderCountLabel(count: number): string {
+  const word = count === 1 ? "objednávka" : count >= 2 && count <= 4 ? "objednávky" : "objednávok";
+  return `${count} ${word}`;
+}
+
 export type Order = {
   id: number;
   userId: string;

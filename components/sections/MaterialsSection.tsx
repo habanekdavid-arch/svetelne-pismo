@@ -1,4 +1,5 @@
 import EyebrowPill from "@/components/ui/EyebrowPill";
+import { MATERIALS } from "@/lib/options";
 
 // Glyphs are FILLED, not stroked — solid white shapes sitting on the same
 // solid amber badge the HowItWorks steps use, so the two sections read as one
@@ -40,47 +41,19 @@ function TagIcon() {
   );
 }
 
-// Names and one-line descriptions mirror lib/options.ts MATERIALS so the
-// catalogue and this section never disagree. The bullets and icons are
-// presentation-only and live here.
-type Material = {
-  name: string;
-  tagline: string;
-  description: string;
-  bullets: string[];
-  icon: React.ReactNode;
+// Everything shown here — name, tagline, sentence and bullets — comes from
+// lib/options.ts MATERIALS, the same list the configurator offers, in the same
+// order. The two used to be separate hand-kept lists, so the section could
+// promise a material under one name and the configurator offer it under
+// another. Only the icons live here; they are presentation, not catalogue.
+const ICONS: Record<string, React.ReactNode> = {
+  "alurol-upper":  <ShieldIcon />,
+  "alurol-lower":  <ShieldIcon />,
+  plexi30:         <SparkleIcon />,
+  print3d:         <LayersIcon />,
+  "print3d-solid": <LayersIcon />,
+  "plexi-uv":      <TagIcon />,
 };
-
-const MATERIALS: Material[] = [
-  {
-    name: "Odolné exteriérové",
-    tagline: "Prémiový exteriér",
-    description: "Hliníkový kompozit odolný voči počasiu — pevný aj v náročných podmienkach.",
-    bullets: ["Hliníkový kompozit", "Odolný dažďu aj mrazu", "Fasády a vonkajšie pútače"],
-    icon: <ShieldIcon />,
-  },
-  {
-    name: "Luxusné",
-    tagline: "Čistý svetelný efekt",
-    description: "Priehľadný akryl s prémiovým leskom a hĺbkou presvitu.",
-    bullets: ["Priehľadné plexisklo", "Prémiový lesk a presvit", "Interiér aj exteriér"],
-    icon: <SparkleIcon />,
-  },
-  {
-    name: "Interiérové",
-    tagline: "Tvarová voľnosť",
-    description: "3D tlačený plast s jemným presvitom — ideálny pre detailné tvary.",
-    bullets: ["3D tlačený plast", "Jemný, mäkký presvit", "Aj členité tvary a logá"],
-    icon: <LayersIcon />,
-  },
-  {
-    name: "Cenovo dostupné",
-    tagline: "Praktický interiér",
-    description: "Ľahká penová doska — najúspornejšia voľba pre jednoduché nápisy.",
-    bullets: ["Ľahká penová doska", "Najnižšia cena z ponuky", "Bez podsvietenia, do interiéru"],
-    icon: <TagIcon />,
-  },
-];
 
 export default function MaterialsSection() {
   return (
@@ -102,15 +75,15 @@ export default function MaterialsSection() {
             className="mx-auto mt-4 max-w-md leading-7"
             style={{ color: "var(--color-muted)" }}
           >
-            4 materiály, 4 použitia — vyberte podľa toho, kde bude nápis visieť.
+            Šesť stavieb z cenníka — vyberte podľa toho, kde bude nápis visieť a či má svietiť.
           </p>
         </div>
 
         {/* Cards */}
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {MATERIALS.map((mat) => (
             <article
-              key={mat.name}
+              key={mat.id}
               className="field-card material-card group flex flex-col rounded-field p-6"
             >
               {/* Solid amber badge with a blurred bloom behind it on hover —
@@ -123,7 +96,7 @@ export default function MaterialsSection() {
                   style={{ background: "var(--accent)" }}
                   aria-hidden="true"
                 />
-                <span className="relative z-10">{mat.icon}</span>
+                <span className="relative z-10">{ICONS[mat.id]}</span>
               </div>
 
               <p
@@ -137,7 +110,7 @@ export default function MaterialsSection() {
                 className="text-lg font-extrabold tracking-tight"
                 style={{ color: "var(--color-foreground)" }}
               >
-                {mat.name}
+                {mat.displayName}
               </h3>
 
               {/* min-h reserves three lines so the bullet lists start at the
@@ -147,7 +120,7 @@ export default function MaterialsSection() {
                 className="mt-2 min-h-21 text-sm leading-7"
                 style={{ color: "var(--color-muted)" }}
               >
-                {mat.description}
+                {mat.subtitle}
               </p>
 
               {/* Variants as a bulleted list — markers fill amber in sequence

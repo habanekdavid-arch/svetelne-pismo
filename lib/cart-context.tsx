@@ -10,6 +10,8 @@ import {
 } from "react";
 import type { Config } from "@/lib/types";
 import { calculatePrice } from "@/lib/pricing";
+import type { SignSize } from "@/lib/useSignSize";
+import { depthMmFor } from "@/lib/options";
 
 // Cart of configured signs. Each entry is one complete Config — the same shape
 // the configurator publishes and /api/orders already accepts — plus the price
@@ -23,6 +25,13 @@ export type CartItem = {
   id: string;
   config: Config;
   price: number;
+  /**
+   * The measured size of this sign. The price list bills by the square metre
+   * of the whole inscription, and that is measured in the browser from the
+   * real font (lib/useSignSize.ts) — so a line in the cart carries it, or it
+   * would be re-quoted from an estimate the moment it is edited.
+   */
+  size: SignSize | null;
   addedAt: number;
 };
 
@@ -31,18 +40,39 @@ type Ctx = {
   count: number;
   total: number;
   isOpen: boolean;
-  add: (config: Config) => void;
+  /** `open: false` adds without pulling the drawer over the configurator. */
+  add: (config: Config, options?: { open?: boolean; size?: SignSize | null }) => void;
+  checkout: (config: Config, size?: SignSize | null) => void;
   remove: (id: string) => void;
+  /** Cart item currently open in the configurator, if any. */
+  editingId: string | null;
+  /** Send a cart item back into the configurator to be changed. */
+  beginEdit: (id: string) => void;
+  /** Store the changed sign back under the same cart line. */
+  applyEdit: (config: Config, size?: SignSize | null) => void;
+  cancelEdit: () => void;
+  /**
+   * Set by beginEdit for the configurator to pick up and then clear. A plain
+   * value rather than a callback registry: the configurator is the only
+   * consumer, and an effect there reads it exactly once.
+   */
+  pendingConfig: Config | null;
+  consumePending: () => void;
   clear: () => void;
   open: () => void;
   close: () => void;
 };
 
-const STORAGE_KEY = "rozsvietto.cart.v1";
+// v2: the catalogue changed to the official price list — build ids, light
+// modes and the height unit are all different, so a v1 cart cannot be
+// re-quoted and is left behind rather than silently mispriced.
+const STORAGE_KEY = "rozsvietto.cart.v2";
 
 const CartContext = createContext<Ctx>({
   items: [], count: 0, total: 0, isOpen: false,
-  add: () => {}, remove: () => {}, clear: () => {}, open: () => {}, close: () => {},
+  add: () => {}, checkout: () => {}, remove: () => {}, clear: () => {}, open: () => {}, close: () => {},
+  editingId: null, beginEdit: () => {}, applyEdit: () => {}, cancelEdit: () => {},
+  pendingConfig: null, consumePending: () => {},
 });
 
 function makeId(): string {
@@ -52,8 +82,27 @@ function makeId(): string {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+// Two configurations describe the same sign when every ordered property
+// matches. `rotation` is excluded on purpose: it only turns the sign in the 3D
+// preview and is not something the workshop makes differently.
+function sameConfig(a: Config, b: Config): boolean {
+  return (
+    a.text === b.text &&
+    a.font === b.font &&
+    a.material === b.material &&
+    a.signType === b.signType &&
+    a.lightMode === b.lightMode &&
+    a.lightColor === b.lightColor &&
+    a.bodyColor === b.bodyColor &&
+    a.placement === b.placement &&
+    a.height === b.height
+  );
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingConfig, setPendingConfig] = useState<Config | null>(null);
   // Start empty on both server and first client render so the markup matches,
   // then adopt the stored cart. Items and the hydrated flag are one piece of
   // state so restoring the cart is a single update, not two cascading ones.
@@ -110,27 +159,79 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen]);
 
-  const add = useCallback((config: Config) => {
+  const add = useCallback((config: Config, options?: { open?: boolean; size?: SignSize | null }) => {
+    const size = options?.size ?? null;
     setItems((prev) => [
       ...prev,
-      { id: makeId(), config, price: calculatePrice(config), addedAt: Date.now() },
+      { id: makeId(), config, size, price: calculatePrice(config, size), addedAt: Date.now() },
     ]);
+    if (options?.open !== false) setIsOpen(true);
+  }, [setItems]);
+
+  // ── Editing a sign that is already in the cart ──────────────────────────
+  // The line stays where it is while it is being changed, so a customer who
+  // wanders off mid-edit still has the sign they configured earlier.
+  const beginEdit = useCallback((id: string) => {
+    setStored((s) => {
+      const item = s.items.find((i) => i.id === id);
+      if (item) {
+        setEditingId(id);
+        setPendingConfig(item.config);
+        setIsOpen(false);
+      }
+      return s;
+    });
+  }, []);
+
+  const consumePending = useCallback(() => setPendingConfig(null), []);
+
+  const applyEdit = useCallback((config: Config, size: SignSize | null = null) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === editingId ? { ...i, config, size, price: calculatePrice(config, size) } : i)),
+    );
+    setEditingId(null);
+    setIsOpen(true);
+  }, [editingId, setItems]);
+
+  const cancelEdit = useCallback(() => setEditingId(null), []);
+
+  // "Objednať" in the configurator. It opens the cart rather than a checkout
+  // of its own, so the sign being configured has to be in the cart first —
+  // otherwise the customer would land in an empty drawer. Adding it again when
+  // it is already there would just duplicate the line, so an identical sign
+  // only opens the cart. (Ordering two identical signs is still possible: use
+  // "Pridať do košíka" twice, which never deduplicates.)
+  const checkout = useCallback((config: Config, size: SignSize | null = null) => {
+    setItems((prev) =>
+      prev.some((i) => sameConfig(i.config, config))
+        ? prev
+        : [...prev, { id: makeId(), config, size, price: calculatePrice(config, size), addedAt: Date.now() }],
+    );
     setIsOpen(true);
   }, [setItems]);
 
   const remove = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
+    setEditingId((current) => (current === id ? null : current));
   }, [setItems]);
 
-  const clear = useCallback(() => setItems(() => []), [setItems]);
+  const clear = useCallback(() => {
+    setItems(() => []);
+    setEditingId(null);
+  }, [setItems]);
   const open  = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
 
   const total = useMemo(() => items.reduce((s, i) => s + i.price, 0), [items]);
 
   const value = useMemo<Ctx>(
-    () => ({ items, count: items.length, total, isOpen, add, remove, clear, open, close }),
-    [items, total, isOpen, add, remove, clear, open, close],
+    () => ({
+      items, count: items.length, total, isOpen,
+      add, checkout, remove, clear, open, close,
+      editingId, beginEdit, applyEdit, cancelEdit, pendingConfig, consumePending,
+    }),
+    [items, total, isOpen, add, checkout, remove, clear, open, close,
+     editingId, beginEdit, applyEdit, cancelEdit, pendingConfig, consumePending],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
@@ -144,9 +245,10 @@ export function useCart() {
 // modal and the order history so they never drift apart.
 export function describeConfig(config: Config): string {
   const parts = [
-    `${config.height} cm`,
-    `${config.thickness} mm`,
+    `${config.height} mm`,
+    `hrúbka ${depthMmFor(config.material, config.height)} mm`,
     config.signType === "illuminated" ? "svetelné" : "nesvetelné",
+    config.placement === "exterior" ? "exteriér" : "interiér",
   ];
   return parts.join(" · ");
 }

@@ -9,9 +9,10 @@ import { faqCategories } from "@/lib/faq-data";
 // amber "?" badge that tilts when its row is open, and the "+" that rotates 45°
 // into an ×. Only the content differs.
 //
-// The questions are read from lib/faq-data.ts — the same 20 answers the /faq
-// page serves — rather than written fresh here, so the two can never drift
-// apart. The five shown are the ones a first-time visitor asks.
+// The questions are read from lib/faq-data.ts rather than written fresh here.
+// This section is the whole FAQ now — the separate /faq page is gone — and it
+// shows the five a first-time visitor asks; the rest of the answers stay in
+// that file, ready if this list should ever grow.
 
 const HOME_QUESTIONS = [
   "Ako prebieha objednávka?",
@@ -252,18 +253,12 @@ export default function FaqContactSection() {
           </form>
         </div>
 
-        {/* Shortcuts */}
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
-          <Link
-            href="/faq"
-            className="rounded-2xl px-5 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-            style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
-          >
-            Všetky otázky
-          </Link>
+        {/* Shortcut — "Všetky otázky" pointed at the /faq page and went with it */}
+        <div className="mt-10 flex justify-center">
           <Link
             href="/#konfigurator"
-            className="account-pill rounded-2xl px-5 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            className="rounded-2xl px-5 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
           >
             Prejsť na konfigurátor
           </Link>

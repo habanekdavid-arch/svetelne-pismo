@@ -57,7 +57,7 @@ export default function HeaderNav() {
   const links = [
     { href: "/#materialy", label: "Materiály" },
     { href: "/#konfigurator", label: "Ceny" },
-    { href: "/faq", label: "FAQ" },
+    { href: "/#faq", label: "FAQ" },
     { href: "/blog", label: "Blog" },
   ];
 
@@ -97,7 +97,7 @@ export default function HeaderNav() {
       <div className="hidden items-center gap-2 md:flex">
         {user ? (
             <Link
-              href="/moje-objednavky"
+              href="/ucet"
               className="account-pill inline-flex items-center gap-3 rounded-full px-4 py-2 text-sm font-medium transition"
             >
               <span
@@ -176,7 +176,7 @@ export default function HeaderNav() {
 
           {user ? (
             <Link
-              href="/moje-objednavky"
+              href="/ucet"
               onClick={() => setOpen(false)}
               className="account-pill mt-2 inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-medium transition"
             >

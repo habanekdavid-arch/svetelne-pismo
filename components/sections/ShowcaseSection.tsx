@@ -12,7 +12,7 @@ import EyebrowPill from "@/components/ui/EyebrowPill";
 // ── Default config used before the configurator publishes its first state ─────
 const DEFAULT_CONFIG: Pick<Config, "signType" | "material"> = {
   signType: "illuminated",
-  material: "plexi",
+  material: "plexi30",
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────

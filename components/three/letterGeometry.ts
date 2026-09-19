@@ -228,3 +228,183 @@ export function buildSolidLetterGeometry(
 
   return { geometry: merged, failedCount };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Halo glow texture ("Zozadu")
+// ─────────────────────────────────────────────────────────────────────────────
+// A back-lit sign is not a glowing letter — the letter stays dark and the wall
+// behind it carries the light, brightest right at the contour and fading out
+// over roughly half a letter height. Lights parked behind the sign cannot draw
+// that: a point light makes a round pool, so a wide nápis got blobs that
+// ignored the letterforms completely.
+//
+// So the halo is drawn from the letterforms themselves. The glyph outlines are
+// painted into a canvas as a white silhouette, ringed by strokes that step
+// outward with a falling alpha, and that texture is laid on the wall with
+// additive blending (see LetterScene's HaloGlow). The letter body then occludes
+// the silhouette itself, so what is left on screen is exactly the spill around
+// the contour — including inside counters like the bowl of an "A", where the
+// same rings fade toward the middle of the hole.
+//
+// Why strokes and not a blur: ctx.filter is unsupported in older Safari, and a
+// hand-rolled blur over a 2K canvas is far too slow to run on every text edit.
+// Stroking the path with a round join is exact, cheap and works everywhere; a
+// small ctx.filter blur is applied on top only when the browser has it.
+
+/** Glow reach beyond the glyph contour, in GLYPH_SIZE units. */
+export const HALO_GLOW_MARGIN = 0.95;
+/** Canvas resolution. Capped so a long nápis cannot allocate a huge texture. */
+const HALO_GLOW_PX_PER_UNIT = 240;
+const HALO_GLOW_MAX_PX = 2048;
+/** Number of rings. More = smoother ramp, linearly more drawing work. */
+const HALO_GLOW_STEPS = 36;
+/**
+ * Outline resolution for the glow only. The halo is soft by definition, so it
+ * does not need the letters' own curve resolution — halving it halves the
+ * work of every ring pass, which is what keeps a long nápis responsive while
+ * the text is being typed.
+ */
+const HALO_CURVE_SEGMENTS = 6;
+/** Extra dead space around the glow, as a fraction of its reach. */
+const HALO_GLOW_EDGE_PAD = 0.3;
+/**
+ * Falloff exponent of the ring profile, as brightness over distance from the
+ * contour: 1 = linear, higher = light hugs the letter more tightly. 2.6 is
+ * roughly what a strip of LEDs a few centimetres off the wall throws.
+ */
+const HALO_GLOW_FALLOFF = 1.9;
+
+export type HaloGlowBuild = {
+  texture: THREE.CanvasTexture | null; // null when the text has no drawable glyphs
+  width: number;   // plane size in the same units as the letter geometry
+  height: number;
+};
+
+const EMPTY_HALO: HaloGlowBuild = { texture: null, width: 0, height: 0 };
+
+type Outline = { outer: THREE.Vector2[]; holes: THREE.Vector2[][] };
+
+function polygon(ctx: CanvasRenderingContext2D, pts: THREE.Vector2[], toPx: (p: THREE.Vector2) => [number, number]) {
+  if (pts.length < 2) return;
+  const [x0, y0] = toPx(pts[0]);
+  ctx.moveTo(x0, y0);
+  for (let i = 1; i < pts.length; i++) {
+    const [x, y] = toPx(pts[i]);
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+export function buildHaloGlowTexture(font: Font, text: string): HaloGlowBuild {
+  if (typeof document === "undefined") return EMPTY_HALO;
+
+  const shapes = font.generateShapes(text, GLYPH_SIZE) as THREE.Shape[];
+
+  const outlines: Outline[] = [];
+  const box = new THREE.Box2();
+  box.makeEmpty();
+  for (const shape of shapes) {
+    const outer = shape.getPoints(HALO_CURVE_SEGMENTS);
+    if (outer.length < 3) continue;
+    const holes = shape.holes.map((h) => h.getPoints(HALO_CURVE_SEGMENTS)).filter((h) => h.length >= 3);
+    outlines.push({ outer, holes });
+    for (const p of outer) box.expandByPoint(p);
+  }
+  if (outlines.length === 0) return EMPTY_HALO;
+
+  const margin = HALO_GLOW_MARGIN * GLYPH_SIZE;
+  // The plane is a little larger than the glow's own reach. Without that
+  // headroom the falloff ends exactly on the texture's border, and the final
+  // smoothing pass leaves a faint rectangle where the plane stops.
+  const pad = margin * (1 + HALO_GLOW_EDGE_PAD);
+  const size = box.getSize(new THREE.Vector2());
+  const width  = size.x + pad * 2;
+  const height = size.y + pad * 2;
+
+  const scale = Math.min(HALO_GLOW_PX_PER_UNIT, HALO_GLOW_MAX_PX / Math.max(width, height));
+  const pxW = Math.max(8, Math.round(width  * scale));
+  const pxH = Math.max(8, Math.round(height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = pxW;
+  canvas.height = pxH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return EMPTY_HALO;
+
+  // Additive blending ignores black, so an opaque black ground contributes
+  // nothing outside the glow.
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, pxW, pxH);
+
+  // Shape space → canvas pixels. Y flips: canvas grows downward.
+  const min = box.min;
+  const toPx = (p: THREE.Vector2): [number, number] => [
+    (p.x - min.x + pad) * scale,
+    pxH - (p.y - min.y + pad) * scale,
+  ];
+
+  const trace = () => {
+    ctx.beginPath();
+    for (const o of outlines) {
+      polygon(ctx, o.outer, toPx);
+      for (const h of o.holes) polygon(ctx, h, toPx);
+    }
+  };
+
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  // Rings, widest and faintest first. Each ring is stroked centred on the
+  // contour, so a ring of width 2d reaches d outward. Painted over one
+  // another with source-over, the alpha at distance d accumulates — so each
+  // step's own alpha is solved from the profile it has to land on rather than
+  // guessed, which is what keeps the ramp smooth instead of banded.
+  let covered = 0;
+  for (let i = 0; i < HALO_GLOW_STEPS; i++) {
+    const t = (i + 1) / HALO_GLOW_STEPS;      // 0 → contour distance margin, 1 → contour
+    const d = margin * (1 - t);
+    const target = Math.pow(t, HALO_GLOW_FALLOFF);
+    const alpha = (target - covered) / (1 - covered);
+    covered = target;
+    if (alpha <= 0.001 || d <= 0) continue;
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.lineWidth = Math.max(1, d * 2 * scale);
+    trace();
+    ctx.stroke();
+  }
+
+  // The silhouette itself is solid — it sits behind the letter and is only
+  // ever seen where the letter does not cover it.
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#ffffff";
+  trace();
+  ctx.fill("evenodd");
+
+  // Optional final smoothing where the browser supports canvas filters.
+  let source: HTMLCanvasElement = canvas;
+  const blurPx = Math.max(1, Math.round(margin * scale * 0.06));
+  const probe = canvas.getContext("2d");
+  if (probe) {
+    probe.filter = `blur(${blurPx}px)`;
+    if (probe.filter === `blur(${blurPx}px)`) {
+      const smoothed = document.createElement("canvas");
+      smoothed.width = pxW;
+      smoothed.height = pxH;
+      const sctx = smoothed.getContext("2d");
+      if (sctx) {
+        sctx.filter = `blur(${blurPx}px)`;
+        sctx.drawImage(canvas, 0, 0);
+        source = smoothed;
+      }
+    }
+    probe.filter = "none";
+  }
+
+  const texture = new THREE.CanvasTexture(source);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+
+  return { texture, width, height };
+}

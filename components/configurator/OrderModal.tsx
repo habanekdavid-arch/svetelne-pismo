@@ -4,32 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import { X, Check, Lock } from "lucide-react";
 import type { Config } from "@/lib/types";
 import { useCart, describeConfig, type CartItem } from "@/lib/cart-context";
-import { calculatePrice } from "@/lib/pricing";
-import { fontOptions, MATERIALS, LIGHT_MODES } from "@/lib/options";
+import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor } from "@/lib/options";
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange } from "@/lib/session-client";
 
 type SessionUser = { name: string; email: string };
 
-// Either a single configured sign (the configurator's own "Objednať" button)
-// or a whole cart (the cart drawer's checkout). Exactly one is passed.
+// The last step of checkout, opened from the cart drawer. Every order goes
+// through the cart now — the configurator's "Objednať" puts the sign there
+// first — so this always works from a list of cart items.
 type Props = {
-  config?: Config;
-  cartItems?: CartItem[];
+  cartItems: CartItem[];
   onClose: () => void;
 };
 
-export default function OrderModal({ config, cartItems, onClose }: Props) {
+export default function OrderModal({ cartItems, onClose }: Props) {
   const { clear: clearCart } = useCart();
 
-  // Normalise both entry points to one list, so everything below — pricing,
-  // the summary, the request body, analytics — has a single shape to work with.
-  const configs: Config[] = cartItems?.length
-    ? cartItems.map((i) => i.config)
-    : config
-      ? [config]
-      : [];
-  const isCart = !!cartItems?.length;
+  const configs: Config[] = cartItems.map((i) => i.config);
   // undefined = still checking /api/auth/me, null = confirmed signed out,
   // SessionUser = signed in. Fetched here (not passed as a prop from a
   // server-rendered ancestor) so the pages that render this stay static —
@@ -60,7 +52,10 @@ export default function OrderModal({ config, cartItems, onClose }: Props) {
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const trackedRef = useRef(false);
 
-  const price = configs.reduce((sum, c) => sum + calculatePrice(c), 0);
+  // Straight from the cart lines: each was quoted from the sign's measured
+  // size (lib/useSignSize.ts). Re-running calculatePrice() here would fall
+  // back to an estimated width and quote a different number than the cart.
+  const price = cartItems.reduce((sum, i) => sum + i.price, 0);
 
   // Detail fields for the single-sign summary. With a cart the modal shows a
   // per-item list instead, so these are only read when configs.length === 1.
@@ -105,20 +100,20 @@ export default function OrderModal({ config, cartItems, onClose }: Props) {
       if (!res.ok) throw new Error(`request failed: ${res.status}`);
 
       setSubmitted(true);
-      if (isCart) clearCart();
+      clearCart();
       if (!trackedRef.current) {
         trackedRef.current = true;
         trackPurchase({
           transactionId: generateClientOrderId(),
           value: price,
           currency: "EUR",
-          items: configs.map((c) => {
+          items: configs.map((c, idx) => {
             const mat = MATERIALS.find((m) => m.id === c.material);
             const f   = fontOptions.find((x) => x.id === c.font);
             return {
               item_name: `Svetelný nápis — ${mat?.displayName ?? c.material} (${f?.name ?? c.font})`,
               item_id: `${c.material}-${c.font}-${c.signType}`,
-              price: calculatePrice(c),
+              price: cartItems[idx]?.price ?? 0,
               quantity: 1,
             };
           }),
@@ -197,12 +192,12 @@ export default function OrderModal({ config, cartItems, onClose }: Props) {
             >
               {configs.length > 1 ? (
                 <ul className="space-y-2">
-                  {configs.map((c, i) => {
+                  {configs.map((c, idx) => {
                     const mat = MATERIALS.find((m) => m.id === c.material);
                     const f   = fontOptions.find((x) => x.id === c.font);
                     return (
                       <li
-                        key={i}
+                        key={idx}
                         className="flex items-start justify-between gap-3 rounded-lg px-3 py-2"
                         style={{ background: "var(--color-background)" }}
                       >
@@ -215,7 +210,7 @@ export default function OrderModal({ config, cartItems, onClose }: Props) {
                           </p>
                         </div>
                         <span className="shrink-0 text-sm font-black" style={{ color: "var(--color-foreground)" }}>
-                          {calculatePrice(c)} €
+                          {cartItems[idx]?.price ?? 0} €
                         </span>
                       </li>
                     );
@@ -238,7 +233,7 @@ export default function OrderModal({ config, cartItems, onClose }: Props) {
                 </dd>
 
                 <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Hrúbka</dt>
-                <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{first?.thickness} mm</dd>
+                <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{first ? depthMmFor(first.material, first.height) : "—"} mm</dd>
 
                 <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Farba svetla</dt>
                 <dd className="flex items-center gap-2">
