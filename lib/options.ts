@@ -23,16 +23,19 @@ import type {
 // ── Fonts ────────────────────────────────────────────────────────────────────
 // Named exactly as the price list names them, because the list ties a font to
 // a build: a weight is a different font here, not a styling detail (Montserrat
-// SemiBold and Montserrat ExtraBold are two separate rows). Each id is a real
-// static TTF in /public/fonts — see scripts/fetch-catalog-fonts.mjs — and
-// `name` doubles as the @font-face family in globals.css, which is what the
-// font picker and the size measurement (lib/useSignSize.ts) render with.
+// SemiBold and Montserrat ExtraBold are two separate rows).
 //
-// Seven fonts from the list are licensed typefaces that cannot be downloaded
-// (Arial Black, Gotham Medium/Bold/Ultra, Comic Helvetic Medium/HeavyBold,
-// Momo Signature). They are deliberately NOT offered — an option a customer
-// can pick has to be one the preview can actually draw — and will slot into
-// the sets below the moment the real files land in /public/fonts.
+// The files are the ones in /public/fonts_rozsvietto — the folder of licensed
+// and open faces that belongs to this catalogue. `name` doubles as the
+// @font-face family in globals.css, which is what the font picker previews
+// with and what lib/useSignSize.ts measures the sign with, and `file` is what
+// the 3D preview extrudes. Spaces in a path have to arrive encoded: the loader
+// fetches this string as a URL.
+//
+// One row of the price list has no file yet: Arial Black. It is a licensed
+// Microsoft face and nothing in the folder is it, so it is not offered —
+// showing a font the preview cannot draw would be worse than leaving it out.
+// Drop the file in and add one line here and it is back.
 
 export type FontOption = {
   id: string;
@@ -42,40 +45,52 @@ export type FontOption = {
 };
 
 export const fontOptions: FontOption[] = [
-  { id: "archivo-black",        name: "Archivo Black",        file: "/fonts/archivo-black.ttf" },
-  { id: "montserrat-semibold",  name: "Montserrat SemiBold",  file: "/fonts/montserrat-semibold.ttf" },
-  { id: "montserrat-bold",      name: "Montserrat Bold",      file: "/fonts/montserrat-bold.ttf" },
-  { id: "montserrat-extrabold", name: "Montserrat ExtraBold", file: "/fonts/montserrat-extrabold.ttf" },
-  { id: "oswald-regular",       name: "Oswald Regular",       file: "/fonts/oswald-regular.ttf" },
-  { id: "oswald-semibold",      name: "Oswald SemiBold",      file: "/fonts/oswald-semibold.ttf" },
-  { id: "oswald-bold",          name: "Oswald Bold",          file: "/fonts/oswald-bold.ttf" },
-  { id: "baloo2-semibold",      name: "Baloo2 SemiBold",      file: "/fonts/baloo2-semibold.ttf" },
-  { id: "baloo2-extrabold",     name: "Baloo2 ExtraBold",     file: "/fonts/baloo2-extrabold.ttf" },
-  { id: "poppins-semibold",     name: "Poppins SemiBold",     file: "/fonts/poppins-semibold.ttf" },
-  { id: "poppins-extrabold",    name: "Poppins ExtraBold",    file: "/fonts/poppins-extrabold.ttf" },
-  { id: "pacifico",             name: "Pacifico",             file: "/fonts/pacifico.ttf" },
+  { id: "archivo-black",          name: "Archivo Black",          file: "/fonts_rozsvietto/archivo-black/ArchivoBlack-Regular.ttf" },
+  { id: "gotham-medium",          name: "Gotham Medium",          file: "/fonts_rozsvietto/gotham/Gotham/Gotham%20Medium/Gotham%20Medium.otf" },
+  { id: "gotham-bold",            name: "Gotham Bold",            file: "/fonts_rozsvietto/gotham/Gotham/Gotham%20Bold/Gotham%20Bold.otf" },
+  { id: "gotham-ultra",           name: "Gotham Ultra",           file: "/fonts_rozsvietto/gotham/Gotham/Gotham%20Ultra/Gotham%20Ultra.otf" },
+  { id: "montserrat-semibold",    name: "Montserrat SemiBold",    file: "/fonts_rozsvietto/montserrat/Montserrat-SemiBold.ttf" },
+  { id: "montserrat-bold",        name: "Montserrat Bold",        file: "/fonts_rozsvietto/montserrat/Montserrat-Bold.ttf" },
+  { id: "montserrat-extrabold",   name: "Montserrat ExtraBold",   file: "/fonts_rozsvietto/montserrat/Montserrat-ExtraBold.ttf" },
+  { id: "poppins-semibold",       name: "Poppins SemiBold",       file: "/fonts_rozsvietto/poppins/Poppins-SemiBold.ttf" },
+  { id: "poppins-extrabold",      name: "Poppins ExtraBold",      file: "/fonts_rozsvietto/poppins/Poppins-ExtraBold.ttf" },
+  { id: "baloo2-semibold",        name: "Baloo2 SemiBold",        file: "/fonts_rozsvietto/baloo-2/static/Baloo2-SemiBold.ttf" },
+  { id: "baloo2-extrabold",       name: "Baloo2 ExtraBold",       file: "/fonts_rozsvietto/baloo-2/static/Baloo2-ExtraBold.ttf" },
+  { id: "comic-helvetic-medium",  name: "Comic Helvetic Medium",  file: "/fonts_rozsvietto/comic-helvetic/ComicHelvetic_Medium.otf" },
+  { id: "comic-helvetic-heavy",   name: "Comic Helvetic HeavyBold", file: "/fonts_rozsvietto/comic-helvetic/ComicHelvetic_Heavy.otf" },
+  { id: "oswald-regular",         name: "Oswald Regular",         file: "/fonts_rozsvietto/Oswald/static/Oswald-Regular.ttf" },
+  { id: "oswald-semibold",        name: "Oswald SemiBold",        file: "/fonts_rozsvietto/Oswald/static/Oswald-SemiBold.ttf" },
+  { id: "oswald-bold",            name: "Oswald Bold",            file: "/fonts_rozsvietto/Oswald/static/Oswald-Bold.ttf" },
+  { id: "pacifico",               name: "Pacifico",               file: "/fonts_rozsvietto/Pacifico/Pacifico-Regular.ttf" },
+  { id: "momo-signature",         name: "Momo Signature",         file: "/fonts_rozsvietto/Momo_Signature,Pacifico/Momo_Signature/MomoSignature-Regular.ttf" },
 ];
 
-/** Alurol rows: Arial Black, Archivo Black, Gotham Ultra, Montserrat ExtraBold, Oswald Bold, Poppins ExtraBold. */
+// The sets are the price list's own rows, in its own order.
+
+/** Alurol (veľké aj malé písmo): Arial Black*, Archivo Black, Gotham Ultra, Montserrat ExtraBold, Oswald Bold, Poppins ExtraBold. */
 const ALUROL_FONTS = [
   "archivo-black",
+  "gotham-ultra",
   "montserrat-extrabold",
   "oswald-bold",
   "poppins-extrabold",
 ];
 
-/** 30 mm plexi rows: the lighter weights, the rounded faces and the script one. */
+/** 30 mm plexi: its ten rows, complete. */
 const PLEXI30_FONTS = [
+  "gotham-medium",
+  "gotham-bold",
   "montserrat-semibold",
   "montserrat-bold",
   "oswald-regular",
   "oswald-semibold",
   "baloo2-semibold",
   "baloo2-extrabold",
+  "comic-helvetic-medium",
   "pacifico",
 ];
 
-/** 3D print rows: every font in the list. */
+/** 3D print (svetelné, nesvetelné, plné písmo) and UV plexi: every font in the list. */
 const PRINT_FONTS = fontOptions.map((f) => f.id);
 
 // ── Unit prices (sheet "ceny", € per m² without VAT unless noted) ────────────

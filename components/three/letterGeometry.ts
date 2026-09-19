@@ -75,6 +75,18 @@ function getTTFLoader(): TTFLoader {
   return ttfLoaderInstance;
 }
 
+/**
+ * OpenType/CFF faces (.otf — Gotham, Comic Helvetic here) draw their outlines
+ * the other way round from TrueType: outer contours run counter-clockwise
+ * instead of clockwise. Extruded as-is, the fill flips — counters fill in, the
+ * letter itself hollows out and separate marks like the accent on "á"
+ * disappear into the shape below them. TTFLoader can reverse the commands; it
+ * just has to be told which files need it.
+ */
+function needsReversedWinding(url: string): boolean {
+  return /\.otf(\?|$)/i.test(url);
+}
+
 type FontCacheEntry =
   | { status: "pending"; promise: Promise<Font> }
   | { status: "success"; font: Font }
@@ -93,7 +105,9 @@ export function useTTFFont(url: string): Font {
   if (cached?.status === "error") throw cached.error;
   if (cached?.status === "pending") throw cached.promise;
 
-  const promise = getTTFLoader()
+  const loader = getTTFLoader();
+  loader.reversed = needsReversedWinding(url);
+  const promise = loader
     .loadAsync(url)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .then((json: any) => {
