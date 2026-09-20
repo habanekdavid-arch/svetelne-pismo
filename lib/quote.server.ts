@@ -18,6 +18,7 @@ import {
   materialsFor,
   fontsFor,
   clampHeight,
+  applyTextCase,
 } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 
@@ -79,7 +80,10 @@ export function sanitizeConfig(raw: unknown): Config | null {
   if (!Number.isFinite(height)) return null;
 
   return {
-    text: c.text.slice(0, 120),
+    // Alurol je v cenníku zvlášť pre veľké a zvlášť pre malé písmo, tak sa
+    // text prepíše aj tu — request z prehliadača nerozhoduje o tom, čo sa dá
+    // vyrobiť.
+    text: applyTextCase(c.text.slice(0, 120), material.id),
     font: font.id,
     material: material.id,
     signType: c.signType,
