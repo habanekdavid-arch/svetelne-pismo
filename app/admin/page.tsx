@@ -1,8 +1,17 @@
 import type { Metadata } from "next";
+import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
-import { listAllOrders, ORDER_STATUSES, ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders";
+import {
+  listAllOrders,
+  listGroupsByIds,
+  ORDER_STATUSES,
+  ORDER_STATUS_LABEL,
+  PAYMENT_STATUS_LABEL,
+  type OrderGroup,
+  type OrderStatus,
+} from "@/lib/orders";
 import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
@@ -53,6 +62,9 @@ export default async function AdminPage({
   const activeFilter = isOrderStatus(statusParam) ? statusParam : "all";
 
   const allOrders = await listAllOrders();
+  // Delivery and payment live on the checkout, not on the individual sign —
+  // one lookup for the whole page rather than one per row.
+  const groups = await listGroupsByIds(allOrders.map((o) => o.groupId ?? ""));
 
   const counts: Record<string, number> = { all: allOrders.length };
   let revenue = 0;
@@ -177,7 +189,7 @@ export default async function AdminPage({
                   className="rounded-3xl border p-6 shadow-sm transition hover:shadow-md"
                   style={{ background: "var(--color-background)", borderColor: "var(--color-border)" }}
                 >
-                  <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr_1fr_auto]">
+                  <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr_1fr_1fr_auto]">
 
                     {/* Identity — order number, the sign itself, its colour */}
                     <div className="min-w-0">
@@ -194,7 +206,7 @@ export default async function AdminPage({
                           aria-hidden="true"
                         />
                         <p className="truncate text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                          {o.config.text}
+                          {oneLine(o.config.text)}
                         </p>
                       </div>
                       <p className="mt-2 text-sm" style={{ color: "var(--color-muted)" }}>
@@ -248,6 +260,11 @@ export default async function AdminPage({
                       </div>
                     </div>
 
+                    {/* Delivery and payment — from the checkout this sign was
+                        part of. Orders placed before checkout existed have no
+                        group, and simply show nothing here. */}
+                    <DeliveryPanel group={o.groupId ? (groups.get(o.groupId) ?? null) : null} />
+
                     {/* Actions */}
                     <AdminOrderActions orderId={o.id} status={o.status} />
                   </div>
@@ -267,6 +284,62 @@ function SpecLine({ label, value }: { label: string; value: string }) {
     <div className="flex items-baseline justify-between gap-3">
       <dt style={{ color: "var(--color-muted)" }}>{label}</dt>
       <dd className="truncate font-semibold">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * What the workshop needs in order to send the sign: where it goes, whether it
+ * has been paid for, and — once Packeta has it — the packet number. A packet
+ * that could not be created says why, right here, because nobody will go
+ * looking in the logs.
+ */
+function DeliveryPanel({ group }: { group: OrderGroup | null }) {
+  if (!group) {
+    // Placed before checkout existed: there is no delivery or payment to show,
+    // but the cell stays so the row's columns keep their places.
+    return (
+      <div className="min-w-0 text-sm">
+        <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
+          Doprava a platba
+        </p>
+        <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+          Staršia objednávka — dohodnuté mimo e-shopu.
+        </p>
+      </div>
+    );
+  }
+
+  const where = group.deliveryPoint
+    ? `${group.deliveryPoint.name}${group.deliveryPoint.street ? `, ${group.deliveryPoint.street}` : ""}`
+    : group.deliveryAddress
+      ? `${group.deliveryAddress.street} ${group.deliveryAddress.houseNumber}, ${group.deliveryAddress.zip} ${group.deliveryAddress.city}`
+      : "Osobný odber";
+
+  const paid = group.paymentStatus === "paid";
+
+  return (
+    <div className="min-w-0 text-sm">
+      <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
+        Doprava a platba
+      </p>
+      <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
+        <SpecLine label="Spôsob" value={group.deliveryMethod} />
+        <SpecLine label="Kam" value={where} />
+        {group.customerPhone && <SpecLine label="Telefón" value={group.customerPhone} />}
+        <SpecLine label="Platba" value={PAYMENT_STATUS_LABEL[group.paymentStatus]} />
+        {group.packetaBarcode && <SpecLine label="Zásielka" value={group.packetaBarcode} />}
+      </dl>
+      {paid && (
+        <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
+          Zaplatené {formatEur(group.totalCents / 100)}
+        </p>
+      )}
+      {group.packetaError && (
+        <p className="mt-2 text-xs leading-5 text-red-500">
+          Packeta: {group.packetaError}
+        </p>
+      )}
     </div>
   );
 }

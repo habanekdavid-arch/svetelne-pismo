@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { oneLine } from "@/lib/sign-text";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUserSession } from "@/lib/user-auth";
@@ -23,7 +24,6 @@ export default async function AccountOrdersPage() {
   return (
     <AccountShell title="Moje objednávky" description="Tu nájdete svoje objednávky, ich stav a históriu.">
       <AccountSection
-        eyebrow="Moje objednávky"
         title="História objednávok"
         badge={
           <div
@@ -77,7 +77,7 @@ export default async function AccountOrdersPage() {
                           aria-hidden="true"
                         />
                         <p className="truncate text-base font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                          {o.config.text || "Váš text"}
+                          {oneLine(o.config.text) || "Váš text"}
                         </p>
                       </div>
                       <p className="mt-1 text-[13px]" style={{ color: "var(--color-muted)" }}>

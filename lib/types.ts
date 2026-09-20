@@ -17,10 +17,18 @@ export type MaterialPbr = {
   transmission?: number;
   ior?: number;
   thickness?: number;
+  /**
+   * How far light travels through the sheet before the body colour has fully
+   * tinted it. Only read for a transmissive build: a smaller number means a
+   * more strongly coloured acrylic.
+   */
+  attenuationDistance?: number;
   clearcoat?: number;
   clearcoatRoughness?: number;
   anisotropy?: number;
-  // In illuminated mode with transmission, ignore bodyColor — use neutral white base
+  // In illuminated mode with transmission, pull the bodyColor part-way toward
+  // white (LetterScene WHITE_BASE_BLEND) — lit acrylic lightens, but the
+  // chosen colour still has to be recognisable.
   useWhiteBase?: boolean;
   // Multipliers applied to the side/bevel group (ExtrudeGeometry group-1)
   sideRoughnessMul?: number;
@@ -79,8 +87,6 @@ export type ColorOption = {
   label: string;
   /** The flat colour used by the 3D preview and stored in Config.bodyColor. */
   value: string;
-  /** Manufacturer's own designation, e.g. "RAL 9016". */
-  code?: string;
   finish?: ProfileFinish;
 };
 

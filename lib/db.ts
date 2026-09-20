@@ -46,6 +46,68 @@ function ensureSchema(): Promise<void> {
         ON orders (user_id)
       `;
       await sql`DROP INDEX IF EXISTS orders_clerk_user_id_idx`;
+
+      // One checkout = one order_groups row + one orders row per sign. The
+      // group is what gets paid for and what gets shipped: a basket of three
+      // signs is one Stripe payment and one Packeta packet, not three.
+      await sql`
+        CREATE TABLE IF NOT EXISTS order_groups (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          customer_name TEXT NOT NULL,
+          customer_email TEXT NOT NULL,
+          customer_phone TEXT,
+
+          -- Delivery. delivery_point is the pick-up point the customer chose
+          -- in the Packeta widget, delivery_address the postal address for
+          -- courier delivery; exactly one of them is set, or neither for
+          -- collection in person.
+          delivery_method TEXT NOT NULL DEFAULT 'personal',
+          delivery_point JSONB,
+          delivery_address JSONB,
+
+          -- Money, in whole cents, so nothing is ever re-derived from a
+          -- rounded euro figure. items_cents + delivery_cents = total_cents,
+          -- and total_cents is exactly what Stripe is asked to charge.
+          items_cents INTEGER NOT NULL DEFAULT 0,
+          delivery_cents INTEGER NOT NULL DEFAULT 0,
+          total_cents INTEGER NOT NULL DEFAULT 0,
+          currency TEXT NOT NULL DEFAULT 'EUR',
+
+          -- Payment. 'unpaid' until a Stripe session is opened, 'pending'
+          -- while the customer is on Stripe, 'paid' only from the webhook.
+          payment_status TEXT NOT NULL DEFAULT 'unpaid',
+          stripe_session_id TEXT,
+          stripe_payment_intent TEXT,
+
+          -- Packeta, filled in once the packet is created for a paid order.
+          packeta_packet_id TEXT,
+          packeta_barcode TEXT,
+          packeta_error TEXT,
+
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS order_groups_user_id_idx
+        ON order_groups (user_id)
+      `;
+      // The webhook finds the order by the Stripe session it was opened with.
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS order_groups_stripe_session_idx
+        ON order_groups (stripe_session_id)
+        WHERE stripe_session_id IS NOT NULL
+      `;
+
+      // Ties each sign to the checkout it was part of. Nullable: orders
+      // placed before checkout existed have no group and must keep working.
+      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS group_id TEXT`;
+      // The per-sign price in cents, beside the historical whole-euro column.
+      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS price_cents INTEGER`;
+      await sql`
+        CREATE INDEX IF NOT EXISTS orders_group_id_idx
+        ON orders (group_id)
+      `;
     })();
   }
   return schemaReady;

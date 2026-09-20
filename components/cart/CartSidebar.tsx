@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
 import { useCart, describeConfig } from "@/lib/cart-context";
-import { MATERIALS, fontOptions } from "@/lib/options";
+import { MATERIALS, fontOptions, resolveLightColor } from "@/lib/options";
 import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
 import OrderModal from "@/components/configurator/OrderModal";
 
@@ -147,16 +148,23 @@ export default function CartSidebar() {
 
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-xs font-semibold" style={{ color: "var(--color-foreground)" }}>
-                              {item.config.text || "Váš text"}
+                              {oneLine(item.config.text) || "Váš text"}
                             </div>
                             <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>
                               {[font?.name, mat?.displayName].filter(Boolean).join(" · ")} · {describeConfig(item.config)}
                             </div>
-                            {editingId === item.id && (
+                            {editingId === item.id ? (
                               <div className="text-[11px] font-bold" style={{ color: "var(--color-accent-text)" }}>
                                 Práve upravujete v konfigurátore
                               </div>
-                            )}
+                            ) : item.draft ? (
+                              /* Uložilo sa sem samo, ako sa nápis skladal —
+                                 nech je jasné, ktorý riadok je ten otvorený
+                                 v konfigurátore a prečo sa mení sám. */
+                              <div className="text-[11px] font-bold" style={{ color: "var(--color-accent-text)" }}>
+                                Rozpracované v konfigurátore
+                              </div>
+                            ) : null}
                             {/* The one part of the spec a line of text can't
                                 carry: the body colour, and the LED colour when
                                 the sign is illuminated. */}
@@ -169,7 +177,7 @@ export default function CartSidebar() {
                               {item.config.signType === "illuminated" && (
                                 <span
                                   className="h-3 w-3 rounded-full"
-                                  style={{ background: item.config.lightColor, boxShadow: "0 0 0 1px var(--color-border)" }}
+                                  style={{ background: resolveLightColor(item.config), boxShadow: "0 0 0 1px var(--color-border)" }}
                                   aria-hidden="true"
                                 />
                               )}

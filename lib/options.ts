@@ -23,16 +23,19 @@ import type {
 // ── Fonts ────────────────────────────────────────────────────────────────────
 // Named exactly as the price list names them, because the list ties a font to
 // a build: a weight is a different font here, not a styling detail (Montserrat
-// SemiBold and Montserrat ExtraBold are two separate rows). Each id is a real
-// static TTF in /public/fonts — see scripts/fetch-catalog-fonts.mjs — and
-// `name` doubles as the @font-face family in globals.css, which is what the
-// font picker and the size measurement (lib/useSignSize.ts) render with.
+// SemiBold and Montserrat ExtraBold are two separate rows).
 //
-// Seven fonts from the list are licensed typefaces that cannot be downloaded
-// (Arial Black, Gotham Medium/Bold/Ultra, Comic Helvetic Medium/HeavyBold,
-// Momo Signature). They are deliberately NOT offered — an option a customer
-// can pick has to be one the preview can actually draw — and will slot into
-// the sets below the moment the real files land in /public/fonts.
+// The files are the ones in /public/fonts_rozsvietto — the folder of licensed
+// and open faces that belongs to this catalogue. `name` doubles as the
+// @font-face family in globals.css, which is what the font picker previews
+// with and what lib/useSignSize.ts measures the sign with, and `file` is what
+// the 3D preview extrudes. Spaces in a path have to arrive encoded: the loader
+// fetches this string as a URL.
+//
+// One row of the price list has no file yet: Arial Black. It is a licensed
+// Microsoft face and nothing in the folder is it, so it is not offered —
+// showing a font the preview cannot draw would be worse than leaving it out.
+// Drop the file in and add one line here and it is back.
 
 export type FontOption = {
   id: string;
@@ -42,40 +45,52 @@ export type FontOption = {
 };
 
 export const fontOptions: FontOption[] = [
-  { id: "archivo-black",        name: "Archivo Black",        file: "/fonts/archivo-black.ttf" },
-  { id: "montserrat-semibold",  name: "Montserrat SemiBold",  file: "/fonts/montserrat-semibold.ttf" },
-  { id: "montserrat-bold",      name: "Montserrat Bold",      file: "/fonts/montserrat-bold.ttf" },
-  { id: "montserrat-extrabold", name: "Montserrat ExtraBold", file: "/fonts/montserrat-extrabold.ttf" },
-  { id: "oswald-regular",       name: "Oswald Regular",       file: "/fonts/oswald-regular.ttf" },
-  { id: "oswald-semibold",      name: "Oswald SemiBold",      file: "/fonts/oswald-semibold.ttf" },
-  { id: "oswald-bold",          name: "Oswald Bold",          file: "/fonts/oswald-bold.ttf" },
-  { id: "baloo2-semibold",      name: "Baloo2 SemiBold",      file: "/fonts/baloo2-semibold.ttf" },
-  { id: "baloo2-extrabold",     name: "Baloo2 ExtraBold",     file: "/fonts/baloo2-extrabold.ttf" },
-  { id: "poppins-semibold",     name: "Poppins SemiBold",     file: "/fonts/poppins-semibold.ttf" },
-  { id: "poppins-extrabold",    name: "Poppins ExtraBold",    file: "/fonts/poppins-extrabold.ttf" },
-  { id: "pacifico",             name: "Pacifico",             file: "/fonts/pacifico.ttf" },
+  { id: "archivo-black",          name: "Archivo Black",          file: "/fonts_rozsvietto/archivo-black/ArchivoBlack-Regular.ttf" },
+  { id: "gotham-medium",          name: "Gotham Medium",          file: "/fonts_rozsvietto/gotham/Gotham/Gotham%20Medium/Gotham%20Medium.otf" },
+  { id: "gotham-bold",            name: "Gotham Bold",            file: "/fonts_rozsvietto/gotham/Gotham/Gotham%20Bold/Gotham%20Bold.otf" },
+  { id: "gotham-ultra",           name: "Gotham Ultra",           file: "/fonts_rozsvietto/gotham/Gotham/Gotham%20Ultra/Gotham%20Ultra.otf" },
+  { id: "montserrat-semibold",    name: "Montserrat SemiBold",    file: "/fonts_rozsvietto/montserrat/Montserrat-SemiBold.ttf" },
+  { id: "montserrat-bold",        name: "Montserrat Bold",        file: "/fonts_rozsvietto/montserrat/Montserrat-Bold.ttf" },
+  { id: "montserrat-extrabold",   name: "Montserrat ExtraBold",   file: "/fonts_rozsvietto/montserrat/Montserrat-ExtraBold.ttf" },
+  { id: "poppins-semibold",       name: "Poppins SemiBold",       file: "/fonts_rozsvietto/poppins/Poppins-SemiBold.ttf" },
+  { id: "poppins-extrabold",      name: "Poppins ExtraBold",      file: "/fonts_rozsvietto/poppins/Poppins-ExtraBold.ttf" },
+  { id: "baloo2-semibold",        name: "Baloo2 SemiBold",        file: "/fonts_rozsvietto/baloo-2/static/Baloo2-SemiBold.ttf" },
+  { id: "baloo2-extrabold",       name: "Baloo2 ExtraBold",       file: "/fonts_rozsvietto/baloo-2/static/Baloo2-ExtraBold.ttf" },
+  { id: "comic-helvetic-medium",  name: "Comic Helvetic Medium",  file: "/fonts_rozsvietto/comic-helvetic/ComicHelvetic_Medium.otf" },
+  { id: "comic-helvetic-heavy",   name: "Comic Helvetic HeavyBold", file: "/fonts_rozsvietto/comic-helvetic/ComicHelvetic_Heavy.otf" },
+  { id: "oswald-regular",         name: "Oswald Regular",         file: "/fonts_rozsvietto/Oswald/static/Oswald-Regular.ttf" },
+  { id: "oswald-semibold",        name: "Oswald SemiBold",        file: "/fonts_rozsvietto/Oswald/static/Oswald-SemiBold.ttf" },
+  { id: "oswald-bold",            name: "Oswald Bold",            file: "/fonts_rozsvietto/Oswald/static/Oswald-Bold.ttf" },
+  { id: "pacifico",               name: "Pacifico",               file: "/fonts_rozsvietto/Pacifico/Pacifico-Regular.ttf" },
+  { id: "momo-signature",         name: "Momo Signature",         file: "/fonts_rozsvietto/Momo_Signature,Pacifico/Momo_Signature/MomoSignature-Regular.ttf" },
 ];
 
-/** Alurol rows: Arial Black, Archivo Black, Gotham Ultra, Montserrat ExtraBold, Oswald Bold, Poppins ExtraBold. */
+// The sets are the price list's own rows, in its own order.
+
+/** Alurol (veľké aj malé písmo): Arial Black*, Archivo Black, Gotham Ultra, Montserrat ExtraBold, Oswald Bold, Poppins ExtraBold. */
 const ALUROL_FONTS = [
   "archivo-black",
+  "gotham-ultra",
   "montserrat-extrabold",
   "oswald-bold",
   "poppins-extrabold",
 ];
 
-/** 30 mm plexi rows: the lighter weights, the rounded faces and the script one. */
+/** 30 mm plexi: its ten rows, complete. */
 const PLEXI30_FONTS = [
+  "gotham-medium",
+  "gotham-bold",
   "montserrat-semibold",
   "montserrat-bold",
   "oswald-regular",
   "oswald-semibold",
   "baloo2-semibold",
   "baloo2-extrabold",
+  "comic-helvetic-medium",
   "pacifico",
 ];
 
-/** 3D print rows: every font in the list. */
+/** 3D print (svetelné, nesvetelné, plné písmo) and UV plexi: every font in the list. */
 const PRINT_FONTS = fontOptions.map((f) => f.id);
 
 // ── Unit prices (sheet "ceny", € per m² without VAT unless noted) ────────────
@@ -179,12 +194,16 @@ export const MATERIALS: MaterialOption[] = [
     pbr: {
       roughness: 0.0,
       metalness: 0,
-      transmission: 1.0,
+      // Not 1.0 any more. A 30 mm plexi letter is made from COLOURED cast
+      // acrylic, and at full transmission the sheet is clear glass: the body
+      // colour the customer picked had almost no effect on it, so red and
+      // blue looked the same. Translucent, not transparent.
+      transmission: 0.68,
       ior: 1.49,
       thickness: 0.6,
       clearcoat: 1.0,
       clearcoatRoughness: 0.0,
-      useWhiteBase: true,           // clear acrylic: body colour irrelevant when lit
+      useWhiteBase: true,           // lit acrylic lightens — but only a little
       sideTransmissionMul: 0.55,
       emissiveFrontScale: 0.4,
       emissiveSideScale: 0.6,
@@ -366,35 +385,110 @@ export const PLACEMENTS: { id: Placement; label: string; hint: string }[] = [
   { id: "interior", label: "Interiér", hint: "Do prevádzky, na stenu v interiéri" },
 ];
 
-// ── Light colours (LED colour swatches) ──────────────────────────────────────
+// ── Light colours ───────────────────────────────────────────────────────────
+//
+// A short, honest list of what the workshop actually fits, not a colour
+// picker. Two whites — intense (studená) and warm — plus plain R‑G‑B, which is
+// what an RGB LED module does without being driven as a colour-changer.
+//
+// Not every colour goes with every light mode: a back-lit sign is a wash of
+// light on the wall behind the letter, and that is made in white and warm
+// white only. lightColorsFor() is the single place that says so, the same way
+// materialsFor() and fontsFor() decide the rest of the catalogue.
 
-export const lightColors = [
-  { id: "white",  label: "Biela",    value: "#ffffff", hue: 0   },
-  { id: "red",    label: "Červená",  value: "#ff2a2a", hue: 0   },
-  { id: "orange", label: "Oranžová", value: "#ff7a00", hue: 28  },
-  { id: "yellow", label: "Žltá",     value: "#FFAE00", hue: 41  }, // brand accent — matches --color-primary
-  { id: "green",  label: "Zelená",   value: "#00d084", hue: 152 },
-  { id: "cyan",   label: "Cyan",     value: "#00c8ff", hue: 195 },
-  { id: "blue",   label: "Modrá",    value: "#245cff", hue: 230 },
-  { id: "pink",   label: "Ružová",   value: "#ff4bd8", hue: 310 },
+export type LightColorOption = {
+  id: string;
+  label: string;
+  /** What the 3D preview and the order sheet carry — Config.lightColor. */
+  value: string;
+  hint: string;
+};
+
+/**
+ * Not a colour but an instruction: the LEDs take whatever colour the letter
+ * body is, and keep following it if that changes. Stored in Config.lightColor
+ * in place of a hex, and resolved wherever the real colour is needed
+ * (resolveLightColor below).
+ */
+export const LIGHT_COLOR_AS_BODY = "body";
+
+export const LIGHT_COLORS: LightColorOption[] = [
+  { id: "white-warm", label: "Teplá biela",      value: "#ffcf9a", hint: "Mäkké, teplé svetlo — najčastejšia voľba" },
+  { id: "white-cool", label: "Biela intenzívna", value: "#ffffff", hint: "Studená biela, najsilnejší svit" },
+  { id: "red",        label: "Červená",          value: "#ff2a2a", hint: "RGB modul" },
+  { id: "green",      label: "Zelená",           value: "#00d084", hint: "RGB modul" },
+  { id: "blue",       label: "Modrá",            value: "#245cff", hint: "RGB modul" },
+  {
+    id: "as-body",
+    label: "Rovnaká ako telo",
+    value: LIGHT_COLOR_AS_BODY,
+    hint: "Svetlo má farbu písmena — a mení sa s ňou",
+  },
 ];
+
+/**
+ * The colour the LEDs actually are. Everything that draws or stores a real
+ * colour goes through this, because Config.lightColor may hold the "same as
+ * the body" instruction instead of a hex.
+ */
+export function resolveLightColor(config: {
+  lightColor: string;
+  bodyColor: string;
+}): string {
+  return config.lightColor === LIGHT_COLOR_AS_BODY ? config.bodyColor : config.lightColor;
+}
+
+/** Warm white: what a sign gets unless the customer says otherwise. */
+export const DEFAULT_LIGHT_COLOR = LIGHT_COLORS[0].value;
+
+/** Svietenie zozadu je žiara na stene — robí sa len v bielej a teplej bielej. */
+const WHITES_ONLY: LightModeId[] = ["back"];
+
+export function lightColorsFor(mode: LightModeId): LightColorOption[] {
+  // "Rovnaká ako telo" is a colour like any other as far as the workshop is
+  // concerned, so it follows the same rule as R-G-B: not for a back-lit sign,
+  // where only the two whites are made.
+  return WHITES_ONLY.includes(mode)
+    ? LIGHT_COLORS.filter((c) => c.id.startsWith("white-"))
+    : LIGHT_COLORS;
+}
+
+/**
+ * The colour kept, or the default when this light mode is not made in it —
+ * so switching from "hranami" in red to "zozadu" lands on warm white instead
+ * of quoting a sign nobody makes.
+ */
+export function clampLightColor(mode: LightModeId, value: string): string {
+  const offered = lightColorsFor(mode);
+  return offered.some((c) => c.value.toLowerCase() === value.toLowerCase())
+    ? value
+    : offered[0].value;
+}
+
+/** The option behind a stored hex, for showing its name back to the customer. */
+export function lightColorOption(value: string): LightColorOption | undefined {
+  return LIGHT_COLORS.find((c) => c.value.toLowerCase() === value.toLowerCase());
+}
 
 // ── Body/material colours ────────────────────────────────────────────────────
 //
 // Taken off the manufacturer's board (3D system, "System of building channel
 // letters"): these are the finishes a profile is actually stocked in, so a
 // customer picking one is picking something that exists on a shelf rather than
-// a colour we would have to have made. The same RAL tones for a cut letter —
-// a lacquered sheet is coated in the same range.
-const PROFILE_RAL: ColorOption[] = [
-  { id: "white",  label: "Biela",               value: "#f1f0ea", code: "RAL 9016" },
-  { id: "yellow", label: "Dopravná žltá",       value: "#fad201", code: "RAL 1023" },
-  { id: "orange", label: "Oranžová",            value: "#e75b12", code: "RAL 2004" },
-  { id: "red",    label: "Dopravná červená",    value: "#cc0605", code: "RAL 3020" },
-  { id: "green",  label: "Mätová zelená",       value: "#20603d", code: "RAL 6029" },
-  { id: "blue",   label: "Ultramarínová modrá", value: "#20214f", code: "RAL 5002" },
-  { id: "black",  label: "Čierna",              value: "#0a0a0a", code: "RAL 9005" },
-  { id: "silver", label: "Strieborná",          value: "#a5a5a5", code: "RAL 9006" },
+// a colour we would have to have made. The same tones for a cut letter — a
+// lacquered sheet is coated in the same range.
+//
+// Named in plain Slovak, not by RAL number: the code meant nothing to anyone
+// choosing a colour on screen and only made the list harder to read.
+const PROFILE_COLORS: ColorOption[] = [
+  { id: "white",  label: "Biela",       value: "#f1f0ea" },
+  { id: "yellow", label: "Žltá",        value: "#fad201" },
+  { id: "orange", label: "Oranžová",    value: "#e75b12" },
+  { id: "red",    label: "Červená",     value: "#cc0605" },
+  { id: "green",  label: "Zelená",      value: "#20603d" },
+  { id: "blue",   label: "Modrá",       value: "#20214f" },
+  { id: "black",  label: "Čierna",      value: "#0a0a0a" },
+  { id: "silver", label: "Strieborná",  value: "#a5a5a5" },
 ];
 
 // The one finish that is not a colour of its own: the same white with the
@@ -403,25 +497,54 @@ const PROFILE_RAL: ColorOption[] = [
 //
 // The brushed and mirrored metal finishes from the profile board are NOT here.
 // They were asked to stay out of the configurator — "len normálne farby" — and
-// a finish that is out is out: no option, no swatch, and no code behind it.
+// a finish that is out is out: no option, no swatch, and nothing behind it.
 const PROFILE_MATT: ColorOption = {
-  id: "white-mat", label: "Biela matná", value: "#eeeee7",
-  code: "RAL 9016 MAT", finish: "matte",
+  id: "white-mat", label: "Biela matná", value: "#eeeee7", finish: "matte",
 };
 
-/** Cut (non-lit) letters: lacquered sheet, the RAL range only. */
-export const letterColorOptions: ColorOption[] = PROFILE_RAL;
+/** Cut (non-lit) letters: lacquered sheet, the same range. */
+export const letterColorOptions: ColorOption[] = PROFILE_COLORS;
 
-/** Lit letters: the same RAL range, plus the matt white. */
+/** Lit letters: the same range, plus the matt white. */
 export const profileColorOptions: ColorOption[] = [
-  PROFILE_RAL[0],
+  PROFILE_COLORS[0],
   PROFILE_MATT,                  // matt white sits next to the gloss one
-  ...PROFILE_RAL.slice(1),
+  ...PROFILE_COLORS.slice(1),
 ];
 
 /** Which colours a sign of this kind can be made in. */
 export function bodyColorOptionsFor(signType: SignType): ColorOption[] {
   return signType === "illuminated" ? profileColorOptions : letterColorOptions;
+}
+
+// ── Veľké / malé písmo ──────────────────────────────────────────────────────
+//
+// Cenník vedie alurol ako dve samostatné stavby: "veľké písmo" od 250 mm
+// a "malé písmo" od 350 mm (hárok "parametre"). Nie je to štýl, ale to, čo sa
+// naozaj vyrába — tak nech sa do nápisu ani nedá napísať nič iné. Ostatné
+// stavby žiadne takéto obmedzenie nemajú a vracajú null.
+
+export type TextCase = "upper" | "lower";
+
+const TEXT_CASE: Record<string, TextCase> = {
+  "alurol-upper": "upper",
+  "alurol-lower": "lower",
+};
+
+/** Ktorou veľkosťou písmen sa táto stavba vyrába, alebo null keď je jedno. */
+export function textCaseFor(materialId: string): TextCase | null {
+  return TEXT_CASE[materialId] ?? null;
+}
+
+/**
+ * Text prepísaný tak, ako sa dá vyrobiť. Prepisuje sa, nie odmieta: kto
+ * prepne stavbu na "malé písmená", chce svoj nápis malými, nie prázdne pole.
+ * Slovenská diakritika sa mení podľa locale, aby "Č" bolo "č" a nie "C".
+ */
+export function applyTextCase(text: string, materialId: string): string {
+  const mode = textCaseFor(materialId);
+  if (!mode) return text;
+  return mode === "upper" ? text.toLocaleUpperCase("sk-SK") : text.toLocaleLowerCase("sk-SK");
 }
 
 /** How a chosen colour behaves under light — used by the 3D preview. */

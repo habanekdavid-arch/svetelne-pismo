@@ -6,15 +6,23 @@ import { Lightbulb, LightbulbOff, ArrowDown, Plus } from "lucide-react";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import WallPicker from "@/components/configurator/WallPicker";
 import { DEFAULT_WALL, MAX_BACKGROUND_BYTES, type WallGrain } from "@/lib/walls";
+import { MAX_LINES } from "@/lib/sign-text";
 import type { Config, LightModeDirection, LightModeId, Placement, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { calculatePrice, priceBreakdown } from "@/lib/pricing";
-import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
+import { formatEur, netFromGross, vatFromGross, VAT_RATE, formatAmount } from "@/lib/vat";
 import {
   fontOptions,
   fontsFor,
-  lightColors,
+  lightColorsFor,
+  clampLightColor,
+  applyTextCase,
+  textCaseFor,
+  resolveLightColor,
+  LIGHT_COLOR_AS_BODY,
+  DEFAULT_LIGHT_COLOR,
   bodyColorOptionsFor,
   materialById,
   materialsFor,
@@ -28,7 +36,6 @@ import {
   LIGHT_MODES,
 } from "@/lib/options";
 import type { FontOption } from "@/lib/options";
-import type { ColorOption } from "@/lib/types";
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
 import type { DragTarget } from "@/components/three/LetterScene";
 
@@ -58,16 +65,18 @@ const LIGHT_TILE_BLUR_HALO  = 7.5; // back — diffuse halo behind the glyph
 // range and its own points where the thickness steps up (lib/options.ts
 // bandStarts), and those are exactly the heights worth one tap.
 
-// The light colour is stored either as a swatch's hex or as the hue slider's
-// own hsl(H, 92%, 58%) string, so reading a hue back has to handle both. Used
-// when a sign comes back from the cart to be changed: the controls have to
-// land where that sign actually is, not where they were left.
-function hueOf(color: string, fallback: number): number {
-  const m = /^hsl\(\s*(\d+(?:\.\d+)?)/i.exec(color);
-  if (m) return Math.round(Number(m[1]));
-  return lightColors.find((c) => c.value.toLowerCase() === color.toLowerCase())?.hue ?? fallback;
+// Two lines, and no more: a third Enter does nothing rather than quietly
+// dropping the row when the sign is built (letterGeometry.ts splitLines).
+const MAX_TEXT_LENGTH = 40;
+
+function limitLines(value: string): string {
+  const lines = value.split("\n");
+  return lines.length <= MAX_LINES ? value : lines.slice(0, MAX_LINES).join("\n");
 }
 
+// Which swatch a stored colour belongs to. Used when a sign comes back from
+// the cart to be changed: the controls have to land where that sign actually
+// is, not where they were left.
 function swatchIdFor(options: readonly { id: string; value: string }[], value: string): string {
   return options.find((o) => o.value.toLowerCase() === value.toLowerCase())?.id ?? "";
 }
@@ -76,10 +85,9 @@ function swatchIdFor(options: readonly { id: string; value: string }[], value: s
 
 export default function ConfiguratorStage() {
   const [manualMode, setManualMode] = useState<"day" | "night" | null>(null);
-  // Default LED colour is the brand yellow — keep the hue slider + swatch
-  // selection in sync with lib/options.ts lightColors' "yellow" entry.
-  const [lightHue, setLightHue] = useState(41);
-  const [selectedSwatch, setSelectedSwatch] = useState<string>("yellow");
+  // The LED colour lives in config.lightColor alone now — the catalogue is
+  // five named colours (lib/options.ts LIGHT_COLORS), so there is no separate
+  // hue to keep in step with it.
   const [selectedBodySwatch, setSelectedBodySwatch] = useState<string>("black");
   // Preview-only: which wall the sign is shown against, and the customer's own
   // photo of it. Neither is part of Config — the wall is where they imagine
@@ -97,14 +105,14 @@ export default function ConfiguratorStage() {
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const { setConfig: publishConfig } = useSharedConfig();
   const {
-    add: addToCart, checkout,
+    add: addToCart, checkout, syncDraft,
     editingId, applyEdit, cancelEdit, pendingConfig, consumePending,
   } = useCart();
 
   // Remember the last active light mode so we can restore it when switching
   // back from plain → illuminated
   const lastLightModeRef = useRef<LightModeId>("front");
-  const textInputRef = useRef<HTMLInputElement | null>(null);
+  const textInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [config, setConfig] = useState<Config>({
     // Plain black "Váš text" on load — a blank, legible canvas, visible the
@@ -117,7 +125,7 @@ export default function ConfiguratorStage() {
     lightMode:  "front",
     // Brand yellow — see lib/options.ts lightColors "yellow" / app/globals.css --color-primary.
     // Inert while signType is "plain"; used once the user switches to Svetelné.
-    lightColor: "#FFAE00",
+    lightColor: DEFAULT_LIGHT_COLOR,
     bodyColor:  bodyColorOptionsFor("plain").find((c) => c.id === "black")!.value,
     // Millimetres, and inside what 3D tlač s plexi is made in (120–600 mm).
     height:     300,
@@ -135,6 +143,14 @@ export default function ConfiguratorStage() {
   // made, so nothing else is shown (sheet "strom").
   const availableMaterials = materialsFor(config.signType, config.placement, config.lightMode);
   const availableLightModes = lightModesFor(config.placement);
+  // …and the LED colours are the ones this way of lighting is made in.
+  const availableLightColors = lightColorsFor(config.lightMode);
+  // config.lightColor may hold "rovnaká ako telo" rather than a colour; this
+  // is what the preview and every swatch actually draw.
+  const litColor = resolveLightColor(config);
+  // Alurol sa v cenníku vedie zvlášť pre veľké a zvlášť pre malé písmo, tak
+  // sa do poľa ani nedá napísať to druhé (lib/options.ts textCaseFor).
+  const textCase = textCaseFor(config.material);
   // …and the fonts are the build's own rows in sheet "parametre".
   const availableFonts = fontsFor(config.material);
 
@@ -155,8 +171,8 @@ export default function ConfiguratorStage() {
   const isNight = previewMode === "night";
 
   // A lit letter wears a profile finish, a cut letter a lacquered sheet, so the
-  // two offer different ranges. The RAL tones are shared and keep their ids, so
-  // switching Svetelné/Nesvetelné never loses the colour that is already set.
+  // two offer different ranges. The colours themselves are shared and keep
+  // their ids, so switching Svetelné/Nesvetelné never loses what is set.
   const bodyColors = bodyColorOptionsFor(config.signType);
   const currentBodyColor =
     bodyColors.find((c) => c.id === selectedBodySwatch) ??
@@ -172,6 +188,22 @@ export default function ConfiguratorStage() {
   const signSizeLabel = signSize ? formatSignSize(signSize) : null;
   const price = useMemo(() => calculatePrice(config, signSize), [config, signSize]);
   const breakdown = useMemo(() => priceBreakdown(config, signSize), [config, signSize]);
+
+  // ── The sign goes in the cart by itself ────────────────────────────────────
+  // From the first letter typed, and in step with every parameter clicked
+  // after that. The cart is stored in the browser, so this is also what makes
+  // a half-configured sign survive a refresh — nothing has to be pressed for
+  // the work to be kept.
+  //
+  // Debounced: a cart line is rewritten (and re-stored) on every change, and
+  // typing should not do that per keystroke.
+  const [touched, setTouched] = useState(false);
+  const draftConfig = useDebouncedValue(config, 500);
+  const draftSize = useDebouncedValue(signSize, 500);
+  useEffect(() => {
+    if (!touched) return;
+    syncDraft(draftConfig, draftSize);
+  }, [touched, draftConfig, draftSize, syncDraft]);
 
   // Live one-line recap shown under the 3D preview, so the chosen parameters
   // stay readable without looking back up the settings column.
@@ -199,6 +231,11 @@ export default function ConfiguratorStage() {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function patch(update: Partial<Config>) {
+    // First touch of the configurator. Until then there is nothing of the
+    // customer's to keep — the page opens on a sample sign, and putting THAT
+    // in the cart would show a visitor who has not done anything a basket
+    // with one item in it.
+    setTouched(true);
     // patch() itself never rewrites a setting the caller did not name. Where a
     // change really does force another value — a depth that the new build
     // cannot be made in — the caller works that out and passes both together
@@ -218,12 +255,21 @@ export default function ConfiguratorStage() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!pendingConfig) return;
-    setConfig(pendingConfig);
-    setLightHue((prev) => hueOf(pendingConfig.lightColor, prev));
-    setSelectedSwatch(swatchIdFor(lightColors, pendingConfig.lightColor));
-    setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(pendingConfig.signType), pendingConfig.bodyColor));
+    // A sign stored before the LED colours were cut down to a named list can
+    // carry a colour that is no longer made; clamp it as it comes back in.
+    const incoming: Config = {
+      ...pendingConfig.config,
+      lightColor: clampLightColor(pendingConfig.config.lightMode, pendingConfig.config.lightColor),
+    };
+    setConfig(incoming);
+    setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(incoming.signType), incoming.bodyColor));
     consumePending();
-    document.getElementById("konfigurator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Only when the customer asked for it ("Upraviť" in the cart). The same
+    // hand-off also restores the half-configured sign after a refresh, and a
+    // page that scrolls itself down on every load would be its own bug.
+    if (pendingConfig.scroll) {
+      document.getElementById("konfigurator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [pendingConfig, consumePending]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -257,7 +303,17 @@ export default function ConfiguratorStage() {
     // decides the thickness. Only a height the build cannot be made in moves.
     const height = clampHeight(material, next.height ?? config.height);
 
-    return { ...next, signType, placement, lightMode: mode, material, font, height };
+    // …and the LED colour has to be one this way of lighting is made in:
+    // switching from red edges to a back-lit sign lands on warm white,
+    // because a red wall-wash is not something we make.
+    const lightColor = clampLightColor(mode, next.lightColor ?? config.lightColor);
+
+    // …and the text has to be writable in this build: alurol comes as veľké
+    // písmená or malé písmená, so switching between them rewrites what is
+    // already typed rather than leaving a nápis nobody would make.
+    const text = applyTextCase(next.text ?? config.text, material);
+
+    return { ...next, signType, placement, lightMode: mode, material, font, height, lightColor, text };
   }
 
   function apply(update: Partial<Config>) {
@@ -287,6 +343,14 @@ export default function ConfiguratorStage() {
     apply({ lightMode: id });
   }
 
+  function handleTextKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== "Enter") return;
+    // A newline is a real character here, not a submit — but only the first
+    // one. Past two lines the key does nothing, so the field always shows
+    // exactly what will be made.
+    if (config.text.split("\n").length >= MAX_LINES) e.preventDefault();
+  }
+
   function handleModeKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
     const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
     const backward = e.key === "ArrowLeft" || e.key === "ArrowUp";
@@ -298,17 +362,6 @@ export default function ConfiguratorStage() {
     modeTileRefs.current[nextIndex]?.focus();
   }
 
-  function setLightColorFromSwatch(id: string, value: string, hue: number) {
-    setSelectedSwatch(id);
-    setLightHue(hue);
-    patch({ lightColor: value });
-  }
-
-  function setLightColorFromSlider(hue: number) {
-    setLightHue(hue);
-    setSelectedSwatch("");
-    patch({ lightColor: `hsl(${hue}, 92%, 58%)` });
-  }
 
   // "Ďalší nápis": bank the sign that is on screen and clear the text so the
   // next one can be typed straight away. Font, material, colours and lighting
@@ -476,14 +529,14 @@ export default function ConfiguratorStage() {
             {isNight && (
               <div
                 className="pointer-events-none absolute inset-0"
-                style={{ background: `radial-gradient(ellipse at 50% 44%, ${config.lightColor}30 0%, transparent 65%)` }}
+                style={{ background: `radial-gradient(ellipse at 50% 44%, ${litColor}30 0%, transparent 65%)` }}
               />
             )}
 
             <LetterScene
               text={config.text}
               font={config.font}
-              lightColor={config.lightColor}
+              lightColor={litColor}
               letterColor={config.bodyColor}
               thickness={depthMm}
               material={config.material}
@@ -554,17 +607,24 @@ export default function ConfiguratorStage() {
             alone two scrollbars. The extra right padding keeps the cards clear
             of that inner scrollbar. ── */}
         <div className="space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh_-_7rem)] lg:overflow-y-auto lg:pr-1.5">
-        <FieldCard title="Text" description="Napíšte, čo má na nápise svietiť.">
-          <input
+        <FieldCard title="Text" description="Napíšte, čo má na nápise svietiť. Enter = druhý riadok.">
+          <textarea
             ref={textInputRef}
             value={config.text}
-            onChange={(e) => patch({ text: e.target.value })}
-            maxLength={30}
-            className="w-full rounded-2xl px-5 py-4 text-center text-lg font-extrabold outline-none transition-colors"
+            onChange={(e) => patch({ text: applyTextCase(limitLines(e.target.value), config.material) })}
+            onKeyDown={handleTextKeyDown}
+            rows={2}
+            maxLength={MAX_TEXT_LENGTH}
+            className="w-full resize-none rounded-2xl px-5 py-4 text-center text-lg font-extrabold leading-8 outline-none transition-colors"
             style={{ background: "var(--color-surface)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
             placeholder="Napíšte váš text…"
             aria-label="Text na nápis"
           />
+          <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+            Nápis môže mať {MAX_LINES} riadky — druhý pridáte Enterom.
+            {textCase === "upper" && " Táto stavba sa vyrába len veľkými písmenami."}
+            {textCase === "lower" && " Táto stavba sa vyrába len malými písmenami."}
+          </p>
         </FieldCard>
 
         {/* ── The rest — four cards instead of eight ────────────────────────
@@ -649,11 +709,11 @@ export default function ConfiguratorStage() {
                             style={{
                               background: "var(--color-surface)",
                               border: active ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
-                              boxShadow: active ? `0 6px 18px -8px rgba(255,174,0,.7), inset 0 0 14px ${config.lightColor}2e` : "none",
+                              boxShadow: active ? `0 6px 18px -8px rgba(255,174,0,.7), inset 0 0 14px ${litColor}2e` : "none",
                               opacity: active ? 1 : 0.72,
                             }}
                           >
-                            <LightModeGlyphPreview direction={opt.direction} glowColor={config.lightColor} char={previewChar} />
+                            <LightModeGlyphPreview direction={opt.direction} glowColor={litColor} char={previewChar} />
                             <span className="text-[10px] font-bold" style={{ color: "var(--color-foreground)" }}>
                               {opt.name}
                             </span>
@@ -665,28 +725,56 @@ export default function ConfiguratorStage() {
                     <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
                       Farba svetla
                     </p>
-                    <input
-                      type="range"
-                      min="0"
-                      max="359"
-                      value={lightHue}
-                      onChange={(e) => setLightColorFromSlider(Number(e.target.value))}
-                      className="range-hue mb-3.5 w-full"
-                      style={{
-                        background:
-                          "linear-gradient(90deg,hsl(0,92%,58%),hsl(40,92%,58%),hsl(60,92%,58%),hsl(120,92%,58%),hsl(180,92%,58%),hsl(240,92%,58%),hsl(300,92%,58%),hsl(359,92%,58%))",
-                      }}
-                      aria-label="Odtieň farby svetla"
-                    />
-                    <SwatchRow
-                      options={lightColors}
-                      selectedId={selectedSwatch}
-                      onSelect={(c) => {
-                        const hue = lightColors.find((l) => l.id === c.id)?.hue ?? 0;
-                        setLightColorFromSwatch(c.id, c.value, hue);
-                      }}
-                      splitWhite
-                    />
+                    {/* Pomenované farby, nie odtieňový posuvník: vyrábajú sa
+                        tieto a žiadne medzi nimi. Zoznam sa mení so spôsobom
+                        svietenia — zozadu je to žiara na stene a tá sa robí
+                        len v bielej (lib/options.ts lightColorsFor). */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableLightColors.map((c) => {
+                        const active = config.lightColor.toLowerCase() === c.value.toLowerCase();
+                        // "Rovnaká ako telo" has no colour of its own — show
+                        // the one it is currently following.
+                        const dot = c.value === LIGHT_COLOR_AS_BODY ? config.bodyColor : c.value;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => patch({ lightColor: c.value })}
+                            title={c.hint}
+                            aria-pressed={active}
+                            className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition"
+                            style={{
+                              background: "var(--color-surface)",
+                              border: active
+                                ? "1px solid var(--color-primary)"
+                                : "1px solid var(--color-border)",
+                              boxShadow: active ? `inset 0 0 16px ${dot}33` : "none",
+                              opacity: active ? 1 : 0.78,
+                            }}
+                          >
+                            <span
+                              className="h-4 w-4 shrink-0 rounded-full"
+                              style={{
+                                background: dot,
+                                boxShadow: `0 0 0 1px var(--color-border), 0 0 10px ${dot}aa`,
+                              }}
+                              aria-hidden="true"
+                            />
+                            <span
+                              className="text-[11px] font-bold leading-tight"
+                              style={{ color: "var(--color-foreground)" }}
+                            >
+                              {c.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {config.lightMode === "back" && (
+                      <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted-light)" }}>
+                        Svietenie zozadu vyrábame len v bielej a teplej bielej.
+                      </p>
+                    )}
                   </>
                 )
               )}
@@ -719,15 +807,47 @@ export default function ConfiguratorStage() {
                 <span className="ml-1.5 font-semibold" style={{ color: "var(--color-foreground)" }}>
                   — {currentBodyColor?.label ?? ""}
                 </span>
-                {currentBodyColor?.code && (
-                  <span className="ml-1.5 font-semibold">({currentBodyColor.code})</span>
-                )}
               </p>
-              <SwatchRow
-                options={bodyColors}
-                selectedId={selectedBodySwatch}
-                onSelect={(c) => setBodyColor(c.id, c.value)}
-              />
+              {/* Farba aj jej názov, nie len bodka: v náhľade sa odtieň mení
+                  podľa toho, ako je nápis nasvietený, tak nech je aspoň tu
+                  vidieť presne to, čo sa objednáva. */}
+              <div className="grid grid-cols-2 gap-2">
+                {bodyColors.map((c) => {
+                  const active = selectedBodySwatch === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setBodyColor(c.id, c.value)}
+                      aria-pressed={active}
+                      className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition"
+                      style={{
+                        background: "var(--color-surface)",
+                        border: active
+                          ? "1px solid var(--color-primary)"
+                          : "1px solid var(--color-border)",
+                        opacity: active ? 1 : 0.8,
+                      }}
+                    >
+                      <span
+                        className="h-5 w-5 shrink-0 rounded-full"
+                        style={{
+                          background: c.value,
+                          // Obrys drží aj bielu a čiernu čitateľnú na oboch témach.
+                          boxShadow: "inset 0 0 0 1px rgba(0,0,0,.28), 0 0 0 1px var(--color-border)",
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="text-[11px] font-bold leading-tight"
+                        style={{ color: "var(--color-foreground)" }}
+                      >
+                        {c.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               {isIlluminated && (
                 <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
                   Farby, v ktorých sa profil svetelného písma štandardne vyrába.
@@ -783,7 +903,8 @@ export default function ConfiguratorStage() {
 
               {signSizeLabel && (
                 <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
-                  Celý nápis: {signSizeLabel} ({formatArea(breakdown.areaM2)})
+                  Celý nápis: {signSizeLabel} — účtovaná plocha písmen{" "}
+                  {formatArea(breakdown.areaM2)}
                 </p>
               )}
             </FieldCard>
@@ -852,12 +973,12 @@ export default function ConfiguratorStage() {
               <TechLine label="Umiestnenie" value={config.placement === "exterior" ? "Exteriér" : "Interiér"} />
               <TechLine label="Výška písmen" value={`${config.height} mm`} />
               <TechLine label="Hrúbka" value={`${depthMm} mm`} />
-              {/* The size that has to fit the wall: the whole inscription, not
-                  one letter — and, since the price list bills by the square
-                  metre, the basis of the quote above. */}
+              {/* The size that has to fit the wall: the whole inscription,
+                  spaces and all. It is what the customer measures the façade
+                  by — but it is NOT what the quote is worked out from. */}
               <TechLine label="Celkový rozmer nápisu" value={signSizeLabel ?? "—"} />
               <TechLine
-                label={breakdown.volumeCm3 !== null ? "Objem materiálu" : "Plocha nápisu"}
+                label={breakdown.volumeCm3 !== null ? "Objem materiálu" : "Účtovaná plocha písmen"}
                 value={
                   breakdown.volumeCm3 !== null
                     ? `${Math.round(breakdown.volumeCm3)} cm³`
@@ -866,7 +987,7 @@ export default function ConfiguratorStage() {
               />
               <TechLine
                 label="Jednotková cena"
-                value={`${formatEur(breakdown.unit).replace(" €", "")} ${breakdown.unitLabel}`}
+                value={`${formatAmount(breakdown.unit)} ${breakdown.unitLabel}`}
               />
               <TechLine
                 label="Svietenie"
@@ -1100,49 +1221,6 @@ function SliderBox({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// Colour swatch row shared by the body colour and the LED colour pickers.
-function SwatchRow({
-  options,
-  selectedId,
-  onSelect,
-  splitWhite = false,
-}: {
-  options: ColorOption[];
-  selectedId: string;
-  onSelect: (option: ColorOption) => void;
-  splitWhite?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((c) => {
-        const active = selectedId === c.id;
-        const fill = splitWhite && c.id === "white"
-          ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)"
-          : c.value;
-        const label = c.code ? `${c.label} (${c.code})` : c.label;
-        return (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => onSelect(c)}
-            title={label}
-            aria-label={label}
-            aria-pressed={active}
-            className="h-7 w-7 rounded-full transition duration-200 hover:scale-110"
-            style={{
-              background: fill,
-              boxShadow: active
-                ? "0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary)"
-                : "0 0 0 1px var(--color-border)",
-              transform: active ? "scale(1.1)" : undefined,
-            }}
-          />
-        );
-      })}
     </div>
   );
 }
