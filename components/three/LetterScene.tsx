@@ -45,6 +45,13 @@ const BLOOM_RADIUS              = 0.75;
 const BLOOM_INTENSITY_BASE      = 0.34; // front — the lit face
 const BLOOM_INTENSITY_EDGE      = 0.28; // edges — a thin bright rim, easy to overdo
 const BLOOM_INTENSITY_HALO      = 0.58; // back — the glow texture is already bright
+// A saturated LED is darker than a white one at the same drive, so with a
+// fixed threshold it never reached the bloom at all and a red sign looked
+// like red plastic rather than a red light. The threshold comes down and the
+// flare comes up in proportion to how saturated the colour is, which is what
+// puts the glow back without pushing the colour to white again.
+const BLOOM_THRESHOLD_SAT_DROP  = 0.45;
+const BLOOM_INTENSITY_SAT_GAIN  = 0.55;
 
 // Depth (mm) → world-unit scale. The range the workshop makes is 4–10 mm for
 // a cut letter and up to 200 mm for the deepest lit build (lib/options.ts), so
@@ -127,6 +134,10 @@ const FACE_EMISSIVE: Record<LightModeId, { front: number; side: number; back: nu
 // screen that point comes far sooner than on a real façade.
 const EMISSIVE_BASE_INTENSITY   = 1.75;
 const EMISSIVE_NIGHT_MULTIPLIER = 1.15;
+// How much of that is taken away from a fully saturated LED colour, so it
+// survives tone mapping as a colour instead of clipping to white. 0 = the old
+// behaviour (everything white), 1 = a saturated LED would not glow at all.
+const SATURATED_EMISSIVE_CUT    = 0.42;
 
 // ── Halo wall glow ──────────────────────────────────────────────────────────
 // The wall glow is a texture built from the glyph outlines themselves
@@ -144,6 +155,16 @@ const EMISSIVE_NIGHT_MULTIPLIER = 1.15;
 // camera. The framebuffer is HalfFloat (see the Canvas below), so values over
 // 1 survive to the bloom pass instead of being clipped.
 const HALO_GLOW_GAIN        = 1.65;
+// The same glow, much weaker, around a front- or edge-lit sign.
+//
+// Why it exists: a saturated LED cannot be both bright enough to bloom and
+// still recognisably its own colour — drive a blue face hard enough to flare
+// and tone mapping turns it white, back it off enough to stay blue and it
+// stops looking lit at all. So the "it is switched on" read comes from a soft
+// aura around the letter instead of from the face's own brightness, and the
+// face is free to just be blue.
+const HALO_GLOW_GAIN_FRONT  = 0.52;
+const HALO_GLOW_GAIN_EDGE   = 0.44;
 // How far the glow's own colour is pulled toward white before the gain is
 // applied. Without it a saturated LED colour can never clip to white, and the
 // halo stays flatly amber across its whole spread. With it the core clips —
@@ -170,10 +191,31 @@ type LightSettings = {
   emissiveBack:  number;
 };
 
+/**
+ * How hard a colour can be driven before it stops being that colour.
+ *
+ * ACES tone mapping rolls bright values off toward white, and a saturated LED
+ * is dark to begin with — so it has to be driven hard to look lit, and by the
+ * time it looks lit it has rolled off to white. Measured: red, green and blue
+ * all came out of the renderer as #ffffff, indistinguishable from each other
+ * and from the whites.
+ *
+ * So a saturated colour gets less emissive, not more. It still reads as light
+ * (it is well above the bloom threshold) but it stays red, green or blue. A
+ * white LED is unaffected, which is what keeps the warm white looking the way
+ * it did.
+ */
+function saturationHeadroom(color: THREE.Color): number {
+  const hsl = { h: 0, s: 0, l: 0 };
+  color.getHSL(hsl);
+  return 1 - SATURATED_EMISSIVE_CUT * hsl.s;
+}
+
 function getLightingSettings(
   signType: SignType,
   lightMode: LightModeId,
   night: boolean,
+  glowColor: THREE.Color,
 ): LightSettings {
   // A plain sign never emits — and neither does an illuminated one in daylight.
   // A real sign is switched off during the day, so Deň shows the physical
@@ -184,7 +226,7 @@ function getLightingSettings(
     return { emissiveFront: 0, emissiveSide: 0, emissiveBack: 0 };
   }
   const base = FACE_EMISSIVE[lightMode];
-  const n    = EMISSIVE_NIGHT_MULTIPLIER * EMISSIVE_BASE_INTENSITY;
+  const n    = EMISSIVE_NIGHT_MULTIPLIER * EMISSIVE_BASE_INTENSITY * saturationHeadroom(glowColor);
   return {
     emissiveFront: base.front * n,
     emissiveSide:  base.side  * n,
@@ -732,16 +774,25 @@ type LetterSceneProps = {
 // While the sign can be placed, the preview reads as something to grab.
 const PLACING_CLASSES = "cursor-grab active:cursor-grabbing";
 
+/** 0 for white, 1 for a fully saturated LED colour. */
+function colourSaturation(hex: string): number {
+  const hsl = { h: 0, s: 0, l: 0 };
+  new THREE.Color(safeColor(hex)).getHSL(hsl);
+  return hsl.s;
+}
+
 export default function LetterScene(props: LetterSceneProps) {
   const { signType, lightMode, previewMode } = props;
+  const glowSat = colourSaturation(props.lightColor);
   // Bloom only when something is actually emitting — an illuminated sign at
   // night. In daylight the sign is switched off, so blooming a plain lit face
   // would just fog the preview.
   const bloomActive = signType === "illuminated" && previewMode === "night";
   const bloomIntensity =
-    lightMode === "back" ? BLOOM_INTENSITY_HALO
-    : lightMode === "edge" ? BLOOM_INTENSITY_EDGE
-    : BLOOM_INTENSITY_BASE;
+    (lightMode === "back" ? BLOOM_INTENSITY_HALO
+     : lightMode === "edge" ? BLOOM_INTENSITY_EDGE
+     : BLOOM_INTENSITY_BASE) * (1 + BLOOM_INTENSITY_SAT_GAIN * glowSat);
+  const bloomThreshold = BLOOM_LUMINANCE_THRESHOLD - BLOOM_THRESHOLD_SAT_DROP * glowSat;
 
   return (
     <div className={`relative h-full w-full ${props.onOffsetChange ? PLACING_CLASSES : ""}`}>
@@ -771,7 +822,7 @@ export default function LetterScene(props: LetterSceneProps) {
         <EffectComposer frameBufferType={THREE.HalfFloatType}>
           <Bloom
             mipmapBlur
-            luminanceThreshold={BLOOM_LUMINANCE_THRESHOLD}
+            luminanceThreshold={bloomThreshold}
             luminanceSmoothing={BLOOM_LUMINANCE_SMOOTHING}
             intensity={bloomActive ? bloomIntensity : 0}
             radius={BLOOM_RADIUS}
@@ -820,7 +871,7 @@ function SceneContent({
   const glowColor = useMemo(() => new THREE.Color(safeColor(lightColor)), [lightColor]);
   const baseColor = useMemo(() => new THREE.Color(safeColor(letterColor)), [letterColor]);
 
-  const ls = getLightingSettings(signType, lightMode, isNight);
+  const ls = getLightingSettings(signType, lightMode, isNight, glowColor);
 
   // Height has to be VISIBLE. It used to be squeezed into 0.78–1.15, so a
   // 10 cm sign and a 55 cm one were within a few per cent of each other on
@@ -896,8 +947,12 @@ function SceneContent({
 
   // Only the back-lit build throws light onto the wall; an edge-lit letter
   // sends it sideways, away from the wall, and a front-lit one forward.
-  const glowGain = HALO_GLOW_GAIN;
-  const wallGlowOn = isIlluminated && isNight && lightMode === "back";
+  const glowGain =
+    lightMode === "back" ? HALO_GLOW_GAIN
+    : lightMode === "edge" ? HALO_GLOW_GAIN_EDGE
+    : HALO_GLOW_GAIN_FRONT;
+  // Every lit mode at night now carries some glow, not just back-lit.
+  const wallGlowOn = isIlluminated && isNight;
 
   return (
     <>

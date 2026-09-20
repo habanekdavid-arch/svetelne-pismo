@@ -18,6 +18,8 @@ import {
   fontsFor,
   lightColorsFor,
   clampLightColor,
+  resolveLightColor,
+  LIGHT_COLOR_AS_BODY,
   DEFAULT_LIGHT_COLOR,
   bodyColorOptionsFor,
   materialById,
@@ -141,6 +143,9 @@ export default function ConfiguratorStage() {
   const availableLightModes = lightModesFor(config.placement);
   // …and the LED colours are the ones this way of lighting is made in.
   const availableLightColors = lightColorsFor(config.lightMode);
+  // config.lightColor may hold "rovnaká ako telo" rather than a colour; this
+  // is what the preview and every swatch actually draw.
+  const litColor = resolveLightColor(config);
   // …and the fonts are the build's own rows in sheet "parametre".
   const availableFonts = fontsFor(config.material);
 
@@ -514,14 +519,14 @@ export default function ConfiguratorStage() {
             {isNight && (
               <div
                 className="pointer-events-none absolute inset-0"
-                style={{ background: `radial-gradient(ellipse at 50% 44%, ${config.lightColor}30 0%, transparent 65%)` }}
+                style={{ background: `radial-gradient(ellipse at 50% 44%, ${litColor}30 0%, transparent 65%)` }}
               />
             )}
 
             <LetterScene
               text={config.text}
               font={config.font}
-              lightColor={config.lightColor}
+              lightColor={litColor}
               letterColor={config.bodyColor}
               thickness={depthMm}
               material={config.material}
@@ -692,11 +697,11 @@ export default function ConfiguratorStage() {
                             style={{
                               background: "var(--color-surface)",
                               border: active ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
-                              boxShadow: active ? `0 6px 18px -8px rgba(255,174,0,.7), inset 0 0 14px ${config.lightColor}2e` : "none",
+                              boxShadow: active ? `0 6px 18px -8px rgba(255,174,0,.7), inset 0 0 14px ${litColor}2e` : "none",
                               opacity: active ? 1 : 0.72,
                             }}
                           >
-                            <LightModeGlyphPreview direction={opt.direction} glowColor={config.lightColor} char={previewChar} />
+                            <LightModeGlyphPreview direction={opt.direction} glowColor={litColor} char={previewChar} />
                             <span className="text-[10px] font-bold" style={{ color: "var(--color-foreground)" }}>
                               {opt.name}
                             </span>
@@ -715,6 +720,9 @@ export default function ConfiguratorStage() {
                     <div className="grid grid-cols-2 gap-2">
                       {availableLightColors.map((c) => {
                         const active = config.lightColor.toLowerCase() === c.value.toLowerCase();
+                        // "Rovnaká ako telo" has no colour of its own — show
+                        // the one it is currently following.
+                        const dot = c.value === LIGHT_COLOR_AS_BODY ? config.bodyColor : c.value;
                         return (
                           <button
                             key={c.id}
@@ -728,15 +736,15 @@ export default function ConfiguratorStage() {
                               border: active
                                 ? "1px solid var(--color-primary)"
                                 : "1px solid var(--color-border)",
-                              boxShadow: active ? `inset 0 0 16px ${c.value}33` : "none",
+                              boxShadow: active ? `inset 0 0 16px ${dot}33` : "none",
                               opacity: active ? 1 : 0.78,
                             }}
                           >
                             <span
                               className="h-4 w-4 shrink-0 rounded-full"
                               style={{
-                                background: c.value,
-                                boxShadow: `0 0 0 1px var(--color-border), 0 0 10px ${c.value}aa`,
+                                background: dot,
+                                boxShadow: `0 0 0 1px var(--color-border), 0 0 10px ${dot}aa`,
                               }}
                               aria-hidden="true"
                             />
