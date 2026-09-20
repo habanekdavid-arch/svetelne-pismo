@@ -58,7 +58,6 @@ export default function HeaderNav() {
     { href: "/#materialy", label: "Materiály" },
     { href: "/#konfigurator", label: "Ceny" },
     { href: "/#faq", label: "FAQ" },
-    { href: "/blog", label: "Blog" },
   ];
 
   return (

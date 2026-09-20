@@ -41,7 +41,7 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Z akých materiálov vyrábate nápisy?",
-        a: "Pracujeme s Alubondom (hliníkový sendvičový plech), Plexisklom (akrylát), 3D tlačou (FDM/SLA) a PVC. Každý materiál má iné vlastnosti — porovnanie nájdete v blogu.",
+        a: "Pracujeme s Alubondom (hliníkový sendvičový plech), Plexisklom (akrylát), 3D tlačou (FDM/SLA) a PVC. Každý materiál má iné vlastnosti — poradíme vám s výberom, stačí sa ozvať.",
       },
       {
         q: "Ktorý materiál je vhodný na vonkajšie použitie?",
