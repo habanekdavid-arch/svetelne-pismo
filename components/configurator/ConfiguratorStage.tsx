@@ -11,7 +11,7 @@ import type { Config, LightModeDirection, LightModeId, Placement, SignType } fro
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
-import { calculatePrice, priceBreakdown } from "@/lib/pricing";
+import { calculatePrice, priceBreakdown, isMinimumPrice, MIN_PRICE_GROSS } from "@/lib/pricing";
 import { formatEur, netFromGross, vatFromGross, VAT_RATE, formatAmount } from "@/lib/vat";
 import {
   fontOptions,
@@ -188,6 +188,9 @@ export default function ConfiguratorStage() {
   const signSizeLabel = signSize ? formatSignSize(signSize) : null;
   const price = useMemo(() => calculatePrice(config, signSize), [config, signSize]);
   const breakdown = useMemo(() => priceBreakdown(config, signSize), [config, signSize]);
+  // Keď je nápis taký malý, že plocha × €/m² nedá ani minimálnu cenu, cenu
+  // určí ona — a rozpis nad ňou by potom nesedel, keby sme to nepovedali.
+  const atMinimum = useMemo(() => isMinimumPrice(config, signSize), [config, signSize]);
 
   // ── The sign goes in the cart by itself ────────────────────────────────────
   // From the first letter typed, and in step with every parameter clicked
@@ -931,7 +934,9 @@ export default function ConfiguratorStage() {
                 {formatEur(price)}
               </div>
               <div className="mt-1 text-xs" style={{ color: "var(--color-muted-light)" }}>
-                Záväznú cenu dostanete po overení parametrov.
+                {atMinimum
+                  ? `Minimálna cena za nápis je ${MIN_PRICE_GROSS} € s DPH.`
+                  : "Záväznú cenu dostanete po overení parametrov."}
               </div>
             </div>
 

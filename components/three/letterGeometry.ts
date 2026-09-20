@@ -122,6 +122,94 @@ function drawsCountersCorrectly(font: Font): boolean {
   return true; // nothing to judge it by — take the file as it is
 }
 
+// ── Glyphs wound the other way round ────────────────────────────────────────
+//
+// Picking one winding per file gets most of the way, but not all of it: some
+// of these fonts genuinely mix directions from glyph to glyph. Measured over
+// the whole alphabet — Poppins draws "o" one way and "0" the other, Archivo
+// Black does it with "Q", Baloo2 with "D", Comic Helvetic with "i", "j" and
+// "ä". Whichever way the file is read, those letters came out inside out.
+//
+// So after the shapes exist they are checked one at a time, against what a
+// hole actually is:
+//
+//   · a "hole" whose middle lies OUTSIDE its shape is not a hole — it is a
+//     separate piece of the letter (the two dots of an ä ended up as a shape
+//     and a hole of the same size),
+//   · and when a real, contained hole is BIGGER than the body around it, the
+//     two are the wrong way round and get swapped.
+//
+// Coarse sampling is plenty here: these comparisons are between areas that
+// differ several times over, and containment is tested at the centroid.
+const REPAIR_SEGMENTS = 8;
+
+function centroid(points: THREE.Vector2[]): THREE.Vector2 {
+  const sum = points.reduce((a, p) => a.add(p), new THREE.Vector2());
+  return points.length ? sum.divideScalar(points.length) : sum;
+}
+
+function pointInPolygon(p: THREE.Vector2, poly: THREE.Vector2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i];
+    const b = poly[j];
+    const crosses = a.y > p.y !== b.y > p.y;
+    if (crosses && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/** A Path turned into a Shape of its own, keeping its curves rather than a polyline. */
+function asShape(path: THREE.Path): THREE.Shape {
+  const shape = new THREE.Shape();
+  shape.curves = path.curves;
+  shape.autoClose = path.autoClose;
+  return shape;
+}
+
+/** Every shape of a glyph put right: see the note above. */
+function repairShapes(shapes: THREE.Shape[]): THREE.Shape[] {
+  const out: THREE.Shape[] = [];
+
+  for (const shape of shapes) {
+    const outerPts = shape.getPoints(REPAIR_SEGMENTS);
+    const contained: THREE.Path[] = [];
+
+    for (const hole of shape.holes) {
+      const holePts = hole.getPoints(REPAIR_SEGMENTS);
+      if (pointInPolygon(centroid(holePts), outerPts)) contained.push(hole);
+      // Not inside the body at all — its own piece of the letter.
+      else out.push(asShape(hole));
+    }
+
+    if (contained.length === 0) {
+      shape.holes = [];
+      out.push(shape);
+      continue;
+    }
+
+    // Biggest of the contained contours: if it is bigger than the body, the
+    // body is really the hole and the two swap places.
+    let biggest = contained[0];
+    let biggestArea = contourArea(biggest.getPoints(REPAIR_SEGMENTS));
+    for (const hole of contained.slice(1)) {
+      const a = contourArea(hole.getPoints(REPAIR_SEGMENTS));
+      if (a > biggestArea) { biggest = hole; biggestArea = a; }
+    }
+
+    if (biggestArea > contourArea(outerPts)) {
+      const swapped = asShape(biggest);
+      swapped.holes = [asShape(shape), ...contained.filter((h) => h !== biggest)];
+      out.push(swapped);
+    } else {
+      shape.holes = contained;
+      out.push(shape);
+    }
+  }
+
+  return out;
+}
+
 /** Coarse is plenty: this compares two areas that differ several times over. */
 const WINDING_PROBE_SEGMENTS = 6;
 
@@ -253,7 +341,7 @@ export function buildSolidLetterGeometry(
   // handling would stack them left-aligned, which on a sign looks like a
   // mistake rather than a choice.
   lines.forEach((line, index) => {
-    const shapes = font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[];
+    const shapes = repairShapes(font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[]);
     shapeCount += shapes.length;
     const lineGeos: THREE.BufferGeometry[] = [];
 
@@ -389,7 +477,7 @@ export function buildHaloGlowTexture(font: Font, text: string): HaloGlowBuild {
   // Laid out exactly like the letters above — same line height, same centring
   // per row — because the glow has to sit behind the sign, not beside it.
   signLines(text).forEach((line, index) => {
-    const shapes = font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[];
+    const shapes = repairShapes(font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[]);
     const lineOutlines: Outline[] = [];
     const lineBox = new THREE.Box2();
     lineBox.makeEmpty();

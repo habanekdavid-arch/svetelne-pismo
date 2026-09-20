@@ -11,6 +11,16 @@ import { netToGross } from "@/lib/vat";
 //
 // The unit prices are net; VAT is added for display (lib/vat.ts).
 
+/**
+ * Najnižšia cena za jeden nápis — € S DPH.
+ *
+ * Aj ten najmenší nápis stojí prípravu, materiál, balenie a čas pri stroji,
+ * a to sa nezmenší s plochou: pár malých písmen by podľa €/m² vyšlo na
+ * jednotky eur, za čo sa vyrobiť nedá. Platí na nápis, nie na objednávku —
+ * tri drobné nápisy sú tri kusy práce.
+ */
+export const MIN_PRICE_GROSS = 30;
+
 // Estimates used only while the webfont is still loading and the sign has not
 // been measured yet. Calibrated against real measurements of "PIZZA",
 // "KAVIAREŇ" and "Váš text" in the catalogue's faces — they are all heavy
@@ -109,5 +119,10 @@ export function priceBreakdown(config: Config, size: SignSize | null): PriceBrea
  * added here; lib/vat.ts then splits the same number back for the breakdown.
  */
 export function calculatePrice(config: Config, size: SignSize | null = null): number {
-  return Math.round(netToGross(priceBreakdown(config, size).net));
+  return Math.max(MIN_PRICE_GROSS, Math.round(netToGross(priceBreakdown(config, size).net)));
+}
+
+/** True keď cenu určila minimálna cena, nie plocha — vtedy to treba povedať. */
+export function isMinimumPrice(config: Config, size: SignSize | null = null): boolean {
+  return Math.round(netToGross(priceBreakdown(config, size).net)) < MIN_PRICE_GROSS;
 }
