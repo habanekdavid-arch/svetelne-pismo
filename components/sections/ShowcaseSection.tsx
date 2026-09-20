@@ -97,17 +97,55 @@ export default function ShowcaseSection() {
   );
 }
 
+/**
+ * Karta realizácie. S odkazom je to <a> na článok o nej, bez odkazu obyčajný
+ * <div> — karta, ktorá nikam nevedie, sa nemá tváriť, že vedie.
+ */
+function CardShell({
+  url,
+  title,
+  className,
+  style,
+  children,
+}: {
+  url?: string;
+  title: string;
+  className: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  if (!url) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      style={style}
+      aria-label={`Otvoriť realizáciu: ${title}`}
+    >
+      {children}
+    </a>
+  );
+}
+
 // ── Main card ─────────────────────────────────────────────────────────────────
 
 function MainCard({ realization: r }: { realization: Realization }) {
+  // Naše vlastné ukážky nemajú kam viesť — vtedy je to obyčajná dlaždica,
+  // nie odkaz, ktorý by otvoril prázdnu stránku (CardShell nižšie).
   return (
-    <a
-      href={r.url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <CardShell
+      url={r.url}
+      title={r.title}
       className="group relative block overflow-hidden rounded-panel shadow-v3d-panel transition duration-300 hover:-translate-y-1"
       style={{ background: "var(--color-background)" }}
-      aria-label={`Otvoriť realizáciu: ${r.title}`}
     >
       {/* Image */}
       <div className="relative aspect-[16/7] w-full overflow-hidden">
@@ -162,7 +200,7 @@ function MainCard({ realization: r }: { realization: Realization }) {
           Pozrieť realizáciu
         </span>
       </div>
-    </a>
+    </CardShell>
   );
 }
 
@@ -170,12 +208,10 @@ function MainCard({ realization: r }: { realization: Realization }) {
 
 function AltCard({ realization: r }: { realization: Realization }) {
   return (
-    <a
-      href={r.url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <CardShell
+      url={r.url}
+      title={r.title}
       className="field-card group flex gap-4 overflow-hidden rounded-field p-3"
-      aria-label={`Otvoriť realizáciu: ${r.title}`}
     >
       {/* Thumbnail */}
       <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg">
@@ -210,7 +246,7 @@ function AltCard({ realization: r }: { realization: Realization }) {
           {r.client}
         </p>
       </div>
-    </a>
+    </CardShell>
   );
 }
 
