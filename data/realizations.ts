@@ -9,12 +9,23 @@ export type Realization = {
   // build IDs matching lib/options.ts MATERIALS: alurol-upper | alurol-lower |
   // plexi30 | print3d | print3d-solid | plexi-uv
   materials: string[];
+  // lib/types.ts LightModeId: front | back | edge. Only set on entries that
+  // demonstrate a specific light direction — used to break ties between
+  // realizations that share the same material/signType (e.g. alurol lit
+  // from the front vs. the same build used for a halo/back effect).
+  lightModes?: ("front" | "back" | "edge")[];
   tags: string[];
   // Priame URL z 4from.media CDN — bez lokálnych kópií.
   // Ak chceš vlastné fotky, stiahni ich do /public/realizacie/ a zmeň na /realizacie/{id}.jpg
   // (potom treba pridať unoptimized={false} v ShowcaseSection a odstrániť ?query z URL).
   image: string;
-  url: string;
+  /**
+   * Kam karta vedie — článok o tej realizácii na 4from.media. Nepovinné:
+   * naše vlastné ukážky nikam nevedú, sú to fotky toho, čo sa dá
+   * nakonfigurovať, nie prípadové štúdie. Karta bez url sa nekreslí ako
+   * odkaz, aby nikoho neposielala do prázdna.
+   */
+  url?: string;
 };
 
 export const realizations: Realization[] = [
@@ -178,6 +189,99 @@ export const realizations: Realization[] = [
     tags: ["store", "exterier", "plain", "gastro"],
     image: "https://www.4from.media/sub/4from.media/images/blog/zmrzlina-skalka/Polep_zmrzlina_Skalka_1.jpg.avif?892598",
     url: "https://www.4from.media/realizacie/zmrzlina-skalka/",
+  },
+
+  // ── UKÁŽKY Z DIELNE — lokálne fotky podľa materiálu / svietenia ─────────────
+  // Vlastné referenčné zábery (nie konkrétny klientský projekt), aby zákazník
+  // videl presne tú kombináciu materiálu a svietenia, ktorú si vyklikal.
+
+  {
+    id: "ukazka-3d-tlac-svetlo-spredu",
+    title: "3D tlačené písmo — svetlo spredu",
+    client: "rozsvietTO",
+    year: "2026",
+    category: "3D tlač so svetlom",
+    signType: ["illuminated"],
+    materials: ["print3d"],
+    lightModes: ["front"],
+    tags: ["3d-tlac", "svetelne", "front", "ukazka"],
+    image: "/realizacie-ukazky/3d-tlac-svetlo-spredu.avif",
+  },
+
+  {
+    id: "ukazka-3d-tlac-plne",
+    title: "3D tlačené písmo naplno — bez podsvietenia",
+    client: "rozsvietTO",
+    year: "2026",
+    category: "3D tlač",
+    signType: ["plain"],
+    materials: ["print3d-solid"],
+    tags: ["3d-tlac", "plain", "bez-svetla", "ukazka"],
+    image: "/realizacie-ukazky/3d-tlac-plne-bez-svetla.avif",
+  },
+
+  {
+    id: "ukazka-alurol-spredu",
+    title: "Alurol — podsvietenie spredu",
+    client: "rozsvietTO",
+    year: "2026",
+    category: "Hliníkový profil",
+    signType: ["illuminated"],
+    materials: ["alurol-upper", "alurol-lower"],
+    lightModes: ["front"],
+    tags: ["alurol", "svetelne", "front", "exterier", "ukazka"],
+    image: "/realizacie-ukazky/alurol-svetlo-spredu.avif",
+  },
+
+  {
+    id: "ukazka-plexi-nesvetelne",
+    title: "Plexi s UV tlačou — bez podsvietenia",
+    client: "rozsvietTO",
+    year: "2026",
+    category: "Plexisklo",
+    signType: ["plain"],
+    materials: ["plexi-uv"],
+    tags: ["plexi", "plain", "bez-svetla", "interier", "ukazka"],
+    image: "/realizacie-ukazky/plexi-nesvetelne.avif",
+  },
+
+  {
+    id: "ukazka-plexi30-spredu-hrana",
+    title: "30 mm plexi — svetlo spredu aj z hrany",
+    client: "rozsvietTO",
+    year: "2026",
+    category: "Svetelné plexi",
+    signType: ["illuminated"],
+    materials: ["plexi30"],
+    lightModes: ["front", "edge"],
+    tags: ["plexi30", "svetelne", "front", "edge", "ukazka"],
+    image: "/realizacie-ukazky/plexi30-svetlo-spredu-a-hrany.avif",
+  },
+
+  {
+    id: "ukazka-svietenie-hranami",
+    title: "Svietenie hranami — detail na 30 mm plexi",
+    client: "rozsvietTO",
+    year: "2026",
+    category: "Svetelné plexi",
+    signType: ["illuminated"],
+    materials: ["plexi30"],
+    lightModes: ["edge"],
+    tags: ["plexi30", "svetelne", "edge", "detail", "ukazka"],
+    image: "/realizacie-ukazky/svietenie-hranami.avif",
+  },
+
+  {
+    id: "ukazka-halo-efekt",
+    title: "Halo efekt — svetlo spoza písmena",
+    client: "rozsvietTO",
+    year: "2026",
+    category: "Hliníkový profil",
+    signType: ["illuminated"],
+    materials: ["alurol-upper", "alurol-lower"],
+    lightModes: ["back"],
+    tags: ["alurol", "halo", "back", "exterier", "ukazka"],
+    image: "/realizacie-ukazky/halo-svetlo-zozadu.avif",
   },
 ];
 
