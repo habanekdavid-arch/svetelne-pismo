@@ -517,6 +517,36 @@ export function bodyColorOptionsFor(signType: SignType): ColorOption[] {
   return signType === "illuminated" ? profileColorOptions : letterColorOptions;
 }
 
+// ── Veľké / malé písmo ──────────────────────────────────────────────────────
+//
+// Cenník vedie alurol ako dve samostatné stavby: "veľké písmo" od 250 mm
+// a "malé písmo" od 350 mm (hárok "parametre"). Nie je to štýl, ale to, čo sa
+// naozaj vyrába — tak nech sa do nápisu ani nedá napísať nič iné. Ostatné
+// stavby žiadne takéto obmedzenie nemajú a vracajú null.
+
+export type TextCase = "upper" | "lower";
+
+const TEXT_CASE: Record<string, TextCase> = {
+  "alurol-upper": "upper",
+  "alurol-lower": "lower",
+};
+
+/** Ktorou veľkosťou písmen sa táto stavba vyrába, alebo null keď je jedno. */
+export function textCaseFor(materialId: string): TextCase | null {
+  return TEXT_CASE[materialId] ?? null;
+}
+
+/**
+ * Text prepísaný tak, ako sa dá vyrobiť. Prepisuje sa, nie odmieta: kto
+ * prepne stavbu na "malé písmená", chce svoj nápis malými, nie prázdne pole.
+ * Slovenská diakritika sa mení podľa locale, aby "Č" bolo "č" a nie "C".
+ */
+export function applyTextCase(text: string, materialId: string): string {
+  const mode = textCaseFor(materialId);
+  if (!mode) return text;
+  return mode === "upper" ? text.toLocaleUpperCase("sk-SK") : text.toLocaleLowerCase("sk-SK");
+}
+
 /** How a chosen colour behaves under light — used by the 3D preview. */
 export function finishForColor(hex: string): ProfileFinish {
   const v = hex.toLowerCase();

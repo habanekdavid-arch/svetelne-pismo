@@ -18,6 +18,8 @@ import {
   fontsFor,
   lightColorsFor,
   clampLightColor,
+  applyTextCase,
+  textCaseFor,
   resolveLightColor,
   LIGHT_COLOR_AS_BODY,
   DEFAULT_LIGHT_COLOR,
@@ -146,6 +148,9 @@ export default function ConfiguratorStage() {
   // config.lightColor may hold "rovnaká ako telo" rather than a colour; this
   // is what the preview and every swatch actually draw.
   const litColor = resolveLightColor(config);
+  // Alurol sa v cenníku vedie zvlášť pre veľké a zvlášť pre malé písmo, tak
+  // sa do poľa ani nedá napísať to druhé (lib/options.ts textCaseFor).
+  const textCase = textCaseFor(config.material);
   // …and the fonts are the build's own rows in sheet "parametre".
   const availableFonts = fontsFor(config.material);
 
@@ -303,7 +308,12 @@ export default function ConfiguratorStage() {
     // because a red wall-wash is not something we make.
     const lightColor = clampLightColor(mode, next.lightColor ?? config.lightColor);
 
-    return { ...next, signType, placement, lightMode: mode, material, font, height, lightColor };
+    // …and the text has to be writable in this build: alurol comes as veľké
+    // písmená or malé písmená, so switching between them rewrites what is
+    // already typed rather than leaving a nápis nobody would make.
+    const text = applyTextCase(next.text ?? config.text, material);
+
+    return { ...next, signType, placement, lightMode: mode, material, font, height, lightColor, text };
   }
 
   function apply(update: Partial<Config>) {
@@ -601,7 +611,7 @@ export default function ConfiguratorStage() {
           <textarea
             ref={textInputRef}
             value={config.text}
-            onChange={(e) => patch({ text: limitLines(e.target.value) })}
+            onChange={(e) => patch({ text: applyTextCase(limitLines(e.target.value), config.material) })}
             onKeyDown={handleTextKeyDown}
             rows={2}
             maxLength={MAX_TEXT_LENGTH}
@@ -612,6 +622,8 @@ export default function ConfiguratorStage() {
           />
           <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
             Nápis môže mať {MAX_LINES} riadky — druhý pridáte Enterom.
+            {textCase === "upper" && " Táto stavba sa vyrába len veľkými písmenami."}
+            {textCase === "lower" && " Táto stavba sa vyrába len malými písmenami."}
           </p>
         </FieldCard>
 
