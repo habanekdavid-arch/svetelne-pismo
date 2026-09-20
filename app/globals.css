@@ -217,42 +217,6 @@ body {
   display: none;
 }
 
-/* ─── Hue range slider — transparent track (gradient applied inline) ─────── */
-.range-hue {
-  appearance: none;
-  -webkit-appearance: none;
-  height: 12px;
-  border-radius: 99px;
-  outline: none;
-  cursor: pointer;
-}
-
-.range-hue::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-  transition: transform 0.15s;
-}
-
-.range-hue::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-}
-
-.range-hue::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  background: white;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-}
 
 /* ─── Keyframes ──────────────────────────────────────────────────────────── */
 @keyframes fadeInUp {

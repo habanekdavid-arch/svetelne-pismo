@@ -16,7 +16,9 @@ import { formatEur, netFromGross, vatFromGross, VAT_RATE, formatAmount } from "@
 import {
   fontOptions,
   fontsFor,
-  lightColors,
+  lightColorsFor,
+  clampLightColor,
+  DEFAULT_LIGHT_COLOR,
   bodyColorOptionsFor,
   materialById,
   materialsFor,
@@ -73,12 +75,6 @@ function limitLines(value: string): string {
 // own hsl(H, 92%, 58%) string, so reading a hue back has to handle both. Used
 // when a sign comes back from the cart to be changed: the controls have to
 // land where that sign actually is, not where they were left.
-function hueOf(color: string, fallback: number): number {
-  const m = /^hsl\(\s*(\d+(?:\.\d+)?)/i.exec(color);
-  if (m) return Math.round(Number(m[1]));
-  return lightColors.find((c) => c.value.toLowerCase() === color.toLowerCase())?.hue ?? fallback;
-}
-
 function swatchIdFor(options: readonly { id: string; value: string }[], value: string): string {
   return options.find((o) => o.value.toLowerCase() === value.toLowerCase())?.id ?? "";
 }
@@ -87,10 +83,9 @@ function swatchIdFor(options: readonly { id: string; value: string }[], value: s
 
 export default function ConfiguratorStage() {
   const [manualMode, setManualMode] = useState<"day" | "night" | null>(null);
-  // Default LED colour is the brand yellow — keep the hue slider + swatch
-  // selection in sync with lib/options.ts lightColors' "yellow" entry.
-  const [lightHue, setLightHue] = useState(41);
-  const [selectedSwatch, setSelectedSwatch] = useState<string>("yellow");
+  // The LED colour lives in config.lightColor alone now — the catalogue is
+  // five named colours (lib/options.ts LIGHT_COLORS), so there is no separate
+  // hue to keep in step with it.
   const [selectedBodySwatch, setSelectedBodySwatch] = useState<string>("black");
   // Preview-only: which wall the sign is shown against, and the customer's own
   // photo of it. Neither is part of Config — the wall is where they imagine
@@ -128,7 +123,7 @@ export default function ConfiguratorStage() {
     lightMode:  "front",
     // Brand yellow — see lib/options.ts lightColors "yellow" / app/globals.css --color-primary.
     // Inert while signType is "plain"; used once the user switches to Svetelné.
-    lightColor: "#FFAE00",
+    lightColor: DEFAULT_LIGHT_COLOR,
     bodyColor:  bodyColorOptionsFor("plain").find((c) => c.id === "black")!.value,
     // Millimetres, and inside what 3D tlač s plexi is made in (120–600 mm).
     height:     300,
@@ -146,6 +141,8 @@ export default function ConfiguratorStage() {
   // made, so nothing else is shown (sheet "strom").
   const availableMaterials = materialsFor(config.signType, config.placement, config.lightMode);
   const availableLightModes = lightModesFor(config.placement);
+  // …and the LED colours are the ones this way of lighting is made in.
+  const availableLightColors = lightColorsFor(config.lightMode);
   // …and the fonts are the build's own rows in sheet "parametre".
   const availableFonts = fontsFor(config.material);
 
@@ -250,10 +247,13 @@ export default function ConfiguratorStage() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!pendingConfig) return;
-    const incoming = pendingConfig.config;
+    // A sign stored before the LED colours were cut down to a named list can
+    // carry a colour that is no longer made; clamp it as it comes back in.
+    const incoming: Config = {
+      ...pendingConfig.config,
+      lightColor: clampLightColor(pendingConfig.config.lightMode, pendingConfig.config.lightColor),
+    };
     setConfig(incoming);
-    setLightHue((prev) => hueOf(incoming.lightColor, prev));
-    setSelectedSwatch(swatchIdFor(lightColors, incoming.lightColor));
     setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(incoming.signType), incoming.bodyColor));
     consumePending();
     // Only when the customer asked for it ("Upraviť" in the cart). The same
@@ -295,7 +295,12 @@ export default function ConfiguratorStage() {
     // decides the thickness. Only a height the build cannot be made in moves.
     const height = clampHeight(material, next.height ?? config.height);
 
-    return { ...next, signType, placement, lightMode: mode, material, font, height };
+    // …and the LED colour has to be one this way of lighting is made in:
+    // switching from red edges to a back-lit sign lands on warm white,
+    // because a red wall-wash is not something we make.
+    const lightColor = clampLightColor(mode, next.lightColor ?? config.lightColor);
+
+    return { ...next, signType, placement, lightMode: mode, material, font, height, lightColor };
   }
 
   function apply(update: Partial<Config>) {
@@ -344,17 +349,6 @@ export default function ConfiguratorStage() {
     modeTileRefs.current[nextIndex]?.focus();
   }
 
-  function setLightColorFromSwatch(id: string, value: string, hue: number) {
-    setSelectedSwatch(id);
-    setLightHue(hue);
-    patch({ lightColor: value });
-  }
-
-  function setLightColorFromSlider(hue: number) {
-    setLightHue(hue);
-    setSelectedSwatch("");
-    patch({ lightColor: `hsl(${hue}, 92%, 58%)` });
-  }
 
   // "Ďalší nápis": bank the sign that is on screen and clear the text so the
   // next one can be typed straight away. Font, material, colours and lighting
@@ -716,28 +710,53 @@ export default function ConfiguratorStage() {
                     <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
                       Farba svetla
                     </p>
-                    <input
-                      type="range"
-                      min="0"
-                      max="359"
-                      value={lightHue}
-                      onChange={(e) => setLightColorFromSlider(Number(e.target.value))}
-                      className="range-hue mb-3.5 w-full"
-                      style={{
-                        background:
-                          "linear-gradient(90deg,hsl(0,92%,58%),hsl(40,92%,58%),hsl(60,92%,58%),hsl(120,92%,58%),hsl(180,92%,58%),hsl(240,92%,58%),hsl(300,92%,58%),hsl(359,92%,58%))",
-                      }}
-                      aria-label="Odtieň farby svetla"
-                    />
-                    <SwatchRow
-                      options={lightColors}
-                      selectedId={selectedSwatch}
-                      onSelect={(c) => {
-                        const hue = lightColors.find((l) => l.id === c.id)?.hue ?? 0;
-                        setLightColorFromSwatch(c.id, c.value, hue);
-                      }}
-                      splitWhite
-                    />
+                    {/* Pomenované farby, nie odtieňový posuvník: vyrábajú sa
+                        tieto a žiadne medzi nimi. Zoznam sa mení so spôsobom
+                        svietenia — zozadu je to žiara na stene a tá sa robí
+                        len v bielej (lib/options.ts lightColorsFor). */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableLightColors.map((c) => {
+                        const active = config.lightColor.toLowerCase() === c.value.toLowerCase();
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => patch({ lightColor: c.value })}
+                            title={c.hint}
+                            aria-pressed={active}
+                            className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition"
+                            style={{
+                              background: "var(--color-surface)",
+                              border: active
+                                ? "1px solid var(--color-primary)"
+                                : "1px solid var(--color-border)",
+                              boxShadow: active ? `inset 0 0 16px ${c.value}33` : "none",
+                              opacity: active ? 1 : 0.78,
+                            }}
+                          >
+                            <span
+                              className="h-4 w-4 shrink-0 rounded-full"
+                              style={{
+                                background: c.value,
+                                boxShadow: `0 0 0 1px var(--color-border), 0 0 10px ${c.value}aa`,
+                              }}
+                              aria-hidden="true"
+                            />
+                            <span
+                              className="text-[11px] font-bold leading-tight"
+                              style={{ color: "var(--color-foreground)" }}
+                            >
+                              {c.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {config.lightMode === "back" && (
+                      <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted-light)" }}>
+                        Svietenie zozadu vyrábame len v bielej a teplej bielej.
+                      </p>
+                    )}
                   </>
                 )
               )}
@@ -1156,25 +1175,22 @@ function SliderBox({
   );
 }
 
-// Colour swatch row shared by the body colour and the LED colour pickers.
+// Colour swatch row for the body colour. (The LED colour is a named list
+// now — five colours with labels, drawn inline in the lighting card.)
 function SwatchRow({
   options,
   selectedId,
   onSelect,
-  splitWhite = false,
 }: {
   options: ColorOption[];
   selectedId: string;
   onSelect: (option: ColorOption) => void;
-  splitWhite?: boolean;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((c) => {
         const active = selectedId === c.id;
-        const fill = splitWhite && c.id === "white"
-          ? "linear-gradient(135deg,#fff 50%,#e0e0e0 50%)"
-          : c.value;
+        const fill = c.value;
         const label = c.code ? `${c.label} (${c.code})` : c.label;
         return (
           <button
