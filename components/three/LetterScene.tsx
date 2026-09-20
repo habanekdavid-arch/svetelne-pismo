@@ -22,8 +22,12 @@ import { useWallTexture, usePhotoTexture } from "@/components/three/wallTexture"
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ENV_HDR_PATH        = "/hdri/studio.hdr";
-const ENV_INTENSITY       = 0.75;   // day — neutral studio HDRI
-const ENV_INTENSITY_NIGHT = 0.4;   // night — dim ambient so emissives pop
+// Ambient, not glow. Lifted so the BODY COLOUR of the letter reads in every
+// mode: the customer picks a colour from a swatch and has to see that colour
+// on the sign, whether it is lit from the front, the back or the edges. It
+// does not touch how bright the LEDs are — that is the emissive below.
+const ENV_INTENSITY       = 0.92;  // day — neutral studio HDRI
+const ENV_INTENSITY_NIGHT = 0.52;  // night — dim, but never so dim the colour goes grey
 const TONEMAP_EXPOSURE    = 0.95;
 
 // PBR texture tiling (tiles per letter face) — asset folder names kept as-is,
@@ -149,8 +153,14 @@ const HALO_GLOW_WHITE_MIX   = 0.34;
 const HALO_GLOW_WALL_OFFSET = 0.004; // in front of the wall, to avoid z-fighting
 
 // How far a transmissive material's (plexi) body colour is pulled toward
-// white when illuminated (0 = full bodyColor, 1 = old fully-white behaviour).
-const WHITE_BASE_BLEND = 0.45;
+// white when illuminated (0 = full bodyColor, 1 = fully white).
+//
+// It used to be 0.45, which was the single biggest reason a colour looked
+// different depending on the light mode: edge-lit signs are made in 30 mm
+// plexi, so picking red there gave a washed pink while the same red on an
+// unlit sign was red. Kept small — lit acrylic really does lighten — but not
+// nearly enough to lose which colour was chosen.
+const WHITE_BASE_BLEND = 0.12;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -247,6 +257,13 @@ function buildPhysicalMat(
     params.ior          = p.ior ?? 1.5;
     params.thickness    = p.thickness ?? 0.3;
     params.transparent  = true;
+    // A fully transmissive surface takes almost nothing from `color` — light
+    // goes straight through it — which is why a coloured plexi letter used to
+    // read as clear glass whatever swatch was picked. Tinted acrylic is
+    // coloured by what the light loses on its way THROUGH the sheet, so the
+    // chosen colour belongs here, as the attenuation.
+    params.attenuationColor    = baseColor;
+    params.attenuationDistance = p.attenuationDistance ?? 0.22;
   } else {
     // A matt lacquer is the same paint with the sheen taken out of it. Skipped
     // for transmissive materials (plexi), whose surface is the acrylic itself,
@@ -885,11 +902,17 @@ function SceneContent({
   return (
     <>
       {/* ── Lighting — even studio fill + one key light that throws the
-          letters' shadow onto the wall behind them ── */}
-      <ambientLight intensity={isNight ? 0.35 : 0.75} />
+          letters' shadow onto the wall behind them.
+
+          The night figures were lifted (0.35 / 0.7 / 0.12 → below) for one
+          reason: a customer who picks red has to SEE red, and at night the
+          scene was so dim that every body colour collapsed into the same dark
+          brown. None of this touches the LEDs — the glow is material
+          emissive and bloom, which are left exactly as they were. ── */}
+      <ambientLight intensity={isNight ? 0.62 : 0.82} />
       <directionalLight
         position={[3.2, 4.2, 3.5]}
-        intensity={isNight ? 0.7 : 1.35}
+        intensity={isNight ? 0.98 : 1.4}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
@@ -901,7 +924,7 @@ function SceneContent({
         shadow-camera-top={6}
         shadow-camera-bottom={-6}
       />
-      <directionalLight position={[-4, 1.5, 2.5]} intensity={isNight ? 0.12 : 0.55} />
+      <directionalLight position={[-4, 1.5, 2.5]} intensity={isNight ? 0.3 : 0.6} />
 
       {/* ── The wall the sign is mounted on ── */}
       <mesh position={[0, 0, wallZ]} receiveShadow>

@@ -32,7 +32,6 @@ import {
   LIGHT_MODES,
 } from "@/lib/options";
 import type { FontOption } from "@/lib/options";
-import type { ColorOption } from "@/lib/types";
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
 import type { DragTarget } from "@/components/three/LetterScene";
 
@@ -71,10 +70,9 @@ function limitLines(value: string): string {
   return lines.length <= MAX_LINES ? value : lines.slice(0, MAX_LINES).join("\n");
 }
 
-// The light colour is stored either as a swatch's hex or as the hue slider's
-// own hsl(H, 92%, 58%) string, so reading a hue back has to handle both. Used
-// when a sign comes back from the cart to be changed: the controls have to
-// land where that sign actually is, not where they were left.
+// Which swatch a stored colour belongs to. Used when a sign comes back from
+// the cart to be changed: the controls have to land where that sign actually
+// is, not where they were left.
 function swatchIdFor(options: readonly { id: string; value: string }[], value: string): string {
   return options.find((o) => o.value.toLowerCase() === value.toLowerCase())?.id ?? "";
 }
@@ -163,8 +161,8 @@ export default function ConfiguratorStage() {
   const isNight = previewMode === "night";
 
   // A lit letter wears a profile finish, a cut letter a lacquered sheet, so the
-  // two offer different ranges. The RAL tones are shared and keep their ids, so
-  // switching Svetelné/Nesvetelné never loses the colour that is already set.
+  // two offer different ranges. The colours themselves are shared and keep
+  // their ids, so switching Svetelné/Nesvetelné never loses what is set.
   const bodyColors = bodyColorOptionsFor(config.signType);
   const currentBodyColor =
     bodyColors.find((c) => c.id === selectedBodySwatch) ??
@@ -789,15 +787,47 @@ export default function ConfiguratorStage() {
                 <span className="ml-1.5 font-semibold" style={{ color: "var(--color-foreground)" }}>
                   — {currentBodyColor?.label ?? ""}
                 </span>
-                {currentBodyColor?.code && (
-                  <span className="ml-1.5 font-semibold">({currentBodyColor.code})</span>
-                )}
               </p>
-              <SwatchRow
-                options={bodyColors}
-                selectedId={selectedBodySwatch}
-                onSelect={(c) => setBodyColor(c.id, c.value)}
-              />
+              {/* Farba aj jej názov, nie len bodka: v náhľade sa odtieň mení
+                  podľa toho, ako je nápis nasvietený, tak nech je aspoň tu
+                  vidieť presne to, čo sa objednáva. */}
+              <div className="grid grid-cols-2 gap-2">
+                {bodyColors.map((c) => {
+                  const active = selectedBodySwatch === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setBodyColor(c.id, c.value)}
+                      aria-pressed={active}
+                      className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition"
+                      style={{
+                        background: "var(--color-surface)",
+                        border: active
+                          ? "1px solid var(--color-primary)"
+                          : "1px solid var(--color-border)",
+                        opacity: active ? 1 : 0.8,
+                      }}
+                    >
+                      <span
+                        className="h-5 w-5 shrink-0 rounded-full"
+                        style={{
+                          background: c.value,
+                          // Obrys drží aj bielu a čiernu čitateľnú na oboch témach.
+                          boxShadow: "inset 0 0 0 1px rgba(0,0,0,.28), 0 0 0 1px var(--color-border)",
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="text-[11px] font-bold leading-tight"
+                        style={{ color: "var(--color-foreground)" }}
+                      >
+                        {c.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               {isIlluminated && (
                 <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
                   Farby, v ktorých sa profil svetelného písma štandardne vyrába.
@@ -1171,46 +1201,6 @@ function SliderBox({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// Colour swatch row for the body colour. (The LED colour is a named list
-// now — five colours with labels, drawn inline in the lighting card.)
-function SwatchRow({
-  options,
-  selectedId,
-  onSelect,
-}: {
-  options: ColorOption[];
-  selectedId: string;
-  onSelect: (option: ColorOption) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((c) => {
-        const active = selectedId === c.id;
-        const fill = c.value;
-        const label = c.code ? `${c.label} (${c.code})` : c.label;
-        return (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => onSelect(c)}
-            title={label}
-            aria-label={label}
-            aria-pressed={active}
-            className="h-7 w-7 rounded-full transition duration-200 hover:scale-110"
-            style={{
-              background: fill,
-              boxShadow: active
-                ? "0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary)"
-                : "0 0 0 1px var(--color-border)",
-              transform: active ? "scale(1.1)" : undefined,
-            }}
-          />
-        );
-      })}
     </div>
   );
 }
