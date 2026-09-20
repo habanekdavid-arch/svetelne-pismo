@@ -381,18 +381,61 @@ export const PLACEMENTS: { id: Placement; label: string; hint: string }[] = [
   { id: "interior", label: "Interiér", hint: "Do prevádzky, na stenu v interiéri" },
 ];
 
-// ── Light colours (LED colour swatches) ──────────────────────────────────────
+// ── Light colours ───────────────────────────────────────────────────────────
+//
+// A short, honest list of what the workshop actually fits, not a colour
+// picker. Two whites — intense (studená) and warm — plus plain R‑G‑B, which is
+// what an RGB LED module does without being driven as a colour-changer.
+//
+// Not every colour goes with every light mode: a back-lit sign is a wash of
+// light on the wall behind the letter, and that is made in white and warm
+// white only. lightColorsFor() is the single place that says so, the same way
+// materialsFor() and fontsFor() decide the rest of the catalogue.
 
-export const lightColors = [
-  { id: "white",  label: "Biela",    value: "#ffffff", hue: 0   },
-  { id: "red",    label: "Červená",  value: "#ff2a2a", hue: 0   },
-  { id: "orange", label: "Oranžová", value: "#ff7a00", hue: 28  },
-  { id: "yellow", label: "Žltá",     value: "#FFAE00", hue: 41  }, // brand accent — matches --color-primary
-  { id: "green",  label: "Zelená",   value: "#00d084", hue: 152 },
-  { id: "cyan",   label: "Cyan",     value: "#00c8ff", hue: 195 },
-  { id: "blue",   label: "Modrá",    value: "#245cff", hue: 230 },
-  { id: "pink",   label: "Ružová",   value: "#ff4bd8", hue: 310 },
+export type LightColorOption = {
+  id: string;
+  label: string;
+  /** What the 3D preview and the order sheet carry — Config.lightColor. */
+  value: string;
+  hint: string;
+};
+
+export const LIGHT_COLORS: LightColorOption[] = [
+  { id: "white-warm", label: "Teplá biela",      value: "#ffcf9a", hint: "Mäkké, teplé svetlo — najčastejšia voľba" },
+  { id: "white-cool", label: "Biela intenzívna", value: "#ffffff", hint: "Studená biela, najsilnejší svit" },
+  { id: "red",        label: "Červená",          value: "#ff2a2a", hint: "RGB modul" },
+  { id: "green",      label: "Zelená",           value: "#00d084", hint: "RGB modul" },
+  { id: "blue",       label: "Modrá",            value: "#245cff", hint: "RGB modul" },
 ];
+
+/** Warm white: what a sign gets unless the customer says otherwise. */
+export const DEFAULT_LIGHT_COLOR = LIGHT_COLORS[0].value;
+
+/** Svietenie zozadu je žiara na stene — robí sa len v bielej a teplej bielej. */
+const WHITES_ONLY: LightModeId[] = ["back"];
+
+export function lightColorsFor(mode: LightModeId): LightColorOption[] {
+  return WHITES_ONLY.includes(mode)
+    ? LIGHT_COLORS.filter((c) => c.id.startsWith("white-"))
+    : LIGHT_COLORS;
+}
+
+/**
+ * The colour kept, or the default when this light mode is not made in it —
+ * so switching from "hranami" in red to "zozadu" lands on warm white instead
+ * of quoting a sign nobody makes.
+ */
+export function clampLightColor(mode: LightModeId, value: string): string {
+  const offered = lightColorsFor(mode);
+  return offered.some((c) => c.value.toLowerCase() === value.toLowerCase())
+    ? value
+    : offered[0].value;
+}
+
+/** The option behind a stored hex, for showing its name back to the customer. */
+export function lightColorOption(value: string): LightColorOption | undefined {
+  return LIGHT_COLORS.find((c) => c.value.toLowerCase() === value.toLowerCase());
+}
 
 // ── Body/material colours ────────────────────────────────────────────────────
 //
