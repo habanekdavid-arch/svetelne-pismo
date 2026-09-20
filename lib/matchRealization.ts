@@ -1,9 +1,10 @@
 import type { Realization } from "@/data/realizations";
-import type { SignType } from "@/lib/types";
+import type { LightModeId, SignType } from "@/lib/types";
 
 type ConfigSlice = {
   signType: SignType;
   material: string;
+  lightMode?: LightModeId;
 };
 
 export type MatchResult = {
@@ -14,9 +15,10 @@ export type MatchResult = {
 };
 
 // ── Scoring weights ───────────────────────────────────────────────────────────
-const WEIGHT_SIGN_TYPE = 50;
-const WEIGHT_MATERIAL  = 30;
-const WEIGHT_FEATURED  =  1;  // tiebreaker
+const WEIGHT_SIGN_TYPE  = 50;
+const WEIGHT_MATERIAL   = 30;
+const WEIGHT_LIGHT_MODE = 10;  // only entries that tag lightModes take part
+const WEIGHT_FEATURED   =  1;  // tiebreaker
 
 // Below this score we consider it a fallback match
 const FALLBACK_THRESHOLD = WEIGHT_SIGN_TYPE;
@@ -84,6 +86,10 @@ function score(r: Realization, config: ConfigSlice): number {
 
   if (r.materials.includes(config.material)) {
     total += WEIGHT_MATERIAL;
+  }
+
+  if (config.lightMode && r.lightModes?.includes(config.lightMode)) {
+    total += WEIGHT_LIGHT_MODE;
   }
 
   if (r.featured) {

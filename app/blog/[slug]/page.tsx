@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getBlogPost, blogPosts } from "@/lib/blog-data";
 
@@ -177,24 +178,36 @@ export default async function BlogPostPage({
             {post.date} · {post.readMin} min čítania
           </p>
 
-          {/* Featured image placeholder */}
+          {/* Featured image, or a placeholder when the post has none */}
           <div
-            className="mt-8 flex h-72 w-full items-center justify-center rounded-2xl md:h-96"
+            className="relative mt-8 flex h-72 w-full items-center justify-center overflow-hidden rounded-2xl md:h-96"
             style={{
               background: "var(--color-surface-raised)",
               border: "1px solid var(--color-border)",
             }}
           >
-            <div
-              className="flex h-16 w-16 items-center justify-center rounded-2xl"
-              style={{ background: "var(--color-yellow)", color: "#000" }}
-            >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <path d="M21 15l-5-5L5 21" />
-              </svg>
-            </div>
+            {post.image ? (
+              <Image
+                src={post.image}
+                alt={post.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 672px"
+                className="object-cover"
+                priority
+                unoptimized
+              />
+            ) : (
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-2xl"
+                style={{ background: "var(--color-yellow)", color: "#000" }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -203,6 +216,28 @@ export default async function BlogPostPage({
       <article className="pb-20">
         <div className="mx-auto max-w-2xl px-5">
           {renderMarkdown(post.content)}
+
+          {/* Extra angles of the same realization, when the post has any */}
+          {post.gallery && post.gallery.length > 0 && (
+            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {post.gallery.map((src) => (
+                <div
+                  key={src}
+                  className="relative aspect-[4/3] overflow-hidden rounded-xl"
+                  style={{ border: "1px solid var(--color-border)" }}
+                >
+                  <Image
+                    src={src}
+                    alt={post.title}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 336px"
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </article>
 

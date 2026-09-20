@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { blogPosts } from "@/lib/blog-data";
 
 function CategoryIcon({ category }: { category: string }) {
@@ -98,20 +99,31 @@ export default function BlogPage() {
                     border: "1px solid var(--color-border)",
                   }}
                 >
-                  {/* Image placeholder */}
+                  {/* Cover image, or a category icon when the post has none */}
                   <div
-                    className="flex h-48 w-full items-center justify-center"
+                    className="relative flex h-48 w-full items-center justify-center overflow-hidden"
                     style={{ background: "var(--color-surface-raised)" }}
                   >
-                    <div
-                      className="flex h-16 w-16 items-center justify-center rounded-2xl"
-                      style={{
-                        background: "var(--color-yellow)",
-                        color: "#000",
-                      }}
-                    >
-                      <CategoryIcon category={post.category} />
-                    </div>
+                    {post.image ? (
+                      <Image
+                        src={post.image}
+                        alt={post.title}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        unoptimized
+                      />
+                    ) : (
+                      <div
+                        className="flex h-16 w-16 items-center justify-center rounded-2xl"
+                        style={{
+                          background: "var(--color-yellow)",
+                          color: "#000",
+                        }}
+                      >
+                        <CategoryIcon category={post.category} />
+                      </div>
+                    )}
                   </div>
 
                   {/* Content */}

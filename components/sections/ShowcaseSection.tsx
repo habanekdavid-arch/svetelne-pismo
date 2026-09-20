@@ -10,9 +10,10 @@ import type { Config } from "@/lib/types";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 
 // ── Default config used before the configurator publishes its first state ─────
-const DEFAULT_CONFIG: Pick<Config, "signType" | "material"> = {
+const DEFAULT_CONFIG: Pick<Config, "signType" | "material" | "lightMode"> = {
   signType: "illuminated",
   material: "plexi30",
+  lightMode: "front",
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
