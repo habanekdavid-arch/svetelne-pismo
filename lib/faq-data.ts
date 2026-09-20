@@ -53,7 +53,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Môžem si vybrať vlastnú farbu nápisu?",
-        a: "Áno. Telo nápisu je dostupné vo všetkých RAL farbách. Farbu LED svietenia nastavíte priamo v konfigurátore pomocou farebného slidera.",
+        a: "Áno. Telo nápisu si vyberiete z ôsmich farieb priamo v konfigurátore, pri svetelnom písme aj v matnej bielej. Farbu svietenia vyberáte tam isto — teplá biela, intenzívna biela a červená, zelená alebo modrá; pri svietení zozadu ponúkame len obe biele.",
       },
     ],
   },

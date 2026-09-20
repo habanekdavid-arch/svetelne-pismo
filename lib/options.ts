@@ -194,12 +194,16 @@ export const MATERIALS: MaterialOption[] = [
     pbr: {
       roughness: 0.0,
       metalness: 0,
-      transmission: 1.0,
+      // Not 1.0 any more. A 30 mm plexi letter is made from COLOURED cast
+      // acrylic, and at full transmission the sheet is clear glass: the body
+      // colour the customer picked had almost no effect on it, so red and
+      // blue looked the same. Translucent, not transparent.
+      transmission: 0.68,
       ior: 1.49,
       thickness: 0.6,
       clearcoat: 1.0,
       clearcoatRoughness: 0.0,
-      useWhiteBase: true,           // clear acrylic: body colour irrelevant when lit
+      useWhiteBase: true,           // lit acrylic lightens — but only a little
       sideTransmissionMul: 0.55,
       emissiveFrontScale: 0.4,
       emissiveSideScale: 0.6,
@@ -442,17 +446,20 @@ export function lightColorOption(value: string): LightColorOption | undefined {
 // Taken off the manufacturer's board (3D system, "System of building channel
 // letters"): these are the finishes a profile is actually stocked in, so a
 // customer picking one is picking something that exists on a shelf rather than
-// a colour we would have to have made. The same RAL tones for a cut letter —
-// a lacquered sheet is coated in the same range.
-const PROFILE_RAL: ColorOption[] = [
-  { id: "white",  label: "Biela",               value: "#f1f0ea", code: "RAL 9016" },
-  { id: "yellow", label: "Dopravná žltá",       value: "#fad201", code: "RAL 1023" },
-  { id: "orange", label: "Oranžová",            value: "#e75b12", code: "RAL 2004" },
-  { id: "red",    label: "Dopravná červená",    value: "#cc0605", code: "RAL 3020" },
-  { id: "green",  label: "Mätová zelená",       value: "#20603d", code: "RAL 6029" },
-  { id: "blue",   label: "Ultramarínová modrá", value: "#20214f", code: "RAL 5002" },
-  { id: "black",  label: "Čierna",              value: "#0a0a0a", code: "RAL 9005" },
-  { id: "silver", label: "Strieborná",          value: "#a5a5a5", code: "RAL 9006" },
+// a colour we would have to have made. The same tones for a cut letter — a
+// lacquered sheet is coated in the same range.
+//
+// Named in plain Slovak, not by RAL number: the code meant nothing to anyone
+// choosing a colour on screen and only made the list harder to read.
+const PROFILE_COLORS: ColorOption[] = [
+  { id: "white",  label: "Biela",       value: "#f1f0ea" },
+  { id: "yellow", label: "Žltá",        value: "#fad201" },
+  { id: "orange", label: "Oranžová",    value: "#e75b12" },
+  { id: "red",    label: "Červená",     value: "#cc0605" },
+  { id: "green",  label: "Zelená",      value: "#20603d" },
+  { id: "blue",   label: "Modrá",       value: "#20214f" },
+  { id: "black",  label: "Čierna",      value: "#0a0a0a" },
+  { id: "silver", label: "Strieborná",  value: "#a5a5a5" },
 ];
 
 // The one finish that is not a colour of its own: the same white with the
@@ -461,20 +468,19 @@ const PROFILE_RAL: ColorOption[] = [
 //
 // The brushed and mirrored metal finishes from the profile board are NOT here.
 // They were asked to stay out of the configurator — "len normálne farby" — and
-// a finish that is out is out: no option, no swatch, and no code behind it.
+// a finish that is out is out: no option, no swatch, and nothing behind it.
 const PROFILE_MATT: ColorOption = {
-  id: "white-mat", label: "Biela matná", value: "#eeeee7",
-  code: "RAL 9016 MAT", finish: "matte",
+  id: "white-mat", label: "Biela matná", value: "#eeeee7", finish: "matte",
 };
 
-/** Cut (non-lit) letters: lacquered sheet, the RAL range only. */
-export const letterColorOptions: ColorOption[] = PROFILE_RAL;
+/** Cut (non-lit) letters: lacquered sheet, the same range. */
+export const letterColorOptions: ColorOption[] = PROFILE_COLORS;
 
-/** Lit letters: the same RAL range, plus the matt white. */
+/** Lit letters: the same range, plus the matt white. */
 export const profileColorOptions: ColorOption[] = [
-  PROFILE_RAL[0],
+  PROFILE_COLORS[0],
   PROFILE_MATT,                  // matt white sits next to the gloss one
-  ...PROFILE_RAL.slice(1),
+  ...PROFILE_COLORS.slice(1),
 ];
 
 /** Which colours a sign of this kind can be made in. */
