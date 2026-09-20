@@ -5,7 +5,14 @@ import { oneLine } from "@/lib/sign-text";
 import { X, Check, Lock } from "lucide-react";
 import type { Config } from "@/lib/types";
 import { useCart, describeConfig, type CartItem } from "@/lib/cart-context";
-import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor, lightColorOption } from "@/lib/options";
+import {
+  fontOptions,
+  MATERIALS,
+  LIGHT_MODES,
+  depthMmFor,
+  lightColorOption,
+  resolveLightColor,
+} from "@/lib/options";
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange } from "@/lib/session-client";
 import DeliveryStep, {
@@ -342,7 +349,7 @@ export default function OrderModal({ cartItems, onClose }: Props) {
                 <dd className="flex items-center gap-2">
                   <span
                     className="inline-block h-4 w-4 rounded-full"
-                    style={{ background: first?.lightColor, border: "1px solid var(--color-border)" }}
+                    style={{ background: first ? resolveLightColor(first) : undefined, border: "1px solid var(--color-border)" }}
                   />
                   <span className="font-semibold" style={{ color: "var(--color-foreground)" }}>
                     {(first && lightColorOption(first.lightColor)?.label) ?? "—"}

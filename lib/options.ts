@@ -404,13 +404,39 @@ export type LightColorOption = {
   hint: string;
 };
 
+/**
+ * Not a colour but an instruction: the LEDs take whatever colour the letter
+ * body is, and keep following it if that changes. Stored in Config.lightColor
+ * in place of a hex, and resolved wherever the real colour is needed
+ * (resolveLightColor below).
+ */
+export const LIGHT_COLOR_AS_BODY = "body";
+
 export const LIGHT_COLORS: LightColorOption[] = [
   { id: "white-warm", label: "Teplá biela",      value: "#ffcf9a", hint: "Mäkké, teplé svetlo — najčastejšia voľba" },
   { id: "white-cool", label: "Biela intenzívna", value: "#ffffff", hint: "Studená biela, najsilnejší svit" },
   { id: "red",        label: "Červená",          value: "#ff2a2a", hint: "RGB modul" },
   { id: "green",      label: "Zelená",           value: "#00d084", hint: "RGB modul" },
   { id: "blue",       label: "Modrá",            value: "#245cff", hint: "RGB modul" },
+  {
+    id: "as-body",
+    label: "Rovnaká ako telo",
+    value: LIGHT_COLOR_AS_BODY,
+    hint: "Svetlo má farbu písmena — a mení sa s ňou",
+  },
 ];
+
+/**
+ * The colour the LEDs actually are. Everything that draws or stores a real
+ * colour goes through this, because Config.lightColor may hold the "same as
+ * the body" instruction instead of a hex.
+ */
+export function resolveLightColor(config: {
+  lightColor: string;
+  bodyColor: string;
+}): string {
+  return config.lightColor === LIGHT_COLOR_AS_BODY ? config.bodyColor : config.lightColor;
+}
 
 /** Warm white: what a sign gets unless the customer says otherwise. */
 export const DEFAULT_LIGHT_COLOR = LIGHT_COLORS[0].value;
@@ -419,6 +445,9 @@ export const DEFAULT_LIGHT_COLOR = LIGHT_COLORS[0].value;
 const WHITES_ONLY: LightModeId[] = ["back"];
 
 export function lightColorsFor(mode: LightModeId): LightColorOption[] {
+  // "Rovnaká ako telo" is a colour like any other as far as the workshop is
+  // concerned, so it follows the same rule as R-G-B: not for a back-lit sign,
+  // where only the two whites are made.
   return WHITES_ONLY.includes(mode)
     ? LIGHT_COLORS.filter((c) => c.id.startsWith("white-"))
     : LIGHT_COLORS;
