@@ -1,22 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
+import { blogPosts } from "@/lib/blog-data";
 
-const posts = [
-  {
-    slug: "kto-sme",
-    title: "Kto sme a čo robíme?",
-    desc: "Zoznámte sa s nami a zistite, ako vyrábame svetelné nápisy na mieru priamo na Slovensku.",
-  },
-  {
-    slug: "aky-material",
-    title: "Aký materiál si vybrať?",
-    desc: "Porovnanie Alubond, Plexiskla, 3D tlače a PVC — výhody a nevýhody každého materiálu.",
-  },
-  {
-    slug: "aky-obrazok",
-    title: "Aký obrázok je kvalitný?",
-    desc: "Čo musí spĺňať predloha, aby bol výsledný nápis čistý, ostrý a presný podľa vašich predstáv.",
-  },
-] as const;
+// Prvé tri články, tak ako sú v lib/blog-data.ts — nie ich kópia. Keď sa
+// článok zmení alebo zmizne, náhľad ide s ním; predtým tu boli natvrdo
+// prepísané tri slugy, ktoré prežili aj to, že články už neexistovali.
+const posts = blogPosts.slice(0, 3);
 
 export default function BlogPreview() {
   return (
@@ -52,12 +41,18 @@ export default function BlogPreview() {
                 aria-label={post.title}
                 className="field-card group block overflow-hidden rounded-field shadow-v3d-soft outline-none"
               >
-                {/* Image placeholder — 284 px tall per Figma */}
-                <div
-                  className="img-zoom h-71 w-full"
-                  style={{ background: "var(--color-surface-raised)" }}
-                  aria-hidden="true"
-                />
+                {/* Fotka realizácie — 284 px vysoká podľa Figmy. */}
+                <div className="img-zoom relative h-71 w-full" style={{ background: "var(--color-surface-raised)" }}>
+                  {post.image && (
+                    <Image
+                      src={post.image}
+                      alt=""
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover"
+                    />
+                  )}
+                </div>
 
                 {/* Text */}
                 <div className="p-5">
