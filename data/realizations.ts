@@ -19,13 +19,7 @@ export type Realization = {
   // Ak chceš vlastné fotky, stiahni ich do /public/realizacie/ a zmeň na /realizacie/{id}.jpg
   // (potom treba pridať unoptimized={false} v ShowcaseSection a odstrániť ?query z URL).
   image: string;
-  /**
-   * Kam karta vedie — článok o tej realizácii na 4from.media. Nepovinné:
-   * naše vlastné ukážky nikam nevedú, sú to fotky toho, čo sa dá
-   * nakonfigurovať, nie prípadové štúdie. Karta bez url sa nekreslí ako
-   * odkaz, aby nikoho neposielala do prázdna.
-   */
-  url?: string;
+  url: string;
 };
 
 export const realizations: Realization[] = [
@@ -206,6 +200,7 @@ export const realizations: Realization[] = [
     lightModes: ["front"],
     tags: ["3d-tlac", "svetelne", "front", "ukazka"],
     image: "/realizacie-ukazky/3d-tlac-svetlo-spredu.avif",
+    url: "/blog/3d-tlac-svetlo-spredu",
   },
 
   {
@@ -218,6 +213,7 @@ export const realizations: Realization[] = [
     materials: ["print3d-solid"],
     tags: ["3d-tlac", "plain", "bez-svetla", "ukazka"],
     image: "/realizacie-ukazky/3d-tlac-plne-bez-svetla.avif",
+    url: "/blog/3d-tlac-plne-pismo-bez-svetla",
   },
 
   {
@@ -231,6 +227,7 @@ export const realizations: Realization[] = [
     lightModes: ["front"],
     tags: ["alurol", "svetelne", "front", "exterier", "ukazka"],
     image: "/realizacie-ukazky/alurol-svetlo-spredu.avif",
+    url: "/blog/alurol-podsvietenie-spredu",
   },
 
   {
@@ -243,6 +240,7 @@ export const realizations: Realization[] = [
     materials: ["plexi-uv"],
     tags: ["plexi", "plain", "bez-svetla", "interier", "ukazka"],
     image: "/realizacie-ukazky/plexi-nesvetelne.avif",
+    url: "/blog/plexisklo-bez-podsvietenia",
   },
 
   {
@@ -256,6 +254,7 @@ export const realizations: Realization[] = [
     lightModes: ["front", "edge"],
     tags: ["plexi30", "svetelne", "front", "edge", "ukazka"],
     image: "/realizacie-ukazky/plexi30-svetlo-spredu-a-hrany.avif",
+    url: "/blog/plexi-30mm-svetlo-spredu-a-hrany",
   },
 
   {
@@ -269,6 +268,7 @@ export const realizations: Realization[] = [
     lightModes: ["edge"],
     tags: ["plexi30", "svetelne", "edge", "detail", "ukazka"],
     image: "/realizacie-ukazky/svietenie-hranami.avif",
+    url: "/blog/svietenie-hranami-detail",
   },
 
   {
@@ -282,6 +282,7 @@ export const realizations: Realization[] = [
     lightModes: ["back"],
     tags: ["alurol", "halo", "back", "exterier", "ukazka"],
     image: "/realizacie-ukazky/halo-svetlo-zozadu.avif",
+    url: "/blog/halo-efekt-svetlo-zozadu",
   },
 ];
 
