@@ -32,9 +32,8 @@ const ENV_INTENSITY       = 0.92;  // day — neutral studio HDRI
 const ENV_INTENSITY_NIGHT = 0.52;  // night — dim, but never so dim the colour goes grey
 const TONEMAP_EXPOSURE    = 0.95;
 
-// PBR texture tiling (tiles per letter face) — asset folder names kept as-is,
-// only the material catalog ids ("alurol-*" / "print3d*") changed.
-const KOMPOZIT_REPEAT = 2;   // metal_plate — 2× gives realistic scale
+// PBR texture tiling (tiles per letter face) for the 3D-print layer lines —
+// the only build that carries a surface texture.
 const THREED_REPEAT   = 8;   // ribbed_corduroy — 8× simulates fine FDM layer lines
 
 // Bloom — the ONLY light source is material emissive; no scene point-lights
@@ -543,26 +542,8 @@ type TexLetterProps = {
   faceKind:      FaceKind;
 };
 
-function KompozitLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry, faceColor, faceKind }: TexLetterProps) {
-  // No colour map here on purpose (see TexSet.map) — and one fewer 2.6 MB
-  // texture to download for it.
-  const [roughMap, normalMap, metalMap] = useTexture([
-    "/textures/alubond/roughness.jpg",
-    "/textures/alubond/normal.jpg",
-    "/textures/alubond/metalness.jpg",
-  ]);
-  const triple = useTexturedTriple(
-    matOpt, baseColor, glowColor, ls, isIlluminated,
-    { roughnessMap: roughMap, normalMap, metalnessMap: metalMap },
-    KOMPOZIT_REPEAT,
-    faceColor,
-    faceKind,
-  );
-  return <SolidLetterMesh geometry={geometry} materials={toMaterialArray(triple)} />;
-}
-
 function ThreeDLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry, faceColor, faceKind }: TexLetterProps) {
-  // No colour map either (see TexSet.map): the print photo averages a greenish
+  // No colour map (see TexSet.map): the print photo averages a greenish
   // grey (rgb 141,147,128), which turned a yellow print olive and every other
   // colour a shade darker than its swatch. The layer lines are relief — the
   // normal and roughness maps carry them.
@@ -588,9 +569,8 @@ type LetterVariantProps = TexLetterProps & {
 function LetterVariant({ material, fallback, geometry, ...rest }: LetterVariantProps) {
   const fallbackMesh = <SolidLetterMesh geometry={geometry} materials={fallback} />;
 
-  if (material === "alurol-upper" || material === "alurol-lower") {
-    return <Suspense fallback={fallbackMesh}><KompozitLetters geometry={geometry} {...rest} /></Suspense>;
-  }
+  // Alurol has no texture on purpose: it is a lacquered aluminium band with
+  // a smooth, glossy finish, and a brushed-metal map is exactly what it is not.
   if (material === "print3d" || material === "print3d-solid") {
     return <Suspense fallback={fallbackMesh}><ThreeDLetters geometry={geometry} {...rest} /></Suspense>;
   }

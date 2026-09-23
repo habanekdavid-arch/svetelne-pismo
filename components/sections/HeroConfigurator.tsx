@@ -2,8 +2,8 @@ import ConfiguratorStage from "@/components/configurator/ConfiguratorStage";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 
 // Deliberately NOT reading the session here (no getUserSession()/cookies())
-// — that would force this page to opt out of static rendering. OrderModal
-// fetches /api/auth/me itself, client-side, only once it's actually opened.
+// — that would force this page to opt out of static rendering. The cart
+// checkout fetches /api/auth/me itself, client-side, once the drawer opens.
 //
 // The section clips with overflow-x-clip, not overflow-hidden: `hidden` turns
 // it into a scroll container, which silently disables the sticky preview

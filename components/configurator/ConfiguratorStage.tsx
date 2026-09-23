@@ -16,8 +16,8 @@ import { formatEur, netFromGross, vatFromGross, VAT_RATE, formatAmount } from "@
 import {
   fontOptions,
   fontsFor,
-  lightColorsFor,
   clampLightColor,
+  LIGHT_COLORS,
   hasSeparateFace,
   faceColorOptionsFor,
   faceColorOf,
@@ -147,7 +147,7 @@ export default function ConfiguratorStage() {
   const availableMaterials = materialsFor(config.signType, config.placement, config.lightMode);
   const availableLightModes = lightModesFor(config.placement);
   // …and the LED colours are the ones this way of lighting is made in.
-  const availableLightColors = lightColorsFor(config.lightMode);
+  const availableLightColors = LIGHT_COLORS;
   const litColor = config.lightColor;
   // Alurol sa v cenníku vedie zvlášť pre veľké a zvlášť pre malé písmo, tak
   // sa do poľa ani nedá napísať to druhé (lib/options.ts textCaseFor).
@@ -273,7 +273,7 @@ export default function ConfiguratorStage() {
     const pc = pendingConfig.config;
     const incoming: Config = {
       ...pc,
-      lightColor: clampLightColor(pc.lightMode, pc.lightColor),
+      lightColor: clampLightColor(pc.lightColor),
       faceColor: clampFaceColor(pc.material, pc.signType, pc.lightMode, pc.faceColor ?? pc.bodyColor),
     };
     setConfig(incoming);
@@ -321,7 +321,7 @@ export default function ConfiguratorStage() {
     // …and the LED colour has to be one this way of lighting is made in:
     // switching from red edges to a back-lit sign lands on warm white,
     // because a red wall-wash is not something we make.
-    const lightColor = clampLightColor(mode, next.lightColor ?? config.lightColor);
+    const lightColor = clampLightColor(next.lightColor ?? config.lightColor);
 
     // …and the text has to be writable in this build: alurol comes as veľké
     // písmená or malé písmená, so switching between them rewrites what is
@@ -751,10 +751,9 @@ export default function ConfiguratorStage() {
                     <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
                       Farba svetla
                     </p>
-                    {/* Pomenované farby, nie odtieňový posuvník: vyrábajú sa
-                        tieto a žiadne medzi nimi. Zoznam sa mení so spôsobom
-                        svietenia — zozadu je to žiara na stene a tá sa robí
-                        len v bielej (lib/options.ts lightColorsFor). */}
+                    {/* Len teplá a studená biela — farbu nápisu robí čelo,
+                        LED rozhoduje iba o tom, či svieti teplo alebo studeno
+                        (lib/options.ts LIGHT_COLORS). */}
                     <div className="grid grid-cols-2 gap-2">
                       {availableLightColors.map((c) => {
                         const active = config.lightColor.toLowerCase() === c.value.toLowerCase();

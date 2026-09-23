@@ -52,13 +52,13 @@ function num(raw: string | undefined, fallback: number): number {
 }
 
 // ── Prices ───────────────────────────────────────────────────────────────────
-// The same tariff as vytlacto3d (its lib/shipping.ts SHIPPING_RATES): final,
-// VAT-inclusive prices the customer pays — 3,99 € to a pick-up point, 5,99 €
-// by courier. Overridable from the environment so a change in the carrier's
-// tariff does not need a code change.
+// The same tariff vytlacto3d charges: final, VAT-inclusive prices — 4,92 € to
+// a Packeta pick-up point, 6,15 € by courier (4 € and 5 € + 23 % DPH).
+// Overridable from the environment so a change in the carrier's tariff does
+// not need a code change.
 export const DELIVERY_PRICES = {
-  pickup: numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_PICKUP, 3.99),
-  home:   numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_HOME, 5.99),
+  pickup: numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_PICKUP, 4.92),
+  home:   numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_HOME, 6.15),
 } as const;
 
 function numOrZero(raw: string | undefined, fallback: number): number {

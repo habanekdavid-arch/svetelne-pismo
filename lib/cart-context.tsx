@@ -156,7 +156,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               ...i,
               config: {
                 ...i.config,
-                lightColor: clampLightColor(i.config.lightMode, String(i.config.lightColor ?? "")),
+                lightColor: clampLightColor(String(i.config.lightColor ?? "")),
               },
             }));
         }

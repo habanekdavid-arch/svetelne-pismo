@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { MapPin, Check } from "lucide-react";
+import { MapPin } from "lucide-react";
 import type { DeliveryPoint } from "@/lib/orders";
 
 // Packeta's pick-up point widget.
@@ -126,32 +126,46 @@ export default function PacketaPointPicker({ value, onChange, weightKg }: Props)
     );
   }
 
+  // Drawn like vytlacto3d's: a dashed "choose" button until a point is
+  // picked, then the point itself in a green box with a way to change it.
   return (
     <div>
-      <button
-        type="button"
-        onClick={open}
-        disabled={opening}
-        className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-xs font-black transition hover:opacity-90 disabled:opacity-60"
-        style={{
-          background: value ? "var(--color-surface-raised)" : "var(--accent)",
-          color: value ? "var(--color-foreground)" : "#000",
-        }}
-      >
-        {value ? <Check size={15} /> : <MapPin size={15} />}
-        {opening ? "Otváram mapu…" : value ? "Zmeniť výdajné miesto" : "Vybrať výdajné miesto"}
-      </button>
-
-      {value && (
+      {value ? (
         <div
-          className="mt-2 rounded-lg px-3 py-2 text-[12px] leading-5"
-          style={{ background: "var(--color-background)", color: "var(--color-foreground)" }}
+          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          style={{ border: "1px solid #bbf7d0", background: "#f0fdf4" }}
         >
-          <strong>{value.name}</strong>
-          {value.street && <> · {value.street}</>}
-          {value.city && <> , {value.city}</>}
-          {value.zip && <> {value.zip}</>}
+          <MapPin size={14} className="shrink-0 text-green-600" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-xs font-bold text-neutral-900">{value.name}</div>
+            <div className="truncate text-[11px] text-neutral-600">
+              {[value.street, value.city].filter(Boolean).join(", ")}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={open}
+            disabled={opening}
+            className="shrink-0 rounded-lg border border-neutral-200 bg-white px-2 py-1 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-60"
+          >
+            {opening ? "Otváram…" : "Zmeniť"}
+          </button>
         </div>
+      ) : (
+        <button
+          type="button"
+          onClick={open}
+          disabled={opening}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-xs font-semibold transition disabled:opacity-60"
+          style={{
+            border: "2px dashed var(--color-border-strong)",
+            background: "var(--color-surface)",
+            color: "var(--color-foreground-soft)",
+          }}
+        >
+          <MapPin size={12} aria-hidden="true" />
+          {opening ? "Otváram mapu…" : "Vybrať výdajné miesto →"}
+        </button>
       )}
       {error && <p className="mt-2 text-[12px] text-red-400">{error}</p>}
     </div>

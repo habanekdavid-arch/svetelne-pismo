@@ -1,6 +1,6 @@
 // Tiny cross-component signal for "the customer session just changed" —
-// used when OrderModal's inline sign-in/sign-up (see AuthGate in
-// components/configurator/OrderModal.tsx) authenticates someone without a
+// used when the checkout's inline sign-in/sign-up (see
+// components/checkout/AuthGate.tsx) authenticates someone without a
 // full page navigation, so HeaderNav can refetch /api/auth/me and update
 // immediately instead of waiting for the next page load.
 
