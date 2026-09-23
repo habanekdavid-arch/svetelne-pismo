@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
 import { useCart, describeConfig } from "@/lib/cart-context";
 import { MATERIALS, fontOptions, faceColorOf } from "@/lib/options";
-import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
-import OrderModal from "@/components/configurator/OrderModal";
+import { formatEur } from "@/lib/vat";
+import CheckoutPanel, { type PlacedNotice } from "@/components/cart/CheckoutPanel";
 
 // Cart drawer, built to the shape of vytlacto3d's: a dimmed backdrop, a panel
 // pinned to the right edge at most 440px wide, a slim header with the cart
 // glyph, and then one scrollable column — first the list of items as a card of
-// numbered rows, then the checkout panel with the price breakdown, the terms
-// tick and the order button.
+// numbered rows, then the whole checkout (components/cart/CheckoutPanel.tsx):
+// delivery, contact, payment, the price breakdown, the terms tick and the
+// order button.
 //
 // Icons are inline SVG with the source's stroke weights rather than lucide, so
 // the drawer is drawn with the same hand as the sister site.
@@ -30,13 +31,23 @@ function CartGlyph({ size = 18 }: { size?: number }) {
 
 export default function CartSidebar() {
   const { items, total, isOpen, close, remove, beginEdit, editingId } = useCart();
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-
-  // calculatePrice() is the VAT-inclusive figure the customer sees in the
-  // configurator (see lib/vat.ts), so the base and the VAT are derived from it.
-  const net = netFromGross(total);
-  const vat = vatFromGross(total);
+  // "Thank you" for an order that stayed on this page — kept until the drawer
+  // is closed, since the cart it came from is already empty.
+  const [placed, setPlaced] = useState<PlacedNotice | null>(null);
+  // The server's prices, once the checkout has them: the cart's own are a
+  // preview measured in this browser and can differ by a euro in rounding,
+  // and the drawer must not show two totals for one basket.
+  const [quoted, setQuoted] = useState<number[] | null>(null);
+  const linePrice = (idx: number, fallback: number) =>
+    quoted && quoted.length === items.length ? quoted[idx] : fallback;
+  const shownTotal = quoted && quoted.length === items.length
+    ? quoted.reduce((a, b) => a + b, 0)
+    : total;
+  useEffect(() => {
+    if (isOpen) return;
+    const t = setTimeout(() => setPlaced(null), 300); // after the slide-out
+    return () => clearTimeout(t);
+  }, [isOpen]);
 
   return (
     <>
@@ -186,7 +197,7 @@ export default function CartSidebar() {
                           </div>
 
                           <div className="shrink-0 text-right text-xs font-bold" style={{ color: "var(--color-foreground)" }}>
-                            {formatEur(item.price)}
+                            {formatEur(linePrice(idx, item.price))}
                           </div>
 
                           <button
@@ -227,89 +238,45 @@ export default function CartSidebar() {
                   })}
                 </ul>
               )}
+
+              {items.length > 0 && (
+                <div className="flex items-center justify-between px-5 py-4 text-sm" style={{ borderTop: "1px solid var(--color-border)" }}>
+                  <span style={{ color: "var(--color-muted)" }}>Výroba celkom (s DPH)</span>
+                  <span className="font-extrabold" style={{ color: "var(--color-foreground)" }}>{formatEur(shownTotal)}</span>
+                </div>
+              )}
             </div>
 
-            {/* Checkout */}
-            {items.length > 0 ? (
-              <div className="space-y-5">
-
-                {/* Price summary */}
-                <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: "var(--color-surface)" }}>
-                  <div className="flex justify-between" style={{ color: "var(--color-muted)" }}>
-                    <span>Výroba ({items.length} {items.length === 1 ? "nápis" : items.length < 5 ? "nápisy" : "nápisov"})</span>
-                    <span className="font-semibold">{formatEur(net)}</span>
-                  </div>
-                  <div className="mt-1 flex justify-between" style={{ color: "var(--color-muted)" }}>
-                    <span>DPH {Math.round(VAT_RATE * 100)} %</span>
-                    <span className="font-semibold">{formatEur(vat)}</span>
-                  </div>
-                  <div
-                    className="mt-2 flex justify-between border-t pt-2 text-base font-extrabold"
-                    style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-                  >
-                    <span>Celkom s DPH</span>
-                    <span>{formatEur(total)}</span>
-                  </div>
-                  <p className="mt-2 text-[11px]" style={{ color: "var(--color-muted)" }}>
-                    Doprava Packetou 3,99 € alebo kuriérom 5,99 € — vyberiete v ďalšom kroku. Ak chcete nápis aj namontovať, zvoľte tam konzultáciu k montáži.
-                  </p>
+            {/* Checkout — everything from delivery to the order button,
+                right here in the drawer, the way vytlacto3d has it. */}
+            {placed ? (
+              <div
+                className="rounded-3xl px-5 py-8 text-center"
+                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+              >
+                <div
+                  className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full"
+                  style={{ background: "var(--accent)" }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M2 6l3 3 5-5" stroke="black" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </div>
-
-                {/* Terms + order */}
-                <div className="space-y-3">
-                  <label
-                    className="flex cursor-pointer items-start gap-3 rounded-2xl p-3 transition-colors"
-                    style={{
-                      border: `2px solid ${termsAccepted ? "var(--accent)" : "var(--color-border)"}`,
-                      background: termsAccepted ? "color-mix(in srgb, var(--accent) 5%, transparent)" : "var(--color-background)",
-                    }}
-                  >
-                    <span
-                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors"
-                      style={{
-                        border: `2px solid ${termsAccepted ? "var(--accent)" : "var(--color-border)"}`,
-                        background: termsAccepted ? "var(--accent)" : "var(--color-background)",
-                      }}
-                      aria-hidden="true"
-                    >
-                      {termsAccepted && (
-                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                          <path d="M2 6l3 3 5-5" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <span className="text-xs leading-5" style={{ color: "var(--color-foreground-soft)" }}>
-                      Súhlasím s{" "}
-                      <a
-                        href="/obchodne-podmienky"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="font-semibold underline"
-                        style={{ color: "var(--color-foreground)" }}
-                      >
-                        obchodnými podmienkami
-                      </a>
-                    </span>
-                  </label>
-
-                  <button
-                    type="button"
-                    disabled={!termsAccepted}
-                    onClick={() => setCheckoutOpen(true)}
-                    className="btn-press w-full rounded-2xl px-5 py-3.5 text-sm font-extrabold shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                    style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
-                  >
-                    Objednať {items.length === 1 ? "nápis" : `${items.length} nápisy`}
-                  </button>
+                <div className="text-base font-extrabold" style={{ color: "var(--color-foreground)" }}>
+                  {placed.title}
                 </div>
+                <p className="mt-2 text-sm leading-6" style={{ color: "var(--color-muted)" }}>{placed.text}</p>
+                <Link
+                  href="/ucet/objednavky"
+                  onClick={close}
+                  className="mt-5 inline-block rounded-2xl px-5 py-3 text-xs font-extrabold"
+                  style={{ background: "var(--color-foreground)", color: "var(--color-background)" }}
+                >
+                  Moje objednávky
+                </Link>
               </div>
+            ) : items.length > 0 ? (
+              <CheckoutPanel items={items} isOpen={isOpen} onPlaced={setPlaced} onQuoted={setQuoted} />
             ) : (
               <div
                 className="rounded-2xl px-5 py-8 text-center text-sm"
@@ -321,10 +288,6 @@ export default function CartSidebar() {
           </div>
         </div>
       </aside>
-
-      {checkoutOpen && (
-        <OrderModal cartItems={items} termsAccepted={termsAccepted} onClose={() => setCheckoutOpen(false)} />
-      )}
     </>
   );
 }

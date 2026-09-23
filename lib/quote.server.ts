@@ -93,12 +93,9 @@ export function sanitizeConfig(raw: unknown): Config | null {
     signType: c.signType,
     placement: c.placement,
     lightMode: c.lightMode ?? "front",
-    // Only a colour this way of lighting is made in — an old cart line may
-    // still carry one that is no longer offered.
-    lightColor: clampLightColor(
-      c.lightMode ?? "front",
-      typeof c.lightColor === "string" ? c.lightColor : DEFAULT_LIGHT_COLOR,
-    ),
+    // Only one of the two whites — an old cart line may still carry a
+    // coloured LED that is no longer made.
+    lightColor: clampLightColor(typeof c.lightColor === "string" ? c.lightColor : DEFAULT_LIGHT_COLOR),
     bodyColor: typeof c.bodyColor === "string" ? c.bodyColor.slice(0, 32) : "#ffffff",
     // Checked, not trusted: a front-lit face has to be a colour light gets
     // through, and 30 mm plexi has no separate face at all.

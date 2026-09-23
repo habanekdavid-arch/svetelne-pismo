@@ -5,7 +5,7 @@ import { getUserSession } from "@/lib/user-auth";
 // getUserSession() call inside shared layout (Header) or page (HeroConfigurator)
 // components — reading the cookie there would force every page that renders
 // them (i.e. the whole site) to opt out of static rendering. Header and
-// OrderModal call this instead, so home/blog/legal pages stay static.
+// the cart checkout call this instead, so home/blog/legal pages stay static.
 export async function GET() {
   const session = await getUserSession();
   return NextResponse.json({

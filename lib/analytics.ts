@@ -28,8 +28,8 @@ export type PurchasePayload = {
   items: PurchaseItem[];
 };
 
-// The order form (components/configurator/OrderModal.tsx) has no backend —
-// nothing is persisted or paid, so there is no server-issued order number.
+// The checkout (components/cart/CheckoutPanel.tsx) reports a purchase without
+// the server's order number, which it does not pass to analytics.
 // This generates a client-side stand-in so `transaction_id` isn't empty.
 // Replace with a real backend-issued ID if/when the order flow gets one.
 export function generateClientOrderId(): string {
