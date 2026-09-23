@@ -12,6 +12,9 @@ import {
   depthMmFor,
   lightColorOption,
   resolveLightColor,
+  hasSeparateFace,
+  faceColorOf,
+  colorLabel,
 } from "@/lib/options";
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange } from "@/lib/session-client";
@@ -344,6 +347,20 @@ export default function OrderModal({ cartItems, onClose }: Props) {
 
                 <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Hrúbka</dt>
                 <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{first ? depthMmFor(first.material, first.height) : "—"} mm</dd>
+
+                {first && hasSeparateFace(first.material) ? (
+                  <>
+                    <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Čelo</dt>
+                    <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{colorLabel(faceColorOf(first))}</dd>
+                    <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Hrana</dt>
+                    <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{colorLabel(first.bodyColor)}</dd>
+                  </>
+                ) : first ? (
+                  <>
+                    <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Farba</dt>
+                    <dd className="font-semibold" style={{ color: "var(--color-foreground)" }}>{colorLabel(first.bodyColor)}</dd>
+                  </>
+                ) : null}
 
                 <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Farba svetla</dt>
                 <dd className="flex items-center gap-2">

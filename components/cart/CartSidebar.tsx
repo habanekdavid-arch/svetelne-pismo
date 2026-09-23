@@ -4,7 +4,7 @@ import { useState } from "react";
 import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
 import { useCart, describeConfig } from "@/lib/cart-context";
-import { MATERIALS, fontOptions, resolveLightColor } from "@/lib/options";
+import { MATERIALS, fontOptions, resolveLightColor, faceColorOf } from "@/lib/options";
 import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
 import OrderModal from "@/components/configurator/OrderModal";
 
@@ -171,7 +171,8 @@ export default function CartSidebar() {
                             <div className="mt-1 flex items-center gap-1.5">
                               <span
                                 className="h-3 w-3 rounded-full"
-                                style={{ background: item.config.bodyColor, boxShadow: "0 0 0 1px var(--color-border)" }}
+                                // čelo vnútri, hrana ako okraj — tak ako vyzerá písmeno
+                                style={{ background: faceColorOf(item.config), boxShadow: `inset 0 0 0 2px ${item.config.bodyColor}, 0 0 0 1px var(--color-border)` }}
                                 aria-hidden="true"
                               />
                               {item.config.signType === "illuminated" && (

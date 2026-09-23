@@ -10,8 +10,16 @@ import type { WallGrain } from "@/lib/walls";
 // or twenty. Painting it beats shipping texture files: four surfaces cost no
 // download at all, and each is deterministic, so two visitors see the same wall.
 
-/** World units one tile covers. The letters are ~0.78 units tall, ≈ 35 cm. */
+/**
+ * World units one tile covers. Together with BRICK_ROWS_PER_TILE this is what
+ * fixes the real-world scale of the whole preview: one brick course is
+ * TILE_UNITS / BRICK_ROWS_PER_TILE units, and that course is 70 mm
+ * (components/three/scale.ts) — so the letters, their depth and the wall are
+ * all measured in the same millimetres.
+ */
 export const TILE_UNITS = 2;
+/** Brick courses in one tile — see TILE_UNITS. */
+export const BRICK_ROWS_PER_TILE = 14;
 const TILE_PX = 640;
 
 // Deterministic noise — the same wall every time the preview is opened, and no
@@ -111,9 +119,10 @@ function granules(
 }
 
 function paintBrick(ctx: CanvasRenderingContext2D, rand: () => number) {
-  // Courses of roughly 25 × 6.5 cm bricks in a running bond, at TILE_UNITS
-  // scale, so the bond lines up across repeats.
-  const rows = 14;
+  // Courses of 7 cm — a 6.5 cm brick plus its joint — in a running bond, at
+  // TILE_UNITS scale, so the bond lines up across repeats. This course height
+  // is the ruler the whole preview is measured by (components/three/scale.ts).
+  const rows = BRICK_ROWS_PER_TILE;
   const h = TILE_PX / rows;
   const perRow = 4;
   const w = TILE_PX / perRow;
@@ -329,6 +338,11 @@ export function useWallTexture(grain: WallGrain, planeWidth: number, planeHeight
     t.colorSpace = THREE.SRGBColorSpace;
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.repeat.set(planeWidth / TILE_UNITS, planeHeight / TILE_UNITS);
+    // The wall is seen at a slant and, for a big nápis, from far away — the
+    // bricks get small and run away from the camera. Without anisotropic
+    // filtering they shimmer into moiré exactly where the eye goes. 16 is the
+    // ceiling every GPU clamps to on its own.
+    t.anisotropy = 16;
     t.needsUpdate = true;
     return t;
   }, [grain, planeWidth, planeHeight]);

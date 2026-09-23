@@ -257,6 +257,36 @@ export function useTTFFont(url: string): Font {
   throw promise;
 }
 
+// ── Cap height ───────────────────────────────────────────────────────────────
+//
+// The height a customer orders is the height of a capital — the same "H" the
+// price is measured by (lib/useSignSize.ts CAP_SAMPLE). Fonts differ in how
+// much of their em that capital takes, so it is measured from the font rather
+// than assumed; that is what lets every face stand at its true size.
+const capHeightCache = new WeakMap<Font, number>();
+
+export function capHeightLocal(font: Font): number {
+  const cached = capHeightCache.get(font);
+  if (cached) return cached;
+  let cap = GLYPH_SIZE * 0.72; // a typical bold face, if "H" cannot be read
+  try {
+    const shapes = repairShapes(font.generateShapes("H", GLYPH_SIZE) as THREE.Shape[]);
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const shape of shapes) {
+      for (const p of shape.getPoints(4)) {
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+    if (maxY > minY) cap = maxY - minY;
+  } catch {
+    // keep the typical value
+  }
+  capHeightCache.set(font, cap);
+  return cap;
+}
+
 // ── Geometry building ────────────────────────────────────────────────────────
 
 export type SolidLetterBuild = {
@@ -304,11 +334,18 @@ function mergeGlyphGeometries(geometries: THREE.BufferGeometry[]): THREE.BufferG
 }
 
 function extrudeShape(shape: THREE.Shape, depth: number, noBevel: boolean): THREE.BufferGeometry {
+  // The rounded edge is carved INTO the letter, not added around it. three
+  // grows a bevel outward by default, which made every letter 4.8 % taller and
+  // wider than ordered — 14 mm on a 30 cm letter — and, with a bevel on both
+  // faces, a good deal deeper than its profile. With the offset the outline
+  // is exactly the glyph and the depth exactly the build.
+  const bevelThickness = Math.min(BEVEL_THICKNESS, depth * 0.3);
   const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth,
+    depth: noBevel ? depth : Math.max(depth * 0.2, depth - 2 * bevelThickness),
     bevelEnabled: !noBevel,
     bevelSize: BEVEL_SIZE,
-    bevelThickness: BEVEL_THICKNESS,
+    bevelOffset: -BEVEL_SIZE,
+    bevelThickness,
     bevelSegments: BEVEL_SEGMENTS,
     curveSegments: CURVE_SEGMENTS,
     ...(noBevel ? NO_BEVEL_RETRY : {}),
@@ -444,7 +481,7 @@ const HALO_GLOW_EDGE_PAD = 0.3;
  * contour: 1 = linear, higher = light hugs the letter more tightly. 2.6 is
  * roughly what a strip of LEDs a few centimetres off the wall throws.
  */
-const HALO_GLOW_FALLOFF = 1.9;
+const HALO_GLOW_FALLOFF = 2.6;
 
 export type HaloGlowBuild = {
   texture: THREE.CanvasTexture | null; // null when the text has no drawable glyphs
@@ -467,7 +504,17 @@ function polygon(ctx: CanvasRenderingContext2D, pts: THREE.Vector2[], toPx: (p: 
   ctx.closePath();
 }
 
-export function buildHaloGlowTexture(font: Font, text: string): HaloGlowBuild {
+/**
+ * @param reach How far the light spreads beyond the letter's edge, in the
+ *   letter's own (unscaled) units. The caller works it out from a real
+ *   distance in millimetres, so the halo is as wide as the stand-off makes it
+ *   — not a fixed share of the letter, which on a big sign was a wall of light.
+ */
+export function buildHaloGlowTexture(
+  font: Font,
+  text: string,
+  reach: number = HALO_GLOW_MARGIN * GLYPH_SIZE,
+): HaloGlowBuild {
   if (typeof document === "undefined") return EMPTY_HALO;
 
   const outlines: Outline[] = [];
@@ -502,7 +549,7 @@ export function buildHaloGlowTexture(font: Font, text: string): HaloGlowBuild {
   });
   if (outlines.length === 0) return EMPTY_HALO;
 
-  const margin = HALO_GLOW_MARGIN * GLYPH_SIZE;
+  const margin = reach;
   // The plane is a little larger than the glow's own reach. Without that
   // headroom the falloff ends exactly on the texture's border, and the final
   // smoothing pass leaves a faint rectangle where the plane stops.

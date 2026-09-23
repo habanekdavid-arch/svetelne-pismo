@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUserSession } from "@/lib/user-auth";
 import { listOrdersForUser, orderCountLabel } from "@/lib/orders";
-import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor } from "@/lib/options";
+import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor, faceColorOf } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import StatusBadge from "@/components/orders/StatusBadge";
 import AccountShell, { AccountSection } from "@/components/account/AccountShell";
@@ -73,7 +73,7 @@ export default async function AccountOrdersPage() {
                       <div className="flex items-center gap-2">
                         <span
                           className="h-3.5 w-3.5 shrink-0 rounded-full"
-                          style={{ background: o.config.bodyColor, border: "1px solid var(--color-border)" }}
+                          style={{ background: faceColorOf(o.config), border: `3px solid ${o.config.bodyColor}` }}
                           aria-hidden="true"
                         />
                         <p className="truncate text-base font-extrabold" style={{ color: "var(--color-foreground)" }}>

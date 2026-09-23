@@ -105,7 +105,18 @@ export type Config = {
   placement: Placement;
   lightMode: LightModeId;
   lightColor: string;
+  /**
+   * The RETURN — the side of the letter, the band a channel letter is built
+   * around. Named bodyColor for the orders already stored under that name.
+   */
   bodyColor: string;
+  /**
+   * The FACE — the front the customer looks at. Its own colour on every build
+   * except 30 mm plexi, which is one solid piece of acrylic (lib/options.ts
+   * hasSeparateFace). Missing on signs saved before the two were split, and
+   * then the face is simply the same colour as the return.
+   */
+  faceColor?: string;
   /**
    * Letter height in MILLIMETRES — the unit the price list is written in, and
    * the only dimension a customer sets. Thickness follows from it through the
