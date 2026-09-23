@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import type { Config } from "@/lib/types";
+import { isPaymentMethod, type PaymentMethodId } from "@/lib/payment-methods";
 
 export type OrderStatus = "new" | "in_progress" | "done" | "cancelled";
 
@@ -159,6 +160,8 @@ export type OrderGroup = {
   totalCents: number;
   currency: string;
   paymentStatus: PaymentStatus;
+  /** Card or transfer; null when nothing is paid at checkout (enquiry, consultation). */
+  paymentMethod: PaymentMethodId | null;
   stripeSessionId: string | null;
   stripePaymentIntent: string | null;
   packetaPacketId: string | null;
@@ -187,6 +190,7 @@ function mapGroup(row: Row): OrderGroup {
     totalCents: Number(row.total_cents),
     currency: row.currency,
     paymentStatus: row.payment_status as PaymentStatus,
+    paymentMethod: isPaymentMethod(row.payment_method) ? row.payment_method : null,
     stripeSessionId: row.stripe_session_id ?? null,
     stripePaymentIntent: row.stripe_payment_intent ?? null,
     packetaPacketId: row.packeta_packet_id ?? null,
@@ -207,13 +211,14 @@ export async function createOrderGroup(input: {
   deliveryAddress?: DeliveryAddress | null;
   itemsCents: number;
   deliveryCents: number;
+  paymentMethod?: PaymentMethodId | null;
 }): Promise<OrderGroup> {
   const sql = await getDb();
   const rows = (await sql`
     INSERT INTO order_groups (
       id, user_id, customer_name, customer_email, customer_phone,
       delivery_method, delivery_point, delivery_address,
-      items_cents, delivery_cents, total_cents
+      items_cents, delivery_cents, total_cents, payment_method
     ) VALUES (
       ${input.id},
       ${input.userId},
@@ -225,7 +230,8 @@ export async function createOrderGroup(input: {
       ${input.deliveryAddress ? JSON.stringify(input.deliveryAddress) : null}::jsonb,
       ${input.itemsCents},
       ${input.deliveryCents},
-      ${input.itemsCents + input.deliveryCents}
+      ${input.itemsCents + input.deliveryCents},
+      ${input.paymentMethod ?? null}
     )
     RETURNING *
   `) as Row[];

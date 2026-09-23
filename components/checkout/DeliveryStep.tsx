@@ -30,19 +30,15 @@ type Props = {
   methods: QuotedDeliveryMethod[];
   value: DeliveryChoice;
   onChange: (next: DeliveryChoice) => void;
-  phone: string;
-  onPhoneChange: (phone: string) => void;
   /** Estimated parcel weight, so the widget only offers points that take it. */
   weightKg?: number;
-  errors?: { point?: string; address?: string; phone?: string };
+  errors?: { point?: string; address?: string };
 };
 
 export default function DeliveryStep({
   methods,
   value,
   onChange,
-  phone,
-  onPhoneChange,
   weightKg,
   errors = {},
 }: Props) {
@@ -55,17 +51,13 @@ export default function DeliveryStep({
     onChange({ method: method.id, point: null, address: method.needsAddress ? address : null });
   }
 
-  function patchAddress(patch: Partial<DeliveryAddress>) {
-    onChange({ ...value, address: { ...address, ...patch } });
-  }
-
   return (
     <div className="mb-6">
       <h3
         className="mb-3 text-[11px] font-black tracking-wide"
         style={{ color: "var(--color-foreground)" }}
       >
-        Doprava
+        Spôsob doručenia
       </h3>
 
       <div className="space-y-2">
@@ -116,75 +108,65 @@ export default function DeliveryStep({
               )}
 
               {active && method.needsAddress && (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <Field
-                    className="col-span-2"
-                    label="Ulica"
-                    value={address.street}
-                    onChange={(v) => patchAddress({ street: v })}
-                    autoComplete="address-line1"
+                <div className="mt-3">
+                  <AddressFields
+                    value={address}
+                    onChange={(next) => onChange({ ...value, address: next })}
+                    error={errors.address}
                   />
-                  <Field
-                    label="Číslo"
-                    value={address.houseNumber}
-                    onChange={(v) => patchAddress({ houseNumber: v })}
-                    autoComplete="address-line2"
-                  />
-                  <Field
-                    className="col-span-2"
-                    label="Mesto"
-                    value={address.city}
-                    onChange={(v) => patchAddress({ city: v })}
-                    autoComplete="address-level2"
-                  />
-                  <Field
-                    label="PSČ"
-                    value={address.zip}
-                    onChange={(v) => patchAddress({ zip: v })}
-                    autoComplete="postal-code"
-                  />
-                  {errors.address && (
-                    <p className="col-span-3 text-[11px] text-red-400">{errors.address}</p>
-                  )}
                 </div>
               )}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
 
-      {/* Packeta notifies the recipient by SMS, so a phone number is required
-          for anything it carries — and useful for the rest. */}
-      {selected && selected.id.startsWith("packeta") && (
-        <div className="mt-3">
-          <label
-            className="mb-1.5 block text-[11px] font-black tracking-wide"
-            style={{ color: "var(--color-foreground)" }}
-          >
-            Telefón
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => onPhoneChange(e.target.value)}
-            placeholder="+421 900 000 000"
-            autoComplete="tel"
-            className="w-full rounded-lg px-4 py-3 text-sm outline-none"
-            style={{
-              background: errors.phone ? "rgba(239,68,68,0.08)" : "var(--color-surface)",
-              border: `1px solid ${errors.phone ? "#f87171" : "var(--color-border)"}`,
-              color: "var(--color-foreground)",
-            }}
-          />
-          {errors.phone ? (
-            <p className="mt-1 text-[11px] text-red-400">{errors.phone}</p>
-          ) : (
-            <p className="mt-1 text-[11px]" style={{ color: "var(--color-muted)" }}>
-              Packeta naň pošle SMS, keď bude zásielka pripravená.
-            </p>
-          )}
-        </div>
-      )}
+/** Street, number, town and postcode — for a courier, or for where a sign is mounted. */
+export function AddressFields({
+  value,
+  onChange,
+  error,
+}: {
+  value: DeliveryAddress;
+  onChange: (next: DeliveryAddress) => void;
+  error?: string;
+}) {
+  const address = value;
+  function patchAddress(patch: Partial<DeliveryAddress>) {
+    onChange({ ...address, ...patch });
+  }
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <Field
+        className="col-span-2"
+        label="Ulica"
+        value={address.street}
+        onChange={(v) => patchAddress({ street: v })}
+        autoComplete="address-line1"
+      />
+      <Field
+        label="Číslo"
+        value={address.houseNumber}
+        onChange={(v) => patchAddress({ houseNumber: v })}
+        autoComplete="address-line2"
+      />
+      <Field
+        className="col-span-2"
+        label="Mesto"
+        value={address.city}
+        onChange={(v) => patchAddress({ city: v })}
+        autoComplete="address-level2"
+      />
+      <Field
+        label="PSČ"
+        value={address.zip}
+        onChange={(v) => patchAddress({ zip: v })}
+        autoComplete="postal-code"
+      />
+      {error && <p className="col-span-3 text-[11px] text-red-400">{error}</p>}
     </div>
   );
 }

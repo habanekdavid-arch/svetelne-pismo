@@ -25,8 +25,6 @@ import {
   clampFaceColor,
   applyTextCase,
   textCaseFor,
-  resolveLightColor,
-  LIGHT_COLOR_AS_BODY,
   DEFAULT_LIGHT_COLOR,
   bodyColorOptionsFor,
   materialById,
@@ -150,9 +148,7 @@ export default function ConfiguratorStage() {
   const availableLightModes = lightModesFor(config.placement);
   // …and the LED colours are the ones this way of lighting is made in.
   const availableLightColors = lightColorsFor(config.lightMode);
-  // config.lightColor may hold "rovnaká ako telo" rather than a colour; this
-  // is what the preview and every swatch actually draw.
-  const litColor = resolveLightColor(config);
+  const litColor = config.lightColor;
   // Alurol sa v cenníku vedie zvlášť pre veľké a zvlášť pre malé písmo, tak
   // sa do poľa ani nedá napísať to druhé (lib/options.ts textCaseFor).
   const textCase = textCaseFor(config.material);
@@ -762,9 +758,7 @@ export default function ConfiguratorStage() {
                     <div className="grid grid-cols-2 gap-2">
                       {availableLightColors.map((c) => {
                         const active = config.lightColor.toLowerCase() === c.value.toLowerCase();
-                        // "Rovnaká ako telo" has no colour of its own — show
-                        // the one it is currently following.
-                        const dot = c.value === LIGHT_COLOR_AS_BODY ? config.bodyColor : c.value;
+                        const dot = c.value;
                         return (
                           <button
                             key={c.id}

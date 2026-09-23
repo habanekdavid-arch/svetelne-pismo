@@ -2,14 +2,23 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { getUserSession } from "@/lib/user-auth";
 import { createOrder, createOrderGroup, type DeliveryAddress, type DeliveryPoint } from "@/lib/orders";
-import { deliveryCents, quoteBasket, resolveDelivery, sanitizeConfig } from "@/lib/quote.server";
-import { stripeConfigured } from "@/lib/stripe";
+import {
+  deliveryCents,
+  quoteBasket,
+  resolveDelivery,
+  sanitizeConfig,
+  type Quote,
+} from "@/lib/quote.server";
+import { availablePaymentMethods } from "@/lib/payment.server";
+import { INSTALLATION_METHOD, isPaymentMethod, type PaymentMethodId } from "@/lib/payment-methods";
 import type { Config } from "@/lib/types";
 
 // Placing an order. Called from the checkout once the customer is signed in
-// (our own Prisma-backed session, lib/user-auth.ts), has chosen how the sign
-// is to be delivered, and — where card payment is switched on — right before
-// being sent to Stripe.
+// (our own Prisma-backed session, lib/user-auth.ts), in one of two shapes:
+//   · a standard order — delivery and payment chosen, terms agreed, and, when
+//     paying by card, right before being sent to Stripe;
+//   · an installation consultation (`kind: "installation"`) — contact details
+//     and the address the sign is to be mounted at; the shop calls back.
 //
 // Nothing about money or delivery is taken from the request: every sign is
 // re-measured and re-priced here (lib/quote.server.ts), and the chosen
@@ -60,12 +69,53 @@ export async function POST(req: Request) {
 
   const email = (typeof body?.email === "string" && body.email.trim()) || session.email;
   const name = (typeof body?.name === "string" && body.name.trim()) || session.name || "Zákazník";
-  const phone = typeof body?.phone === "string" ? body.phone.trim().slice(0, 32) : null;
+  const phone = typeof body?.phone === "string" ? body.phone.trim().slice(0, 32) || null : null;
 
   const quote = await quoteBasket(configs);
 
-  // ── Delivery ───────────────────────────────────────────────────────────────
-  const methodId = typeof body?.delivery?.method === "string" ? body.delivery.method : "personal";
+  // ── Installation consultation ──────────────────────────────────────────────
+  // The customer wants the sign mounted, so the shop calls them first. Nothing
+  // is paid or shipped yet; what has to be right is how to reach them and
+  // where the sign is going on the wall.
+  if (body?.kind === "installation") {
+    const site = readAddress(body?.installation?.address);
+    if (!site) {
+      return NextResponse.json({ error: "installation_address_required" }, { status: 400 });
+    }
+    if (!phone) {
+      return NextResponse.json({ error: "phone_required" }, { status: 400 });
+    }
+    const groupId = randomUUID();
+    const group = await createOrderGroup({
+      id: groupId,
+      userId: session.userId,
+      customerName: name,
+      customerEmail: email,
+      customerPhone: phone,
+      deliveryMethod: INSTALLATION_METHOD,
+      deliveryAddress: site,
+      itemsCents: quote.itemsCents,
+      deliveryCents: 0,
+      paymentMethod: null,
+    });
+    const orders = await saveSigns(quote, session.userId, name, email, groupId);
+    return NextResponse.json({
+      groupId,
+      orders,
+      order: orders[0],
+      totalCents: group.totalCents,
+      deliveryMethod: INSTALLATION_METHOD,
+      payOnline: false,
+    });
+  }
+
+  // ── Standard order ─────────────────────────────────────────────────────────
+  // Same as vytlacto3d: the terms are agreed to before anything is ordered.
+  if (body?.terms !== true) {
+    return NextResponse.json({ error: "terms_required" }, { status: 400 });
+  }
+
+  const methodId = typeof body?.delivery?.method === "string" ? body.delivery.method : "";
   const method = resolveDelivery(quote, methodId);
   if (!method) {
     // Either an unknown method, or one this consignment is too big or heavy
@@ -86,10 +136,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "address_required" }, { status: 400 });
   }
 
-  // Packeta needs a phone number to notify the recipient; asking for it after
-  // the money has moved is too late.
-  if ((method.needsPoint || method.id === "packeta-home") && !phone) {
+  // The carrier notifies the recipient by phone; asking for it after the
+  // money has moved is too late.
+  if (!phone) {
     return NextResponse.json({ error: "phone_required" }, { status: 400 });
+  }
+
+  // Card or transfer — only one the shop can actually take right now. With
+  // neither set up the order is an enquiry and the shop confirms it by hand.
+  const offered = availablePaymentMethods();
+  let payment: PaymentMethodId | null = null;
+  if (offered.length > 0) {
+    if (!isPaymentMethod(body?.payment) || !offered.includes(body.payment)) {
+      return NextResponse.json({ error: "payment_not_available", available: offered }, { status: 400 });
+    }
+    payment = body.payment;
   }
 
   // ── Persist ────────────────────────────────────────────────────────────────
@@ -105,13 +166,37 @@ export async function POST(req: Request) {
     deliveryAddress: address,
     itemsCents: quote.itemsCents,
     deliveryCents: deliveryCents(method),
+    paymentMethod: payment,
   });
 
+  const orders = await saveSigns(quote, session.userId, name, email, groupId);
+
+  return NextResponse.json({
+    groupId,
+    orders,
+    // `order` stays in the response for any caller still reading the old field.
+    order: orders[0],
+    totalCents: group.totalCents,
+    deliveryMethod: method.id,
+    payment,
+    /** True when the next step is a redirect to Stripe. */
+    payOnline: payment === "card" && group.totalCents > 0,
+  });
+}
+
+/** One order row per sign, all tied to the checkout they were part of. */
+async function saveSigns(
+  quote: Quote,
+  userId: string,
+  name: string,
+  email: string,
+  groupId: string,
+) {
   const orders = [];
   for (const item of quote.items) {
     orders.push(
       await createOrder({
-        userId: session.userId,
+        userId,
         customerName: name,
         customerEmail: email,
         config: item.config,
@@ -121,17 +206,7 @@ export async function POST(req: Request) {
       }),
     );
   }
-
-  return NextResponse.json({
-    groupId,
-    orders,
-    // `order` stays in the response for any caller still reading the old field.
-    order: orders[0],
-    totalCents: group.totalCents,
-    deliveryMethod: method.id,
-    /** True when the next step is a redirect to Stripe. */
-    payOnline: stripeConfigured() && group.totalCents > 0,
-  });
+  return orders;
 }
 
 function str(value: unknown, max: number): string | null {

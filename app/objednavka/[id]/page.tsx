@@ -13,6 +13,9 @@ import { oneLine } from "@/lib/sign-text";
 import { formatEur } from "@/lib/vat";
 import AccountShell, { AccountSection } from "@/components/account/AccountShell";
 import PayAgainButton from "@/components/orders/PayAgainButton";
+import { bankAccount, variableSymbol } from "@/lib/bank";
+import { stripeConfigured } from "@/lib/stripe";
+import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 
 export const metadata: Metadata = {
   title: "Objednávka | rozsvieťTO",
@@ -43,10 +46,17 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const orders = await listOrdersForGroup(id);
   const paid = group.paymentStatus === "paid";
   const cancelled = stav === "zrusene";
+  const installation = group.deliveryMethod === INSTALLATION_METHOD;
+  // A card can be (re)tried whenever the shop takes cards — also by someone
+  // who picked a transfer and changed their mind. A consultation is paid only
+  // once the mounting is agreed.
+  const canPayByCard = !paid && !installation && group.totalCents > 0 && stripeConfigured();
+  const bank = group.paymentMethod === "transfer" && !paid ? bankAccount() : null;
+  const vs = orders[0] ? variableSymbol(orders[0].id) : null;
 
   return (
     <AccountShell
-      title="Objednávka"
+      title={installation ? "Konzultácia k montáži" : "Objednávka"}
       description={`Číslo ${group.id.split("-")[0].toUpperCase()}`}
     >
       <AccountSection title={headline(group, cancelled)}>
@@ -54,12 +64,30 @@ export default async function OrderPage({ params, searchParams }: Props) {
           {body(group, cancelled)}
         </p>
 
-        {!paid && !cancelled && group.totalCents > 0 && (
+        {/* Bank transfer: everything needed to pay, for as long as it is unpaid. */}
+        {bank && vs && (
+          <dl
+            className="mt-5 space-y-2 rounded-xl p-4 text-sm"
+            style={{ background: "var(--color-surface)", border: "1px solid var(--color-border-strong)" }}
+          >
+            <Row label="Suma" value={formatEur(group.totalCents / 100)} />
+            <Row label="IBAN" value={bank.iban} />
+            {bank.bic && <Row label="BIC / SWIFT" value={bank.bic} />}
+            <Row label="Variabilný symbol" value={vs} />
+            <Row label="Príjemca" value={bank.holder} />
+            <Row label="Správa pre príjemcu" value={`Objednávka ${group.id.split("-")[0].toUpperCase()}`} />
+          </dl>
+        )}
+
+        {canPayByCard && !cancelled && (
           <div className="mt-5">
-            <PayAgainButton groupId={group.id} />
+            <PayAgainButton
+              groupId={group.id}
+              label={group.paymentMethod === "transfer" ? "Radšej zaplatiť kartou" : undefined}
+            />
           </div>
         )}
-        {cancelled && group.totalCents > 0 && (
+        {canPayByCard && cancelled && (
           <div className="mt-5">
             <PayAgainButton groupId={group.id} label="Skúsiť platbu znova" />
           </div>
@@ -89,11 +117,16 @@ export default async function OrderPage({ params, searchParams }: Props) {
         </ul>
 
         <dl className="mt-5 space-y-2 text-sm">
-          <Row label="Doprava" value={deliveryLabel(group)} />
+          <Row label={installation ? "Adresa inštalácie" : "Doprava"} value={deliveryLabel(group)} />
           {group.deliveryCents > 0 && (
             <Row label="Cena dopravy" value={formatEur(group.deliveryCents / 100)} />
           )}
-          <Row label="Platba" value={PAYMENT_STATUS_LABEL[group.paymentStatus]} />
+          {group.paymentMethod && (
+            <Row label="Spôsob platby" value={PAYMENT_METHOD_LABEL[group.paymentMethod]} />
+          )}
+          {!installation && (
+            <Row label="Platba" value={PAYMENT_STATUS_LABEL[group.paymentStatus]} />
+          )}
           {group.packetaBarcode && (
             <Row label="Číslo zásielky" value={group.packetaBarcode} />
           )}
@@ -102,7 +135,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
             style={{ borderColor: "var(--color-border)" }}
           >
             <dt className="text-xs font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
-              Spolu s DPH
+              {installation ? "Za nápisy, s DPH" : "Spolu s DPH"}
             </dt>
             <dd className="text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
               {formatEur(group.totalCents / 100)}
@@ -132,24 +165,29 @@ export default async function OrderPage({ params, searchParams }: Props) {
 }
 
 function headline(group: OrderGroup, cancelled: boolean): string {
+  if (group.deliveryMethod === INSTALLATION_METHOD) return "Žiadosť o konzultáciu je prijatá";
   if (group.paymentStatus === "paid") return "Objednávka je zaplatená";
   if (cancelled) return "Platba nebola dokončená";
   if (group.paymentStatus === "failed") return "Platba zlyhala";
-  if (group.totalCents === 0) return "Objednávka je prijatá";
+  if (group.totalCents === 0 || !group.paymentMethod) return "Objednávka je prijatá";
   return "Objednávka čaká na zaplatenie";
 }
 
 function body(group: OrderGroup, cancelled: boolean): string {
+  if (group.deliveryMethod === INSTALLATION_METHOD) {
+    return "Ozveme sa vám telefonicky a dohodneme obhliadku, montáž a jej cenu. Teraz nič neplatíte.";
+  }
   if (group.paymentStatus === "paid") {
-    return group.deliveryMethod.startsWith("packeta")
-      ? "Ďakujeme. Nápis ideme vyrábať a hneď ako bude hotový, odošleme ho — číslo zásielky sa objaví tu a pošleme vám ho aj e-mailom."
-      : "Ďakujeme. Nápis ideme vyrábať a o vyzdvihnutí sa vám ozveme.";
+    return "Ďakujeme. Nápis ideme vyrábať a hneď ako bude hotový, odošleme ho — číslo zásielky sa objaví tu.";
   }
   if (cancelled) {
     return "Platba bola prerušená a nič sme vám nestrhli. Objednávku máme uloženú — môžete ju zaplatiť kedykoľvek.";
   }
-  if (group.totalCents === 0) {
-    return "Objednávku máme. Ozveme sa vám s potvrdením ceny a termínu.";
+  if (group.paymentMethod === "transfer") {
+    return "Objednávku máme. Pošlite prosím sumu na účet nižšie s variabilným symbolom — výrobu začneme hneď, ako platba príde.";
+  }
+  if (group.totalCents === 0 || !group.paymentMethod) {
+    return "Objednávku máme. Ozveme sa vám s potvrdením ceny, termínu a platobnými údajmi.";
   }
   return "Objednávku máme uloženú. Dokončite prosím platbu.";
 }
