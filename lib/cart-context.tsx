@@ -12,7 +12,7 @@ import {
 import type { Config } from "@/lib/types";
 import { calculatePrice } from "@/lib/pricing";
 import type { SignSize } from "@/lib/useSignSize";
-import { depthMmFor, faceColorOf } from "@/lib/options";
+import { clampLightColor, depthMmFor, faceColorOf } from "@/lib/options";
 
 // Cart of configured signs. Each entry is one complete Config — the same shape
 // the configurator publishes and /api/orders already accepts — plus the price
@@ -145,10 +145,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          restored = parsed.filter(
-            (i): i is CartItem =>
-              !!i && typeof i === "object" && "config" in i && "id" in i,
-          );
+          restored = parsed
+            .filter(
+              (i): i is CartItem =>
+                !!i && typeof i === "object" && "config" in i && "id" in i,
+            )
+            // A line saved before a light colour was taken off the list keeps
+            // its sign, on the nearest colour still made.
+            .map((i) => ({
+              ...i,
+              config: {
+                ...i.config,
+                lightColor: clampLightColor(i.config.lightMode, String(i.config.lightColor ?? "")),
+              },
+            }));
         }
       }
     } catch {
@@ -299,6 +309,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     // An emptied cart starts over: the next change in the configurator is a
     // new draft, not a repeat of what was just ordered.
     confirmedRef.current = null;
+    // Written now, not left to the effect above: checkout empties the cart
+    // and immediately leaves for Stripe or the order page, and the effect
+    // would not get to run — the ordered signs would be back on return.
+    try {
+      localStorage.setItem(STORAGE_KEY, "[]");
+    } catch {
+      // Storage blocked — nothing was persisted to begin with.
+    }
   }, [setItems]);
   const open  = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);

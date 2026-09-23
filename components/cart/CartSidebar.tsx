@@ -4,7 +4,7 @@ import { useState } from "react";
 import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
 import { useCart, describeConfig } from "@/lib/cart-context";
-import { MATERIALS, fontOptions, resolveLightColor, faceColorOf } from "@/lib/options";
+import { MATERIALS, fontOptions, faceColorOf } from "@/lib/options";
 import { formatEur, netFromGross, vatFromGross, VAT_RATE } from "@/lib/vat";
 import OrderModal from "@/components/configurator/OrderModal";
 
@@ -178,7 +178,7 @@ export default function CartSidebar() {
                               {item.config.signType === "illuminated" && (
                                 <span
                                   className="h-3 w-3 rounded-full"
-                                  style={{ background: resolveLightColor(item.config), boxShadow: "0 0 0 1px var(--color-border)" }}
+                                  style={{ background: item.config.lightColor, boxShadow: "0 0 0 1px var(--color-border)" }}
                                   aria-hidden="true"
                                 />
                               )}
@@ -251,7 +251,7 @@ export default function CartSidebar() {
                     <span>{formatEur(total)}</span>
                   </div>
                   <p className="mt-2 text-[11px]" style={{ color: "var(--color-muted)" }}>
-                    Orientačná cena. Záväznú dostanete po overení parametrov; doprava a montáž sa dohodnú individuálne.
+                    Doprava Packetou 3,99 € alebo kuriérom 5,99 € — vyberiete v ďalšom kroku. Ak chcete nápis aj namontovať, zvoľte tam konzultáciu k montáži.
                   </p>
                 </div>
 
@@ -323,7 +323,7 @@ export default function CartSidebar() {
       </aside>
 
       {checkoutOpen && (
-        <OrderModal cartItems={items} onClose={() => setCheckoutOpen(false)} />
+        <OrderModal cartItems={items} termsAccepted={termsAccepted} onClose={() => setCheckoutOpen(false)} />
       )}
     </>
   );

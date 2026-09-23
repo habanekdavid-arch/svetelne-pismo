@@ -5,6 +5,7 @@ import { siteOrigin, stripe } from "@/lib/stripe";
 import { materialById } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 import { formatDeliveryPrice } from "@/lib/shipping";
+import { INSTALLATION_METHOD } from "@/lib/payment-methods";
 
 // Opens the Stripe Checkout Session for an order that has already been placed
 // and priced (app/api/orders). The amount comes from the stored order, never
@@ -36,6 +37,10 @@ export async function POST(req: Request) {
   }
   if (group.paymentStatus === "paid") {
     return NextResponse.json({ error: "already_paid" }, { status: 409 });
+  }
+  // A consultation is priced and paid once the mounting is agreed, not here.
+  if (group.deliveryMethod === INSTALLATION_METHOD) {
+    return NextResponse.json({ error: "not_payable" }, { status: 400 });
   }
   if (group.totalCents <= 0) {
     return NextResponse.json({ error: "nothing_to_pay" }, { status: 400 });

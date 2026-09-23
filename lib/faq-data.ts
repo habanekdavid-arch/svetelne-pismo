@@ -72,7 +72,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Aká je cena dopravy?",
-        a: "Doručenie po Slovensku prostredníctvom kuriéra stojí od 5 € do 15 € podľa rozmerov. Pri objednávkach nad 300 € je doprava zdarma.",
+        a: "Na výdajné miesto alebo do Z-BOXu Packety 3,99 €, kuriérom na adresu 5,99 € (s DPH). Nápis, ktorý je na balík príliš veľký, posielame prepravou na dohodu — cenu potvrdíme pred výrobou.",
       },
       {
         q: "Ponúkate osobné prevzatie?",

@@ -15,6 +15,8 @@ import {
 import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor, hasSeparateFace, faceColorOf, colorLabel } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
+import ConfirmTransferButton from "@/components/admin/ConfirmTransferButton";
+import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import StatusBadge from "@/components/orders/StatusBadge";
 import LogoutButton from "@/components/admin/LogoutButton";
 import EyebrowPill from "@/components/ui/EyebrowPill";
@@ -305,6 +307,14 @@ function SpecLine({ label, value }: { label: string; value: string }) {
  * that could not be created says why, right here, because nobody will go
  * looking in the logs.
  */
+const DELIVERY_LABEL: Record<string, string> = {
+  "packeta-pickup": "Packeta — výdajné miesto",
+  "packeta-home":   "Kuriér",
+  freight:          "Preprava na dohodu",
+  personal:         "Osobný odber",
+  [INSTALLATION_METHOD]: "Konzultácia k montáži",
+};
+
 function DeliveryPanel({ group }: { group: OrderGroup | null }) {
   if (!group) {
     // Placed before checkout existed: there is no delivery or payment to show,
@@ -328,23 +338,37 @@ function DeliveryPanel({ group }: { group: OrderGroup | null }) {
       : "Osobný odber";
 
   const paid = group.paymentStatus === "paid";
+  const installation = group.deliveryMethod === INSTALLATION_METHOD;
 
   return (
     <div className="min-w-0 text-sm">
       <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-        Doprava a platba
+        {installation ? "Konzultácia k montáži" : "Doprava a platba"}
       </p>
       <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
-        <SpecLine label="Spôsob" value={group.deliveryMethod} />
-        <SpecLine label="Kam" value={where} />
+        <SpecLine label="Spôsob" value={DELIVERY_LABEL[group.deliveryMethod] ?? group.deliveryMethod} />
+        <SpecLine label={installation ? "Adresa inštalácie" : "Kam"} value={where} />
         {group.customerPhone && <SpecLine label="Telefón" value={group.customerPhone} />}
-        <SpecLine label="Platba" value={PAYMENT_STATUS_LABEL[group.paymentStatus]} />
+        {group.paymentMethod && (
+          <SpecLine label="Platba cez" value={PAYMENT_METHOD_LABEL[group.paymentMethod]} />
+        )}
+        {!installation && (
+          <SpecLine label="Platba" value={PAYMENT_STATUS_LABEL[group.paymentStatus]} />
+        )}
         {group.packetaBarcode && <SpecLine label="Zásielka" value={group.packetaBarcode} />}
       </dl>
       {paid && (
         <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
           Zaplatené {formatEur(group.totalCents / 100)}
         </p>
+      )}
+      {installation && (
+        <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
+          Zavolať zákazníkovi a dohodnúť montáž
+        </p>
+      )}
+      {!paid && group.paymentMethod === "transfer" && (
+        <ConfirmTransferButton groupId={group.id} />
       )}
       {group.packetaError && (
         <p className="mt-2 text-xs leading-5 text-red-500">

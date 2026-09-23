@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { oneLine } from "@/lib/sign-text";
-import { X, Check, Lock } from "lucide-react";
+import { X, Check, Lock, Package, Wrench, CreditCard, Landmark } from "lucide-react";
 import type { Config } from "@/lib/types";
+import type { DeliveryAddress } from "@/lib/orders";
 import { useCart, describeConfig, type CartItem } from "@/lib/cart-context";
 import {
   fontOptions,
@@ -11,14 +12,19 @@ import {
   LIGHT_MODES,
   depthMmFor,
   lightColorOption,
-  resolveLightColor,
   hasSeparateFace,
   faceColorOf,
   colorLabel,
 } from "@/lib/options";
+import {
+  PAYMENT_METHOD_LABEL,
+  type OrderKind,
+  type PaymentMethodId,
+} from "@/lib/payment-methods";
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange } from "@/lib/session-client";
 import DeliveryStep, {
+  AddressFields,
   emptyAddress,
   type DeliveryChoice,
   type QuotedDeliveryMethod,
@@ -34,17 +40,35 @@ type Quote = {
   parcel: { weightKg: number; longestCm: number };
   deliveryMethods: QuotedDeliveryMethod[];
   canPayOnline: boolean;
+  /** Empty when the shop takes no payment yet — the order is then an enquiry. */
+  paymentMethods: PaymentMethodId[];
 };
 
-// The last step of checkout, opened from the cart drawer. Every order goes
-// through the cart now — the configurator's "Objednať" puts the sign there
-// first — so this always works from a list of cart items.
+type FieldErrors = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  point?: string;
+  address?: string;
+  site?: string;
+  payment?: string;
+};
+
+// The last step of checkout, opened from the cart drawer once the terms are
+// agreed to there. Two ways on from here:
+//   · a standard order, as on vytlacto3d — delivery by Packeta (3,99 €) or
+//     courier (5,99 €), paid by card or by bank transfer;
+//   · an installation consultation — the customer wants the sign mounted, so
+//     they leave their name, the address it goes up at, e-mail and phone, and
+//     the shop calls them. Nothing is paid or shipped until then.
 type Props = {
   cartItems: CartItem[];
+  /** Agreed to in the cart drawer, which is the only way this modal opens. */
+  termsAccepted: boolean;
   onClose: () => void;
 };
 
-export default function OrderModal({ cartItems, onClose }: Props) {
+export default function OrderModal({ cartItems, termsAccepted, onClose }: Props) {
   const { clear: clearCart } = useCart();
 
   const configs: Config[] = cartItems.map((i) => i.config);
@@ -55,6 +79,7 @@ export default function OrderModal({ cartItems, onClose }: Props) {
   const [authedUser, setAuthedUser] = useState<SessionUser | null | undefined>(undefined);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -72,13 +97,11 @@ export default function OrderModal({ cartItems, onClose }: Props) {
     return () => { cancelled = true; };
   }, []);
 
+  const [kind, setKind] = useState<OrderKind>("standard");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
-  const [deliveryErrors, setDeliveryErrors] = useState<{
-    point?: string; address?: string; phone?: string;
-  }>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
   const trackedRef = useRef(false);
 
   // The basket, priced by the server. The cart's own figures are a preview
@@ -86,10 +109,12 @@ export default function OrderModal({ cartItems, onClose }: Props) {
   // here on the modal shows nothing else (app/api/quote).
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteFailed, setQuoteFailed] = useState(false);
-  const [phone, setPhone] = useState("");
   const [delivery, setDelivery] = useState<DeliveryChoice>({
-    method: "personal", point: null, address: null,
+    method: "", point: null, address: null,
   });
+  const [payment, setPayment] = useState<PaymentMethodId | null>(null);
+  // Where the sign is to be mounted — the one thing a consultation cannot do without.
+  const [site, setSite] = useState<DeliveryAddress>(emptyAddress());
 
   useEffect(() => {
     let cancelled = false;
@@ -103,8 +128,8 @@ export default function OrderModal({ cartItems, onClose }: Props) {
       .then((data: Quote) => {
         if (cancelled) return;
         setQuote(data);
-        // Start on the first method offered — the cheapest parcel option when
-        // the sign fits one, collection in person when it does not.
+        // Start on the first method offered — the cheaper parcel option when
+        // the sign fits one.
         const first = data.deliveryMethods[0];
         if (first) {
           setDelivery({
@@ -113,6 +138,7 @@ export default function OrderModal({ cartItems, onClose }: Props) {
             address: first.needsAddress ? emptyAddress() : null,
           });
         }
+        setPayment(data.paymentMethods?.[0] ?? null);
       })
       .catch(() => { if (!cancelled) setQuoteFailed(true); });
     return () => { cancelled = true; };
@@ -121,10 +147,14 @@ export default function OrderModal({ cartItems, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartItems]);
 
+  const installation = kind === "installation";
+  const paymentMethods = quote?.paymentMethods ?? [];
+
   // The server's figures once they arrive; the cart's own total meanwhile, so
-  // the modal is never blank. Only the server's is ever charged.
+  // the modal is never blank. Only the server's is ever charged. A
+  // consultation has no delivery — the sign comes with the fitter.
   const selectedMethod = quote?.deliveryMethods.find((m) => m.id === delivery.method) ?? null;
-  const deliveryPrice = selectedMethod?.price ?? 0;
+  const deliveryPrice = installation ? 0 : (selectedMethod?.price ?? 0);
   const itemsPrice = quote ? quote.itemsCents / 100 : cartItems.reduce((sum, i) => sum + i.price, 0);
   const price = itemsPrice + deliveryPrice;
 
@@ -144,39 +174,34 @@ export default function OrderModal({ cartItems, onClose }: Props) {
     notifySessionChange(); // syncs Header's account UI too
   }
 
-  function validate() {
-    const e: { name?: string; email?: string } = {};
+  /** Everything the chosen kind of order needs, checked before it is sent. */
+  function validate(): boolean {
+    const e: FieldErrors = {};
     if (!name.trim()) e.name = "Zadajte vaše meno";
     if (!email.trim()) {
       e.email = "Zadajte e-mailovú adresu";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       e.email = "Neplatná e-mailová adresa";
     }
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  }
+    if (!phone.trim()) e.phone = "Zadajte telefónne číslo";
 
-  /** The delivery step is only complete when the chosen method has what it needs. */
-  function validateDelivery(): boolean {
-    const method = selectedMethod;
-    const e: { point?: string; address?: string; phone?: string } = {};
-    if (method?.needsPoint && !delivery.point) e.point = "Vyberte prosím výdajné miesto";
-    if (method?.needsAddress) {
-      const a = delivery.address;
-      if (!a?.street.trim() || !a?.houseNumber.trim() || !a?.city.trim() || !a?.zip.trim()) {
+    if (installation) {
+      if (!isComplete(site)) e.site = "Vyplňte prosím celú adresu inštalácie";
+    } else {
+      const method = selectedMethod;
+      if (method?.needsPoint && !delivery.point) e.point = "Vyberte prosím výdajné miesto";
+      if (method?.needsAddress && !(delivery.address && isComplete(delivery.address))) {
         e.address = "Vyplňte prosím celú adresu";
       }
+      if (paymentMethods.length > 0 && !payment) e.payment = "Vyberte spôsob platby";
     }
-    if (method?.id.startsWith("packeta") && !phone.trim()) {
-      e.phone = "Packeta potrebuje telefónne číslo";
-    }
-    setDeliveryErrors(e);
+    setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate() || !validateDelivery() || submitting) return;
+    if (!validate() || submitting) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -184,14 +209,18 @@ export default function OrderModal({ cartItems, onClose }: Props) {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: configs, name, email, phone, delivery }),
+        body: JSON.stringify(
+          installation
+            ? { kind: "installation", items: configs, name, email, phone, installation: { address: site } }
+            : { kind: "standard", items: configs, name, email, phone, delivery, payment, terms: termsAccepted },
+        ),
       });
       if (!res.ok) throw new Error(`request failed: ${res.status}`);
       const placed = await res.json();
 
-      // Card payment on: hand the customer straight to Stripe. The order is
-      // already saved, so a cancelled payment loses nothing — they can come
-      // back to it from "Moje objednávky".
+      // Card: hand the customer straight to Stripe. The order is already
+      // saved, so a cancelled payment loses nothing — they can come back to
+      // it from "Moje objednávky".
       if (placed?.payOnline && placed?.groupId) {
         const pay = await fetch("/api/checkout", {
           method: "POST",
@@ -212,9 +241,17 @@ export default function OrderModal({ cartItems, onClose }: Props) {
         return;
       }
 
+      // Transfer: the order page shows the IBAN, the variable symbol and the
+      // amount — and keeps showing them for as long as the order is unpaid.
+      if (placed?.payment === "transfer" && placed?.groupId) {
+        clearCart();
+        window.location.href = `/objednavka/${placed.groupId}?stav=prevod`;
+        return;
+      }
+
       setSubmitted(true);
       clearCart();
-      if (!trackedRef.current) {
+      if (!installation && !trackedRef.current) {
         trackedRef.current = true;
         trackPurchase({
           transactionId: generateClientOrderId(),
@@ -233,11 +270,25 @@ export default function OrderModal({ cartItems, onClose }: Props) {
         });
       }
     } catch {
-      setSubmitError("Objednávku sa nepodarilo odoslať. Skúste to prosím znova.");
+      setSubmitError(
+        installation
+          ? "Žiadosť sa nepodarilo odoslať. Skúste to prosím znova."
+          : "Objednávku sa nepodarilo odoslať. Skúste to prosím znova.",
+      );
     } finally {
       setSubmitting(false);
     }
   }
+
+  const submitLabel = submitting
+    ? "Odosielam…"
+    : installation
+      ? "Požiadať o konzultáciu"
+      : selectedMethod?.price === null || paymentMethods.length === 0
+        ? "Odoslať objednávku"
+        : payment === "card"
+          ? `Objednať a zaplatiť kartou · ${formatEur(price)}`
+          : "Objednať — zaplatiť prevodom";
 
   return (
     <div
@@ -248,7 +299,7 @@ export default function OrderModal({ cartItems, onClose }: Props) {
       }}
     >
       <div
-        className="relative w-full max-w-lg rounded-2xl p-8 shadow-2xl"
+        className="relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl p-6 shadow-2xl sm:p-8"
         style={{
           background: "var(--color-background)",
           border: "1px solid var(--color-border)",
@@ -274,11 +325,24 @@ export default function OrderModal({ cartItems, onClose }: Props) {
               <Check size={28} strokeWidth={2.5} style={{ color: "#000" }} />
             </div>
             <h2 className="main-heading text-2xl" style={{ color: "var(--color-foreground)" }}>
-              Objednávka odoslaná
+              {installation ? "Žiadosť o konzultáciu odoslaná" : "Objednávka odoslaná"}
             </h2>
             <p className="mt-3 text-sm leading-6" style={{ color: "var(--color-muted)" }}>
-              Ďakujeme, {name}! Ozveme sa vám čoskoro na{" "}
-              <strong style={{ color: "var(--color-foreground)" }}>{email}</strong>.
+              {installation ? (
+                <>
+                  Ďakujeme, {name}! Ozveme sa vám na{" "}
+                  <strong style={{ color: "var(--color-foreground)" }}>{phone}</strong> a dohodneme montáž na
+                  adrese{" "}
+                  <strong style={{ color: "var(--color-foreground)" }}>
+                    {site.street} {site.houseNumber}, {site.city}
+                  </strong>.
+                </>
+              ) : (
+                <>
+                  Ďakujeme, {name}! Ozveme sa vám čoskoro na{" "}
+                  <strong style={{ color: "var(--color-foreground)" }}>{email}</strong>.
+                </>
+              )}
             </p>
             <button
               onClick={onClose}
@@ -291,11 +355,29 @@ export default function OrderModal({ cartItems, onClose }: Props) {
         ) : (
           <>
             <h2
-              className="main-heading mb-6 text-2xl"
+              className="main-heading mb-5 text-2xl"
               style={{ color: "var(--color-foreground)" }}
             >
-              Zhrnutie objednávky
+              Dokončenie objednávky
             </h2>
+
+            {/* Which way on: order it, or talk about mounting it first. */}
+            <div className="mb-5 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Spôsob objednania">
+              <KindCard
+                active={!installation}
+                onClick={() => { setKind("standard"); setErrors({}); }}
+                icon={<Package size={16} />}
+                title="Objednať s doručením"
+                text="Vyrobíme a pošleme — Packeta alebo kuriér."
+              />
+              <KindCard
+                active={installation}
+                onClick={() => { setKind("installation"); setErrors({}); }}
+                icon={<Wrench size={16} />}
+                title="Konzultácia k montáži"
+                text="Zavoláme vám a dohodneme montáž na mieste."
+              />
+            </div>
 
             {/* Summary — a per-sign list for a cart, the full spec table for
                 a single sign ordered straight from the configurator. */}
@@ -362,16 +444,20 @@ export default function OrderModal({ cartItems, onClose }: Props) {
                   </>
                 ) : null}
 
-                <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Farba svetla</dt>
-                <dd className="flex items-center gap-2">
-                  <span
-                    className="inline-block h-4 w-4 rounded-full"
-                    style={{ background: first ? resolveLightColor(first) : undefined, border: "1px solid var(--color-border)" }}
-                  />
-                  <span className="font-semibold" style={{ color: "var(--color-foreground)" }}>
-                    {(first && lightColorOption(first.lightColor)?.label) ?? "—"}
-                  </span>
-                </dd>
+                {first?.signType === "illuminated" && (
+                  <>
+                    <dt className="font-black tracking-wide" style={{ color: "var(--color-muted)" }}>Farba svetla</dt>
+                    <dd className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-4 w-4 rounded-full"
+                        style={{ background: first.lightColor, border: "1px solid var(--color-border)" }}
+                      />
+                      <span className="font-semibold" style={{ color: "var(--color-foreground)" }}>
+                        {lightColorOption(first.lightColor)?.label ?? "—"}
+                      </span>
+                    </dd>
+                  </>
+                )}
               </dl>
               )}
 
@@ -379,27 +465,37 @@ export default function OrderModal({ cartItems, onClose }: Props) {
                 className="mt-4 space-y-1.5 border-t pt-4"
                 style={{ borderColor: "var(--color-border)" }}
               >
-                {selectedMethod && (
-                  <>
-                    <div className="flex items-baseline justify-between text-[12px]">
-                      <span style={{ color: "var(--color-muted)" }}>Nápisy</span>
-                      <span style={{ color: "var(--color-foreground)" }}>{formatEur(itemsPrice)}</span>
-                    </div>
-                    <div className="flex items-baseline justify-between text-[12px]">
-                      <span style={{ color: "var(--color-muted)" }}>{selectedMethod.name}</span>
-                      <span style={{ color: "var(--color-foreground)" }}>{selectedMethod.priceLabel}</span>
-                    </div>
-                  </>
+                <div className="flex items-baseline justify-between text-[12px]">
+                  <span style={{ color: "var(--color-muted)" }}>
+                    Výroba ({configs.length} {configs.length === 1 ? "nápis" : configs.length < 5 ? "nápisy" : "nápisov"})
+                  </span>
+                  <span style={{ color: "var(--color-foreground)" }}>{formatEur(itemsPrice)}</span>
+                </div>
+                {installation ? (
+                  <div className="flex items-baseline justify-between text-[12px]">
+                    <span style={{ color: "var(--color-muted)" }}>Montáž</span>
+                    <span style={{ color: "var(--color-foreground)" }}>po konzultácii</span>
+                  </div>
+                ) : selectedMethod && (
+                  <div className="flex items-baseline justify-between text-[12px]">
+                    <span style={{ color: "var(--color-muted)" }}>Doprava — {selectedMethod.name}</span>
+                    <span style={{ color: "var(--color-foreground)" }}>{selectedMethod.priceLabel}</span>
+                  </div>
                 )}
                 <div className="flex items-baseline justify-between pt-1">
                   <span className="text-xs font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
-                    {selectedMethod?.price === null ? "Za nápisy, s DPH" : "Spolu s DPH"}
+                    {installation || selectedMethod?.price === null ? "Za nápisy, s DPH" : "Celkom s DPH"}
                   </span>
                   <span className="text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
                     {formatEur(price)}
                   </span>
                 </div>
-                {selectedMethod?.price === null && (
+                {installation && (
+                  <p className="text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                    Teraz nič neplatíte. Cenu montáže a termín dohodneme po telefonickej konzultácii.
+                  </p>
+                )}
+                {!installation && selectedMethod?.price === null && (
                   <p className="text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
                     Cenu dopravy dohodneme a potvrdíme pred výrobou — teraz ju neúčtujeme.
                   </p>
@@ -421,74 +517,94 @@ export default function OrderModal({ cartItems, onClose }: Props) {
               <AuthGate onAuthenticated={handleAuthenticated} />
             ) : (
               <form onSubmit={handleSubmit} noValidate>
-                <div className="mb-4">
-                  <label
-                    className="mb-1.5 block text-[11px] font-black tracking-wide"
-                    style={{ color: "var(--color-foreground)" }}
-                  >
-                    Meno a priezvisko
-                  </label>
-                  <input
-                    type="text"
+                <SectionTitle>Kontaktné údaje</SectionTitle>
+                <div className="mb-6 space-y-3">
+                  <TextField
+                    label="Meno a priezvisko"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={setName}
                     placeholder="Ján Novák"
                     autoComplete="name"
-                    className="w-full rounded-lg px-4 py-3 text-sm outline-none transition"
-                    style={{
-                      background: errors.name ? "rgba(239,68,68,0.08)" : "var(--color-surface)",
-                      border: `1px solid ${errors.name ? "#f87171" : "var(--color-border)"}`,
-                      color: "var(--color-foreground)",
-                    }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-foreground)")}
-                    onBlur={(e) =>
-                      (e.currentTarget.style.borderColor = errors.name ? "#f87171" : "var(--color-border)")
-                    }
+                    error={errors.name}
                   />
-                  {errors.name && (
-                    <p className="mt-1 text-[11px] text-red-400">{errors.name}</p>
-                  )}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <TextField
+                      label="E-mail"
+                      type="email"
+                      value={email}
+                      onChange={setEmail}
+                      placeholder="jan@email.sk"
+                      autoComplete="email"
+                      error={errors.email}
+                    />
+                    <TextField
+                      label="Telefón"
+                      type="tel"
+                      value={phone}
+                      onChange={setPhone}
+                      placeholder="+421 900 000 000"
+                      autoComplete="tel"
+                      error={errors.phone}
+                    />
+                  </div>
                 </div>
 
-                <div className="mb-6">
-                  <label
-                    className="mb-1.5 block text-[11px] font-black tracking-wide"
-                    style={{ color: "var(--color-foreground)" }}
-                  >
-                    E-mail
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="jan@email.sk"
-                    autoComplete="email"
-                    className="w-full rounded-lg px-4 py-3 text-sm outline-none transition"
-                    style={{
-                      background: errors.email ? "rgba(239,68,68,0.08)" : "var(--color-surface)",
-                      border: `1px solid ${errors.email ? "#f87171" : "var(--color-border)"}`,
-                      color: "var(--color-foreground)",
-                    }}
-                    onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-foreground)")}
-                    onBlur={(e) =>
-                      (e.currentTarget.style.borderColor = errors.email ? "#f87171" : "var(--color-border)")
-                    }
-                  />
-                  {errors.email && (
-                    <p className="mt-1 text-[11px] text-red-400">{errors.email}</p>
-                  )}
-                </div>
+                {installation ? (
+                  <div className="mb-6">
+                    <SectionTitle>Adresa inštalácie</SectionTitle>
+                    <div
+                      className="rounded-xl p-3"
+                      style={{
+                        background: "var(--color-surface-raised)",
+                        border: `1px solid ${errors.site ? "#f87171" : "var(--color-border-strong)"}`,
+                      }}
+                    >
+                      <p className="mb-3 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                        Kde bude nápis visieť — podľa nej naplánujeme obhliadku aj montáž.
+                      </p>
+                      <AddressFields value={site} onChange={setSite} error={errors.site} />
+                    </div>
+                  </div>
+                ) : quote ? (
+                  <>
+                    <DeliveryStep
+                      methods={quote.deliveryMethods}
+                      value={delivery}
+                      onChange={setDelivery}
+                      weightKg={quote.parcel.weightKg}
+                      errors={{ point: errors.point, address: errors.address }}
+                    />
 
-                {quote ? (
-                  <DeliveryStep
-                    methods={quote.deliveryMethods}
-                    value={delivery}
-                    onChange={setDelivery}
-                    phone={phone}
-                    onPhoneChange={setPhone}
-                    weightKg={quote.parcel.weightKg}
-                    errors={deliveryErrors}
-                  />
+                    <div className="mb-6">
+                      <SectionTitle>Spôsob platby</SectionTitle>
+                      {paymentMethods.length > 0 ? (
+                        <>
+                          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Spôsob platby">
+                            {paymentMethods.map((m) => (
+                              <KindCard
+                                key={m}
+                                active={payment === m}
+                                onClick={() => setPayment(m)}
+                                icon={m === "card" ? <CreditCard size={16} /> : <Landmark size={16} />}
+                                title={PAYMENT_METHOD_LABEL[m]}
+                                text={m === "card" ? "Bezpečne cez Stripe" : "Na účet, podľa variabilného symbolu"}
+                              />
+                            ))}
+                          </div>
+                          {payment === "transfer" && (
+                            <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                              IBAN, variabilný symbol a sumu uvidíte hneď po odoslaní objednávky. Výroba začne po prijatí platby.
+                            </p>
+                          )}
+                          {errors.payment && <p className="mt-1 text-[11px] text-red-400">{errors.payment}</p>}
+                        </>
+                      ) : (
+                        <p className="text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                          Po odoslaní vám potvrdíme cenu, termín a platobné údaje.
+                        </p>
+                      )}
+                    </div>
+                  </>
                 ) : (
                   !quoteFailed && (
                     <div
@@ -509,24 +625,113 @@ export default function OrderModal({ cartItems, onClose }: Props) {
                   className="w-full rounded-full py-3.5 text-xs font-black transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
                   style={{ background: "var(--accent)", color: "#000" }}
                 >
-                  {submitting
-                    ? "Odosielam…"
-                    : quote?.canPayOnline && selectedMethod?.price !== null
-                      ? `Zaplatiť ${formatEur(price)}`
-                      : "Odoslať objednávku"}
+                  {submitLabel}
                 </button>
-
-                {quote?.canPayOnline && selectedMethod?.price !== null && (
-                  <p className="mt-2 text-center text-[11px]" style={{ color: "var(--color-muted)" }}>
-                    Platbu vybavíte bezpečne cez Stripe. Objednávku uložíme ešte pred platbou.
-                  </p>
-                )}
               </form>
             )}
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function isComplete(a: DeliveryAddress): boolean {
+  return Boolean(a.street.trim() && a.houseNumber.trim() && a.city.trim() && a.zip.trim());
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mb-3 text-[11px] font-black tracking-wide" style={{ color: "var(--color-foreground)" }}>
+      {children}
+    </h3>
+  );
+}
+
+/** A choice card — the order kind, or the payment method. */
+function KindCard({
+  active,
+  onClick,
+  icon,
+  title,
+  text,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className="flex flex-col gap-1 rounded-2xl p-3 text-left transition"
+      style={{
+        border: `2px solid ${active ? "var(--accent)" : "var(--color-border)"}`,
+        background: active ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "var(--color-surface)",
+      }}
+    >
+      <span className="flex items-center justify-between">
+        <span style={{ color: active ? "var(--color-foreground)" : "var(--color-muted)" }}>{icon}</span>
+        {active && (
+          <span
+            className="flex h-4 w-4 items-center justify-center rounded-full"
+            style={{ background: "var(--accent)" }}
+            aria-hidden="true"
+          >
+            <Check size={10} strokeWidth={3} style={{ color: "#000" }} />
+          </span>
+        )}
+      </span>
+      <span className="text-[12px] font-black" style={{ color: "var(--color-foreground)" }}>{title}</span>
+      <span className="text-[11px] leading-4" style={{ color: "var(--color-muted)" }}>{text}</span>
+    </button>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+  type = "text",
+  error,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  autoComplete?: string;
+  type?: string;
+  error?: string;
+}) {
+  return (
+    <label className="block">
+      <span
+        className="mb-1.5 block text-[11px] font-black tracking-wide"
+        style={{ color: "var(--color-foreground)" }}
+      >
+        {label}
+      </span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        className="w-full rounded-lg px-4 py-3 text-sm outline-none transition"
+        style={{
+          background: error ? "rgba(239,68,68,0.08)" : "var(--color-surface)",
+          border: `1px solid ${error ? "#f87171" : "var(--color-border)"}`,
+          color: "var(--color-foreground)",
+        }}
+      />
+      {error && <span className="mt-1 block text-[11px] text-red-400">{error}</span>}
+    </label>
   );
 }
 

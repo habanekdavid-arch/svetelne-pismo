@@ -104,6 +104,9 @@ function ensureSchema(): Promise<void> {
       await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS group_id TEXT`;
       // The per-sign price in cents, beside the historical whole-euro column.
       await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS price_cents INTEGER`;
+      // How the customer chose to pay — 'card' or 'transfer' — or NULL for an
+      // enquiry and an installation consultation, where nothing is paid yet.
+      await sql`ALTER TABLE order_groups ADD COLUMN IF NOT EXISTS payment_method TEXT`;
       await sql`
         CREATE INDEX IF NOT EXISTS orders_group_id_idx
         ON orders (group_id)

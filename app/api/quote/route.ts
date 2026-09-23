@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { availablePaymentMethods } from "@/lib/payment.server";
 import { quoteBasket, sanitizeConfig } from "@/lib/quote.server";
 import type { Config } from "@/lib/types";
 import { stripeConfigured } from "@/lib/stripe";
@@ -52,7 +53,9 @@ export async function POST(req: Request) {
       ...m,
       priceLabel: formatDeliveryPrice(m.price),
     })),
-    /** False means the shop cannot take a card yet and the order is an enquiry. */
+    /** False means the shop cannot take a card yet. */
     canPayOnline: stripeConfigured(),
+    /** How this order may be paid; empty means it is an enquiry. */
+    paymentMethods: availablePaymentMethods(),
   });
 }

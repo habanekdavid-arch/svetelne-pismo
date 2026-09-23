@@ -12,9 +12,8 @@ import { priceBreakdown } from "@/lib/pricing";
 // (estimateParcel) before the customer ever sees it.
 
 export type DeliveryMethodId =
-  | "personal"        // collection in person
   | "packeta-pickup"  // Packeta pick-up point / Z-BOX, chosen in the widget
-  | "packeta-home"    // Packeta courier to an address
+  | "packeta-home"    // courier to an address
   | "freight";        // too big for a parcel — quoted and arranged by hand
 
 export type DeliveryMethod = {
@@ -53,12 +52,13 @@ function num(raw: string | undefined, fallback: number): number {
 }
 
 // ── Prices ───────────────────────────────────────────────────────────────────
-// Gross (VAT-inclusive) prices, the way the customer reads them next to the
-// sign's own price. Overridable from the environment so a change in Packeta's
+// The same tariff as vytlacto3d (its lib/shipping.ts SHIPPING_RATES): final,
+// VAT-inclusive prices the customer pays — 3,99 € to a pick-up point, 5,99 €
+// by courier. Overridable from the environment so a change in the carrier's
 // tariff does not need a code change.
 export const DELIVERY_PRICES = {
-  pickup: numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_PICKUP, 4.9),
-  home:   numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_HOME, 6.9),
+  pickup: numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_PICKUP, 3.99),
+  home:   numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_HOME, 5.99),
 } as const;
 
 function numOrZero(raw: string | undefined, fallback: number): number {
@@ -157,15 +157,6 @@ function fits(parcel: Parcel, limit: { maxWeightKg: number; maxLongestCm: number
 
 // ── What can this order actually be sent by? ─────────────────────────────────
 
-const PERSONAL: DeliveryMethod = {
-  id: "personal",
-  name: "Osobný odber",
-  description: "Vyzdvihnutie u nás po dohode. Zadarmo.",
-  price: 0,
-  needsPoint: false,
-  needsAddress: false,
-};
-
 const FREIGHT: DeliveryMethod = {
   id: "freight",
   name: "Preprava na dohodu",
@@ -178,33 +169,33 @@ const FREIGHT: DeliveryMethod = {
 
 /**
  * The delivery methods this consignment may be sent by, in the order they
- * should be shown. Osobný odber is always possible; Packeta only when the
- * parcel is within its limits; otherwise the order is arranged by hand.
+ * should be shown — Packeta and courier, as on vytlacto3d, each only when the
+ * parcel is within its limits. A sign too big for both is arranged by hand.
  */
 export function deliveryMethodsFor(parcel: Parcel): DeliveryMethod[] {
   const methods: DeliveryMethod[] = [];
 
-  // Only offer what the shop can actually carry out. Without the widget key
-  // there is no map to choose a pick-up point on, and without the carrier id
-  // no courier to hand an address to — offering either would lead the
-  // customer to a dead end at the last step of checkout.
+  // A pick-up point is chosen on Packeta's map, and without the widget key
+  // there is no map — offering it would strand the customer on the last step.
   const canPickup = Boolean(process.env.NEXT_PUBLIC_PACKETA_API_KEY?.trim());
-  const canCourier = Boolean(process.env.PACKETA_HOME_CARRIER_ID?.trim());
 
   if (canPickup && fits(parcel, PARCEL_LIMITS.pickup)) {
     methods.push({
       id: "packeta-pickup",
-      name: "Packeta — výdajné miesto",
-      description: "Vyzdvihnete si na vybranom výdajnom mieste alebo v Z-BOXe.",
+      name: "Packeta",
+      description: "Výdajné miesto alebo Z-BOX podľa vášho výberu.",
       price: DELIVERY_PRICES.pickup,
       needsPoint: true,
       needsAddress: false,
     });
   }
-  if (canCourier && fits(parcel, PARCEL_LIMITS.home)) {
+  // A courier only needs an address. With Packeta's courier set up
+  // (PACKETA_HOME_CARRIER_ID) the label is created on payment; without it the
+  // parcel is booked by hand from the admin — either way the customer is done.
+  if (fits(parcel, PARCEL_LIMITS.home)) {
     methods.push({
       id: "packeta-home",
-      name: "Packeta — kuriér na adresu",
+      name: "Kuriér",
       description: "Doručenie na vašu adresu.",
       price: DELIVERY_PRICES.home,
       needsPoint: false,
@@ -212,8 +203,7 @@ export function deliveryMethodsFor(parcel: Parcel): DeliveryMethod[] {
     });
   }
 
-  methods.push(PERSONAL);
-  if (methods.length === 1) methods.push(FREIGHT); // nothing but personal fits
+  if (methods.length === 0) methods.push(FREIGHT);
   return methods;
 }
 
