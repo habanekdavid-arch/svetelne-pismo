@@ -196,21 +196,26 @@ export const MATERIALS: MaterialOption[] = [
     bands: [{ minMm: 150, maxMm: 600, depthMm: 30 }],
     litPrice: ALUROL_PLEXI30_LIT,
     pbr: {
-      roughness: 0.0,
+      // Polished cast acrylic, coloured all the way through: a mirror-smooth
+      // face under a clear top coat, and a dense colour that reads the same
+      // as the swatch — the way a solid acrylic letter looks in a shop window,
+      // not pale glass. Only part of the light goes through; the rest is the
+      // sheet's own colour.
+      roughness: 0.02,
       metalness: 0,
-      // Not 1.0 any more. A 30 mm plexi letter is made from COLOURED cast
-      // acrylic, and at full transmission the sheet is clear glass: the body
-      // colour the customer picked had almost no effect on it, so red and
-      // blue looked the same. Translucent, not transparent.
-      transmission: 0.68,
+      transmission: 0.38,
       ior: 1.49,
       thickness: 0.6,
+      attenuationDistance: 0.12,
       clearcoat: 1.0,
       clearcoatRoughness: 0.0,
-      useWhiteBase: true,           // lit acrylic lightens — but only a little
-      sideTransmissionMul: 0.55,
-      emissiveFrontScale: 0.4,
-      emissiveSideScale: 0.6,
+      // The polished edge is where acrylic looks most like glass.
+      sideTransmissionMul: 1.4,
+      // Solid acrylic glows through its whole body, so its face is nearly as
+      // bright as a channel letter's.
+      emissiveFrontScale: 1.6,
+      emissiveSideScale: 1.4,
+      envIntensity: 1.35,
     },
   },
   {

@@ -36,6 +36,8 @@ export type MaterialPbr = {
   // Emissive scaling per face group (useful for plexi: very low front glow, more on sides)
   emissiveFrontScale?: number;
   emissiveSideScale?: number;
+  /** How strongly the surroundings are reflected (MeshPhysicalMaterial.envMapIntensity). */
+  envIntensity?: number;
 };
 
 export type MaterialUseTag = "interiér" | "exteriér" | "oboje";

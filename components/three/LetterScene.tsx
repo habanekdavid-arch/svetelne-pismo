@@ -28,8 +28,23 @@ const ENV_HDR_PATH        = "/hdri/studio.hdr";
 // mode: the customer picks a colour from a swatch and has to see that colour
 // on the sign, whether it is lit from the front, the back or the edges. It
 // does not touch how bright the LEDs are — that is the emissive below.
-const ENV_INTENSITY       = 0.92;  // day — neutral studio HDRI
-const ENV_INTENSITY_NIGHT = 0.52;  // night — dim, but never so dim the colour goes grey
+const ENV_INTENSITY            = 0.92;  // day — neutral studio HDRI
+const ENV_INTENSITY_DEEP_NIGHT = 0.06;  // night at 100 % — the sign is the light
+
+// Scene lights by day and at the darkest night; the night slider (0–100 %)
+// mixes between the two (geometrically — see `mix` in SceneContent), so the
+// default night is clearly darker than the old fixed one (ambient 0,62 / key
+// 0,55) and 100 % is a dark street where the sign is the light.
+const LIGHT_DAY        = { ambient: 0.82, key: 1.4,  fill: 0.6  } as const;
+const LIGHT_DEEP_NIGHT = { ambient: 0.07, key: 0.1,  fill: 0.03 } as const;
+/** How dark the wall's night tint goes at 100 %. */
+const WALL_DEEP_NIGHT_SCALE = 0.5;
+/** The customer's photo at 100 % night. */
+const PHOTO_DEEP_NIGHT_TINT = "#55555c";
+/** Where the night slider starts. */
+export const DEFAULT_NIGHT_LEVEL = 0.7;
+/** How dark "0 %" night already is — dusk. */
+const NIGHT_FLOOR = 0.2;
 const TONEMAP_EXPOSURE    = 0.95;
 
 // PBR texture tiling (tiles per letter face) for the 3D-print layer lines —
@@ -200,6 +215,10 @@ const HALO_GLOW_WALL_OFFSET = 0.004; // in front of the wall, to avoid z-fightin
 // nearly enough to lose which colour was chosen.
 const WHITE_BASE_BLEND = 0.12;
 
+// Below this peak channel (linear) a coloured sheet starts to hold light back —
+// how black and dark grey acrylic stay dark when lit from behind.
+const DARK_SHEET_PASS = 0.1;
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 type LightSettings = {
@@ -309,6 +328,7 @@ function buildPhysicalMat(
     anisotropy:         isSide ? 0 : (p.anisotropy ?? 0),
     clearcoat:          isSide ? 0 : (p.clearcoat ?? 0),
     clearcoatRoughness: p.clearcoatRoughness ?? 0,
+    envMapIntensity:    p.envIntensity ?? 1,
   };
 
   if (p.transmission !== undefined) {
@@ -360,7 +380,12 @@ const PRINT_FACE   = { roughness: 0.42, clearcoat: 0.25, clearcoatRoughness: 0.4
  */
 function filteredThroughFace(led: THREE.Color, face: THREE.Color): THREE.Color {
   const peak = Math.max(face.r, face.g, face.b, 1e-3);
-  return led.clone().multiply(new THREE.Color(face.r / peak, face.g / peak, face.b / peak));
+  // A dark sheet lets next to nothing through: black acrylic stays dark
+  // instead of glowing grey-white once its colour is normalised.
+  const pass = Math.min(1, peak / DARK_SHEET_PASS);
+  return led.clone().multiply(
+    new THREE.Color((face.r / peak) * pass, (face.g / peak) * pass, (face.b / peak) * pass),
+  );
 }
 
 /** What the lit part of the sign really shines in — for bloom and headroom. */
@@ -370,6 +395,9 @@ function emittedColor(
   faceKind: FaceKind,
   lightMode: LightModeId,
 ): THREE.Color {
+  // 30 mm plexi is coloured acrylic all the way through (faceKind "none"), so
+  // whichever way it is lit the light leaves it in the plexi's own colour.
+  if (faceKind === "none") return filteredThroughFace(led, face);
   return faceKind === "acrylic" && lightMode === "front" ? filteredThroughFace(led, face) : led;
 }
 
@@ -875,6 +903,12 @@ type LetterSceneProps = {
   lightMode: LightModeId;
   height: number;
   previewMode: "day" | "night";
+  /**
+   * How dark the night is, 0–1 (only read at night). 0 is dusk — the LEDs are
+   * on but the wall is still in daylight; 1 is a dark street where the sign is
+   * the only light. Defaults to DEFAULT_NIGHT_LEVEL.
+   */
+  nightLevel?: number;
   /** Preview-only: where on the wall the sign sits, in world units. */
   offset?: { x: number; y: number };
   /** Preview-only: how far the customer's photo has been pushed behind it. */
@@ -965,11 +999,15 @@ export default function LetterScene(props: LetterSceneProps) {
   // night. In daylight the sign is switched off, so blooming a plain lit face
   // would just fog the preview.
   const bloomActive = signType === "illuminated" && previewMode === "night";
+  const nightLevel = Math.min(1, Math.max(0, props.nightLevel ?? DEFAULT_NIGHT_LEVEL));
   const bloomIntensity =
     (lightMode === "back" ? BLOOM_INTENSITY_HALO
      : lightMode === "edge" ? BLOOM_INTENSITY_EDGE
-     : BLOOM_INTENSITY_BASE) * (1 + BLOOM_INTENSITY_SAT_GAIN * glowSat);
-  const bloomThreshold = BLOOM_LUMINANCE_THRESHOLD - BLOOM_THRESHOLD_SAT_DROP * glowSat;
+     : BLOOM_INTENSITY_BASE) * (1 + BLOOM_INTENSITY_SAT_GAIN * glowSat) * (0.4 + 0.8 * nightLevel);
+  // At dusk the wall itself is still bright enough to bloom, which bleached
+  // the whole picture; the threshold rises as the night lightens.
+  const bloomThreshold =
+    BLOOM_LUMINANCE_THRESHOLD - BLOOM_THRESHOLD_SAT_DROP * glowSat + 0.35 * (1 - nightLevel);
 
   return (
     <div className={`relative h-full w-full ${props.onOffsetChange ? PLACING_CLASSES : ""}`}>
@@ -1026,6 +1064,7 @@ function SceneContent({
   lightMode,
   height,
   previewMode,
+  nightLevel = DEFAULT_NIGHT_LEVEL,
   offset,
   onOffsetChange,
   photoOffset,
@@ -1036,6 +1075,14 @@ function SceneContent({
   const safeText  = text?.trim() || "Váš text";
   const isNight   = previewMode === "night";
   const isIlluminated = signType === "illuminated";
+  // 0 by day, the chosen darkness by night: every light below is mixed
+  // between its daylight value and its darkest-night value by this.
+  // 0 % is dusk, not daylight with the LEDs on: a little darkness is always
+  // there once it is night, or the lit sign bleaches against a white wall.
+  const dark = isNight ? NIGHT_FLOOR + (1 - NIGHT_FLOOR) * Math.min(1, Math.max(0, nightLevel)) : 0;
+  // Geometric, not linear: light falls off by the same factor for every step
+  // of the slider, so 50 % already looks like evening instead of a dimmed day.
+  const mix = (day: number, deepNight: number) => day * Math.pow(deepNight / day, dark);
 
   const fontOpt = useMemo(
     () => fontOptions.find((f) => f.id === font) ?? fontOptions[0],
@@ -1062,6 +1109,11 @@ function SceneContent({
     [glowColor, faceColor, faceKind, lightMode],
   );
   const ls = getLightingSettings(signType, lightMode, isNight, shineColor);
+  // The colour the MATERIALS emit. For 30 mm plexi that is the light after it
+  // has passed through the coloured acrylic — a red plexi letter glows red,
+  // not warm white on red (which read as salmon). Everything else emits the
+  // LED itself and lets its face (buildFaceMat) do the filtering.
+  const materialGlow = faceKind === "none" ? shineColor : glowColor;
 
   // Size is REAL now. The letters are scaled in LetterGeometryHost so their
   // capital is exactly as tall as ordered, measured in the same millimetres
@@ -1091,9 +1143,9 @@ function SceneContent({
   // Fallback (non-textured) material triple — also used directly for plexi/pvc,
   // and as the <LetterVariant> Suspense fallback while a textured material loads.
   const fallbackTriple = useMemo(
-    () => buildMaterialTriple(matOpt, baseColor, glowColor, ls, isIlluminated, faceColor, faceKind),
+    () => buildMaterialTriple(matOpt, baseColor, materialGlow, ls, isIlluminated, faceColor, faceKind),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [material, signType, lightColor, letterColor, faceColor, faceKind, ls.emissiveFront, ls.emissiveSide, ls.emissiveBack],
+    [material, signType, lightColor, letterColor, faceColor, faceKind, materialGlow, ls.emissiveFront, ls.emissiveSide, ls.emissiveBack],
   );
 
   useEffect(() => {
@@ -1153,12 +1205,22 @@ function SceneContent({
     return byWidth[1] >= visibleHeight ? byWidth : [visibleHeight * aspect, visibleHeight];
   }, [photo, viewportSize.width, viewportSize.height]);
 
+  // The wall darkens toward night: its daylight colour, mixed toward its night
+  // tint taken down further for a truly dark street.
+  const wallTint = useMemo(() => {
+    const day = new THREE.Color(surface.dayTint);
+    const deep = new THREE.Color(surface.nightTint).multiplyScalar(WALL_DEEP_NIGHT_SCALE);
+    return `#${day.lerp(deep, dark).getHexString()}`;
+  }, [surface.dayTint, surface.nightTint, dark]);
+  const photoTint = `#${new THREE.Color("#ffffff").lerp(new THREE.Color(PHOTO_DEEP_NIGHT_TINT), dark).getHexString()}`;
+
   // Only the back-lit build throws light onto the wall; an edge-lit letter
   // sends it sideways, away from the wall, and a front-lit one forward.
+  // The darker the street, the more the same light stands out on the wall.
   const glowGain =
-    lightMode === "back" ? HALO_GLOW_GAIN
-    : lightMode === "edge" ? HALO_GLOW_GAIN_EDGE
-    : HALO_GLOW_GAIN_FRONT;
+    (lightMode === "back" ? HALO_GLOW_GAIN
+     : lightMode === "edge" ? HALO_GLOW_GAIN_EDGE
+     : HALO_GLOW_GAIN_FRONT) * (0.8 + 0.4 * dark);
   // Every lit mode at night now carries some glow, not just back-lit.
   const wallGlowOn = isIlluminated && isNight;
 
@@ -1172,7 +1234,7 @@ function SceneContent({
           scene was so dim that every body colour collapsed into the same dark
           brown. None of this touches the LEDs — the glow is material
           emissive and bloom, which are left exactly as they were. ── */}
-      <ambientLight intensity={isNight ? 0.62 : 0.82} />
+      <ambientLight intensity={mix(LIGHT_DAY.ambient, LIGHT_DEEP_NIGHT.ambient)} />
       <directionalLight
         ref={keyLight}
         position={[3.2 * reach, 4.2 * reach, 3.5 * reach]}
@@ -1180,7 +1242,7 @@ function SceneContent({
         // hard second silhouette of the letters onto the wall, which no photo
         // of a lit sign has — so it is kept to a gentle fill that still shows
         // the colour of the letters.
-        intensity={isNight ? 0.55 : 1.4}
+        intensity={mix(LIGHT_DAY.key, LIGHT_DEEP_NIGHT.key)}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
@@ -1194,7 +1256,7 @@ function SceneContent({
         shadow-camera-top={6 * reach}
         shadow-camera-bottom={-6 * reach}
       />
-      <directionalLight position={[-4, 1.5, 2.5]} intensity={isNight ? 0.3 : 0.6} />
+      <directionalLight position={[-4, 1.5, 2.5]} intensity={mix(LIGHT_DAY.fill, LIGHT_DEEP_NIGHT.fill)} />
 
       {/* ── The wall the sign is mounted on ── */}
       <mesh position={[0, 0, wallZ]} receiveShadow>
@@ -1203,7 +1265,7 @@ function SceneContent({
           map={wallTexture ?? undefined}
           bumpMap={wallTexture ?? undefined}
           bumpScale={WALL_BUMP_SCALE}
-          color={photo ? photo.tint : isNight ? surface.nightTint : surface.dayTint}
+          color={photo ? photo.tint : wallTint}
           roughness={1}
           metalness={0}
         />
@@ -1223,7 +1285,7 @@ function SceneContent({
           <planeGeometry args={photoSize} />
           <meshStandardMaterial
             map={photo.texture}
-            color={isNight ? "#8f8f94" : "#ffffff"}
+            color={photoTint}
             roughness={1}
             metalness={0}
           />
@@ -1271,7 +1333,7 @@ function SceneContent({
               material={material}
               matOpt={matOpt}
               baseColor={baseColor}
-              glowColor={glowColor}
+              glowColor={materialGlow}
               ls={ls}
               isIlluminated={isIlluminated}
               faceColor={faceColor}
@@ -1291,7 +1353,7 @@ function SceneContent({
         <Environment
           files={ENV_HDR_PATH}
           background={false}
-          environmentIntensity={isNight ? ENV_INTENSITY_NIGHT : ENV_INTENSITY}
+          environmentIntensity={mix(ENV_INTENSITY, ENV_INTENSITY_DEEP_NIGHT)}
         />
       </Suspense>
 
