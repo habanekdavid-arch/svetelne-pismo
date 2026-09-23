@@ -1,21 +1,23 @@
 "use client";
 
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Center, Environment, OrbitControls, useTexture } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { MATERIALS, fontOptions, finishForColor } from "@/lib/options";
+import { MATERIALS, fontOptions, finishForColor, faceKindFor, type FaceKind } from "@/lib/options";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   useTTFFont,
   buildSolidLetterGeometry,
   buildHaloGlowTexture,
+  capHeightLocal,
   MATERIAL_GROUP,
 } from "@/components/three/letterGeometry";
 import type { SignType, LightModeId, MaterialOption } from "@/lib/types";
 import { WALL_SURFACES, DEFAULT_WALL, type WallGrain } from "@/lib/walls";
 import { useWallTexture, usePhotoTexture } from "@/components/three/wallTexture";
+import { mmToUnits } from "@/components/three/scale";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TUNABLE CONSTANTS
@@ -44,7 +46,7 @@ const BLOOM_RADIUS              = 0.75;
 // blob, so each mode gets only as much flare as it needs to read as light.
 const BLOOM_INTENSITY_BASE      = 0.34; // front — the lit face
 const BLOOM_INTENSITY_EDGE      = 0.28; // edges — a thin bright rim, easy to overdo
-const BLOOM_INTENSITY_HALO      = 0.58; // back — the glow texture is already bright
+const BLOOM_INTENSITY_HALO      = 0.3;  // back — the glow texture already IS the soft light; more bloom only fogs the face
 // A saturated LED is darker than a white one at the same drive, so with a
 // fixed threshold it never reached the bloom at all and a red sign looked
 // like red plastic rather than a red light. The threshold comes down and the
@@ -53,13 +55,9 @@ const BLOOM_INTENSITY_HALO      = 0.58; // back — the glow texture is already 
 const BLOOM_THRESHOLD_SAT_DROP  = 0.45;
 const BLOOM_INTENSITY_SAT_GAIN  = 0.55;
 
-// Depth (mm) → world-unit scale. The range the workshop makes is 4–10 mm for
-// a cut letter and up to 200 mm for the deepest lit build (lib/options.ts), so
-// this divisor puts the deepest letter at ~0.2 units against a glyph size of
-// 0.78. That is about twice the true proportion of a 50 mm box on a 35 cm
-// letter — enough relief to read in a small preview without pretending the
-// sign is deeper than it is. First constant to re-tune if depth looks wrong.
-const DEPTH_SCALE_DIVISOR = 250;
+// Depth is at true scale too (mmToUnits), so a 60 mm profile on a 300 mm
+// letter reads as exactly that. This floor only keeps a degenerate extrusion
+// from being built.
 const MIN_DEPTH_UNITS     = 0.012; // crash-safety floor only, not a visual design choice
 
 const TEXT_DEBOUNCE_MS = 300; // only text/thickness are debounced — font switches are discrete clicks, not rapid-fire
@@ -85,10 +83,11 @@ const NOMINAL_VIEW_DISTANCE = Math.hypot(
 // concrete or brick — tiled at true scale (components/three/wallTexture.ts),
 // or the customer's own photo of the wall the sign is going on.
 //
-// 46 × 26 units is far wider than the camera can see even at the ends of its
-// orbit, and small enough that the tiling stays crisp.
-const WALL_WIDTH  = 46;
-const WALL_HEIGHT = 26;
+// Big enough that the camera never sees past it, even standing back for a
+// two-metre nápis at the end of its orbit. The texture tiles at true scale, so
+// the size of the plane costs nothing in sharpness.
+const WALL_WIDTH  = 400;
+const WALL_HEIGHT = 240;
 const WALL_BUMP_SCALE = 0.012; // grain catches the key light; higher looks like gravel
 
 // A photo backdrop hangs just in front of the wall. It is sized to what the
@@ -97,14 +96,24 @@ const WALL_BUMP_SCALE = 0.012; // grain catches the key light; higher looks like
 // blew every photo up some five times and showed one blurry patch of it.
 // The factor leaves room to drag the view around without running off the
 // photo's edge.
-// Letter height, in millimetres, that fills the preview at HEIGHT_SCALE_MAX,
-// and how the sizes below it fall off: 1 would be true proportion, less keeps
-// the smallest sign from disappearing while every step stays clearly
-// different from the last. 600 mm is the tallest most builds go to; the alurol
-// profile goes further and simply keeps growing past it.
-const HEIGHT_REFERENCE_MM = 600;
-const HEIGHT_SCALE_MAX = 1.28;
-const HEIGHT_SCALE_CURVE = 0.72;
+// ── Framing ───────────────────────────────────────────────────────────────────
+// The sign is always at true size (components/three/scale.ts), so what changes
+// with its size is where the camera stands. On a painted wall it stands back
+// just far enough to see the whole nápis, and the share of the picture the
+// sign takes grows gently with its height — so a bigger sign still LOOKS
+// bigger while the bricks shrink behind it, and a small one is not a speck.
+const FRAME_FILL_AT_300MM = 0.30;   // share of the frame height a 300 mm sign takes
+const FRAME_FILL_CURVE    = 0.35;   // how that share grows with height (0 = never)
+const FRAME_FILL_MIN      = 0.16;
+const FRAME_FILL_MAX      = 0.62;
+const FRAME_WIDTH_FILL    = 0.76;   // leaves room for the near end, which perspective enlarges
+const FRAME_MIN_DISTANCE  = 0.9;
+const FRAME_EASE          = 0.14;   // per frame — size changes glide instead of jump
+
+// How far off the wall the letters stand. Back-lit letters sit on spacers so
+// the light has room to spread behind them; everything else is close-mounted.
+const WALL_GAP_MM      = 10;
+const WALL_GAP_HALO_MM = 30;
 
 const PHOTO_WALL_OFFSET = 0.0015;
 const PHOTO_COVER = 2.2;
@@ -154,7 +163,16 @@ const SATURATED_EMISSIVE_CUT    = 0.42;
 // passes the bloom threshold, so the halo blooms the way a real one flares on
 // camera. The framebuffer is HalfFloat (see the Canvas below), so values over
 // 1 survive to the bloom pass instead of being clipped.
-const HALO_GLOW_GAIN        = 1.65;
+// Brightness of the halo at the letter's edge. Was 1.65, which with the old
+// letter-sized reach turned the wall into one white slab and fogged the face
+// of the letter itself; a real halo is bright at the edge and gone soon after.
+const HALO_GLOW_GAIN        = 1.3;
+// How far the light spreads past the letter's edge, in real millimetres:
+// back-lit letters stand ~30 mm off the wall, and the pool they throw fades
+// out within about three times that. The soft aura round a front- or edge-lit
+// letter is scatter from its face and reaches less far still.
+const HALO_REACH_MM         = 95;
+const AURA_REACH_MM         = 55;
 // The same glow, much weaker, around a front- or edge-lit sign.
 //
 // Why it exists: a saturated LED cannot be both bright enough to bloom and
@@ -316,6 +334,69 @@ function buildPhysicalMat(
   return new THREE.MeshPhysicalMaterial(params);
 }
 
+// ── The face ────────────────────────────────────────────────────────────────
+//
+// What the front of the letter is made of changes how it looks far more than
+// its colour does (lib/options.ts faceKindFor):
+//
+//   · a translucent ACRYLIC face — the front of a lit channel letter or of a
+//     3D-printed letter with a plexi front — is smooth and glossy, never takes
+//     the brushed-metal or print texture of its return, and when it is lit from
+//     behind it glows in the colour the light has AFTER passing through it:
+//     white LEDs behind a red face make a red letter, exactly as in a shop
+//     window. That is the whole reason a lit sign is ordered with a face colour;
+//   · a UV-PRINTED face is a satin print on acrylic;
+//   · otherwise the face is the same stuff as the return, just its own colour.
+
+// Clear cast acrylic: a mirror-smooth sheet with a lacquer-like top coat.
+const ACRYLIC_FACE = { roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.06 } as const;
+// UV print: the ink lies ON the sheet, so it is satin rather than glass.
+const PRINT_FACE   = { roughness: 0.42, clearcoat: 0.25, clearcoatRoughness: 0.4 } as const;
+
+/**
+ * The colour a front-lit acrylic face actually emits: the LED's light with the
+ * face's own colour filtering it. The face colour is normalised to its
+ * brightest channel first, so a colour tints the light rather than dimming it
+ * — a red face lets the red through at full strength.
+ */
+function filteredThroughFace(led: THREE.Color, face: THREE.Color): THREE.Color {
+  const peak = Math.max(face.r, face.g, face.b, 1e-3);
+  return led.clone().multiply(new THREE.Color(face.r / peak, face.g / peak, face.b / peak));
+}
+
+/** What the lit part of the sign really shines in — for bloom and headroom. */
+function emittedColor(
+  led: THREE.Color,
+  face: THREE.Color,
+  faceKind: FaceKind,
+  lightMode: LightModeId,
+): THREE.Color {
+  return faceKind === "acrylic" && lightMode === "front" ? filteredThroughFace(led, face) : led;
+}
+
+function buildFaceMat(
+  faceKind: FaceKind,
+  matOpt: MaterialOption,
+  faceColor: THREE.Color,
+  glowColor: THREE.Color,
+  emissiveIntensity: number,
+  isIlluminated: boolean,
+): THREE.MeshPhysicalMaterial {
+  if (faceKind === "acrylic" || faceKind === "print") {
+    const look = faceKind === "acrylic" ? ACRYLIC_FACE : PRINT_FACE;
+    return new THREE.MeshPhysicalMaterial({
+      color: faceColor,
+      // Only an acrylic face lets light out; a print is opaque ink.
+      emissive: faceKind === "acrylic" ? filteredThroughFace(glowColor, faceColor) : new THREE.Color(0x000000),
+      emissiveIntensity: faceKind === "acrylic" ? emissiveIntensity : 0,
+      metalness: 0,
+      ...look,
+    });
+  }
+  // Same material as the return (or 30 mm plexi, which is all one piece).
+  return buildPhysicalMat(matOpt, faceColor, glowColor, emissiveIntensity, false, isIlluminated);
+}
+
 type MaterialTriple = {
   sideMat:  THREE.MeshPhysicalMaterial;
   backMat:  THREE.MeshPhysicalMaterial;
@@ -328,11 +409,15 @@ function buildMaterialTriple(
   glowColor: THREE.Color,
   ls: LightSettings,
   isIlluminated: boolean,
+  faceColor: THREE.Color = baseColor,
+  faceKind: FaceKind = "none",
 ): MaterialTriple {
   return {
+    // The return — its own colour, its own material.
     sideMat:  buildPhysicalMat(matOpt, baseColor.clone(), glowColor.clone(), ls.emissiveSide,  true,  isIlluminated),
     backMat:  buildPhysicalMat(matOpt, baseColor.clone(), glowColor.clone(), ls.emissiveBack,  false, isIlluminated),
-    frontMat: buildPhysicalMat(matOpt, baseColor.clone(), glowColor.clone(), ls.emissiveFront, false, isIlluminated),
+    // The face — see buildFaceMat.
+    frontMat: buildFaceMat(faceKind, matOpt, faceColor.clone(), glowColor.clone(), ls.emissiveFront, isIlluminated),
   };
 }
 
@@ -397,6 +482,8 @@ function useTexturedTriple(
   isIlluminated: boolean,
   texSet:        TexSet,
   repeat:        number,
+  faceColor:     THREE.Color,
+  faceKind:      FaceKind,
 ): MaterialTriple {
   const { gl } = useThree();
   const { map, roughnessMap, normalMap, metalnessMap } = texSet;
@@ -419,12 +506,15 @@ function useTexturedTriple(
   );
 
   const triple = useMemo(() => {
-    const t = buildMaterialTriple(matOpt, baseColor, glowColor, ls, isIlluminated);
+    const t = buildMaterialTriple(matOpt, baseColor, glowColor, ls, isIlluminated, faceColor, faceKind);
     applyTexToMat(t.sideMat, stableTexSet);
     applyTexToMat(t.backMat, stableTexSet);
-    applyTexToMat(t.frontMat, stableTexSet);
+    // An acrylic or printed face is a different material from the return —
+    // brushed aluminium or print lines on it would be the one thing that
+    // gives the render away.
+    if (faceKind === "same" || faceKind === "none") applyTexToMat(t.frontMat, stableTexSet);
     return t;
-  }, [matOpt, baseColor, glowColor, ls, isIlluminated, stableTexSet]);
+  }, [matOpt, baseColor, glowColor, ls, isIlluminated, stableTexSet, faceColor, faceKind]);
 
   useEffect(() => () => disposeMaterialTriple(triple), [triple]);
 
@@ -449,9 +539,11 @@ type TexLetterProps = {
   ls:            LightSettings;
   isIlluminated: boolean;
   geometry:      THREE.BufferGeometry;
+  faceColor:     THREE.Color;
+  faceKind:      FaceKind;
 };
 
-function KompozitLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry }: TexLetterProps) {
+function KompozitLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry, faceColor, faceKind }: TexLetterProps) {
   // No colour map here on purpose (see TexSet.map) — and one fewer 2.6 MB
   // texture to download for it.
   const [roughMap, normalMap, metalMap] = useTexture([
@@ -463,20 +555,27 @@ function KompozitLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geom
     matOpt, baseColor, glowColor, ls, isIlluminated,
     { roughnessMap: roughMap, normalMap, metalnessMap: metalMap },
     KOMPOZIT_REPEAT,
+    faceColor,
+    faceKind,
   );
   return <SolidLetterMesh geometry={geometry} materials={toMaterialArray(triple)} />;
 }
 
-function ThreeDLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry }: TexLetterProps) {
-  const [colorMap, roughMap, normalMap] = useTexture([
-    "/textures/3dtlac/color.jpg",
+function ThreeDLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry, faceColor, faceKind }: TexLetterProps) {
+  // No colour map either (see TexSet.map): the print photo averages a greenish
+  // grey (rgb 141,147,128), which turned a yellow print olive and every other
+  // colour a shade darker than its swatch. The layer lines are relief — the
+  // normal and roughness maps carry them.
+  const [roughMap, normalMap] = useTexture([
     "/textures/3dtlac/roughness.jpg",
     "/textures/3dtlac/normal.jpg",
   ]);
   const triple = useTexturedTriple(
     matOpt, baseColor, glowColor, ls, isIlluminated,
-    { map: colorMap, roughnessMap: roughMap, normalMap },
+    { roughnessMap: roughMap, normalMap },
     THREED_REPEAT,
+    faceColor,
+    faceKind,
   );
   return <SolidLetterMesh geometry={geometry} materials={toMaterialArray(triple)} />;
 }
@@ -507,27 +606,56 @@ function LetterVariant({ material, fallback, geometry, ...rest }: LetterVariantP
 type LetterGeometryHostProps = {
   fontFile: string;
   text: string;
-  depth: number;
+  /** Ordered letter height — the cap height, in millimetres. */
+  heightMm: number;
+  /** Depth of the build in world units, already at true scale. */
+  worldDepth: number;
   material: string;
   matOpt: MaterialOption;
   baseColor: THREE.Color;
   glowColor: THREE.Color;
   ls: LightSettings;
   isIlluminated: boolean;
+  faceColor: THREE.Color;
+  faceKind: FaceKind;
   fallbackTriple: MaterialTriple;
   onFailedGlyphs?: (count: number) => void;
+  /** The sign's size on the wall, in world units — for framing the camera. */
+  onBounds?: (bounds: { width: number; height: number }) => void;
 };
 
 function LetterGeometryHost({
-  fontFile, text, depth, material, matOpt, baseColor, glowColor, ls, isIlluminated,
-  fallbackTriple, onFailedGlyphs,
+  fontFile, text, heightMm, worldDepth, material, matOpt, baseColor, glowColor, ls, isIlluminated,
+  faceColor, faceKind, fallbackTriple, onFailedGlyphs, onBounds,
 }: LetterGeometryHostProps) {
   const font = useTTFFont(fontFile);
 
+  // True scale: the capital of THIS font is made exactly as tall as ordered,
+  // in the same millimetres the brick wall is drawn in (components/three/
+  // scale.ts). The geometry is built at the font's own size and scaled as a
+  // whole, so its depth has to be given in that unscaled space.
+  const signScale = mmToUnits(heightMm) / capHeightLocal(font);
+  const localDepth = Math.max(MIN_DEPTH_UNITS, worldDepth / signScale);
+
   const build = useMemo(
-    () => buildSolidLetterGeometry(font, text, depth),
-    [font, text, depth],
+    () => buildSolidLetterGeometry(font, text, localDepth),
+    [font, text, localDepth],
   );
+
+  // How big the sign is on the wall, so the camera can stand back far enough
+  // to see all of it — instead of the sign being shrunk to fit, which is what
+  // used to throw its size against the bricks off.
+  useEffect(() => {
+    const g = build.geometry;
+    if (!g || !onBounds) return;
+    g.computeBoundingBox();
+    const bb = g.boundingBox;
+    if (!bb) return;
+    onBounds({
+      width: (bb.max.x - bb.min.x) * signScale,
+      height: (bb.max.y - bb.min.y) * signScale,
+    });
+  }, [build, signScale, onBounds]);
 
   useEffect(() => {
     if (build.failedCount > 0) onFailedGlyphs?.(build.failedCount);
@@ -541,16 +669,20 @@ function LetterGeometryHost({
   if (!build.geometry) return null; // every glyph in the string failed to extrude
 
   return (
-    <LetterVariant
-      material={material}
-      fallback={toMaterialArray(fallbackTriple)}
-      matOpt={matOpt}
-      baseColor={baseColor}
-      glowColor={glowColor}
-      ls={ls}
-      isIlluminated={isIlluminated}
-      geometry={build.geometry}
-    />
+    <group scale={signScale}>
+      <LetterVariant
+        material={material}
+        fallback={toMaterialArray(fallbackTriple)}
+        matOpt={matOpt}
+        baseColor={baseColor}
+        glowColor={glowColor}
+        ls={ls}
+        isIlluminated={isIlluminated}
+        geometry={build.geometry}
+        faceColor={faceColor}
+        faceKind={faceKind}
+      />
+    </group>
   );
 }
 
@@ -568,14 +700,21 @@ type HaloGlowProps = {
   text: string;
   color: THREE.Color;
   gain: number;
-  scale: number;
+  /** Ordered letter height in mm — the glow is scaled exactly like the letters. */
+  heightMm: number;
+  /** How far the light spreads past the letter's edge, in mm. */
+  reachMm: number;
   y: number;
   z: number;
 };
 
-function HaloGlow({ fontFile, text, color, gain, scale, y, z }: HaloGlowProps) {
+function HaloGlow({ fontFile, text, color, gain, heightMm, reachMm, y, z }: HaloGlowProps) {
   const font = useTTFFont(fontFile); // already cached by the letters themselves
-  const build = useMemo(() => buildHaloGlowTexture(font, text), [font, text]);
+  const scale = mmToUnits(heightMm) / capHeightLocal(font);
+  // The light's reach is a real distance: what LEDs a few centimetres off the
+  // wall throw, the same for a 12 cm letter as for a 2 m one.
+  const reach = mmToUnits(reachMm) / scale;
+  const build = useMemo(() => buildHaloGlowTexture(font, text, reach), [font, text, reach]);
 
   useEffect(() => () => build.texture?.dispose(), [build]);
 
@@ -746,7 +885,10 @@ type LetterSceneProps = {
   backgroundUrl?: string | null;
   font: string;
   lightColor: string;
+  /** The return (side) colour. */
   letterColor: string;
+  /** The face colour — the return's when the build has no separate face. */
+  faceColor?: string;
   thickness: number;
   material: string;       // MaterialOption.id
   signType: SignType;
@@ -769,6 +911,52 @@ type LetterSceneProps = {
   onFailedGlyphs?: (count: number) => void;
 };
 
+// ── Camera framing ─────────────────────────────────────────────────────────────
+// Keeps the whole sign in view without changing its size: the sign is at true
+// scale, so the camera moves instead. Only the distance changes — the angle
+// the customer dragged the view to is kept.
+//
+// On the customer's own photo the camera does NOT move: the photo is sized to
+// a fixed view, so moving the camera would zoom the photo along with the sign
+// and the letters would never look any bigger against it. There the sign
+// simply grows and shrinks at true scale in front of a photo that shows
+// roughly two metres of wall.
+function framingDistance(
+  bounds: { width: number; height: number },
+  heightMm: number,
+  aspect: number,
+): number {
+  const perUnitHeight = 2 * Math.tan((CAMERA_FOV * Math.PI) / 360);
+  const fill = Math.min(
+    FRAME_FILL_MAX,
+    Math.max(FRAME_FILL_MIN, FRAME_FILL_AT_300MM * Math.pow(heightMm / 300, FRAME_FILL_CURVE)),
+  );
+  const byHeight = bounds.height / (fill * perUnitHeight);
+  const byWidth = bounds.width / (FRAME_WIDTH_FILL * perUnitHeight * Math.max(0.5, aspect));
+  return Math.max(FRAME_MIN_DISTANCE, byHeight, byWidth);
+}
+
+function FramingRig({ distance }: { distance: number }) {
+  const { camera } = useThree();
+  const target = useMemo(() => new THREE.Vector3(...CAMERA_TARGET), []);
+  const settled = useRef(false);
+  const offset = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(() => {
+    offset.copy(camera.position).sub(target);
+    const current = offset.length();
+    // The first framing snaps — a page that opens by zooming in on its own
+    // would look like it is still loading.
+    const next = settled.current ? current + (distance - current) * FRAME_EASE : distance;
+    settled.current = true;
+    if (Math.abs(next - current) < 1e-4) return;
+    offset.setLength(next);
+    camera.position.copy(target).add(offset);
+  });
+
+  return null;
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 // While the sign can be placed, the preview reads as something to grab.
@@ -783,7 +971,16 @@ function colourSaturation(hex: string): number {
 
 export default function LetterScene(props: LetterSceneProps) {
   const { signType, lightMode, previewMode } = props;
-  const glowSat = colourSaturation(props.lightColor);
+  // Bloom follows the colour the sign really shines in (LED through its face),
+  // for the same reason the emissive headroom does.
+  const glowSat = colourSaturation(
+    `#${emittedColor(
+      new THREE.Color(safeColor(props.lightColor)),
+      new THREE.Color(safeColor(props.faceColor ?? props.letterColor)),
+      faceKindFor(props.material, signType, lightMode),
+      lightMode,
+    ).getHexString()}`,
+  );
   // Bloom only when something is actually emitting — an illuminated sign at
   // night. In daylight the sign is switched off, so blooming a plain lit face
   // would just fog the preview.
@@ -842,6 +1039,7 @@ function SceneContent({
   font,
   lightColor,
   letterColor,
+  faceColor: faceColorProp,
   thickness,
   material,
   signType,
@@ -870,19 +1068,29 @@ function SceneContent({
 
   const glowColor = useMemo(() => new THREE.Color(safeColor(lightColor)), [lightColor]);
   const baseColor = useMemo(() => new THREE.Color(safeColor(letterColor)), [letterColor]);
+  const faceColor = useMemo(
+    () => new THREE.Color(safeColor(faceColorProp ?? letterColor)),
+    [faceColorProp, letterColor],
+  );
+  const faceKind = faceKindFor(material, signType, lightMode);
 
-  const ls = getLightingSettings(signType, lightMode, isNight, glowColor);
+  // Headroom is judged on what the sign actually shines in: white LEDs behind
+  // a red face are a red light, and have to be kept from clipping to white
+  // exactly like a red LED would.
+  const shineColor = useMemo(
+    () => emittedColor(glowColor, faceColor, faceKind, lightMode),
+    [glowColor, faceColor, faceKind, lightMode],
+  );
+  const ls = getLightingSettings(signType, lightMode, isNight, shineColor);
 
-  // Height has to be VISIBLE. It used to be squeezed into 0.78–1.15, so a
-  // 10 cm sign and a 55 cm one were within a few per cent of each other on
-  // screen and the slider looked like it did nothing. The whole range now
-  // spans about 3.5×: still not the true 5.5× (a 10 cm nápis would be a
-  // speck, especially once a long text is scaled down to fit), but every step
-  // of the slider is plain to see — against a wall whose brick and grain keep
-  // their real size, which is what gives the eye something to measure by.
-  const heightScale = Math.pow(height / HEIGHT_REFERENCE_MM, HEIGHT_SCALE_CURVE) * HEIGHT_SCALE_MAX;
-  const lenScale    = Math.min(1, 6.5 / Math.max(safeText.length, 6));
-  const finalScale  = heightScale * lenScale;
+  // Size is REAL now. The letters are scaled in LetterGeometryHost so their
+  // capital is exactly as tall as ordered, measured in the same millimetres
+  // as the brick wall behind them (components/three/scale.ts) — a 30 cm
+  // letter spans a little over four 7 cm courses, a 5 cm one less than one.
+  // Nothing is shrunk to fit any more: a long text or a big sign moves the
+  // camera back instead (FramingRig below), so the size against the wall
+  // stays true while the whole sign stays in view.
+  const [signBounds, setSignBounds] = useState<{ width: number; height: number } | null>(null);
 
   // Resolve MaterialOption — falls back to first material if id unknown
   const matOpt = useMemo(
@@ -896,23 +1104,43 @@ function SceneContent({
   // an artificial delay.
   const debouncedText      = useDebouncedValue(displayText, TEXT_DEBOUNCE_MS);
   const debouncedThickness = useDebouncedValue(thickness, TEXT_DEBOUNCE_MS);
-  const depthUnits = Math.max(MIN_DEPTH_UNITS, debouncedThickness / DEPTH_SCALE_DIVISOR);
+  const debouncedHeight    = useDebouncedValue(height, TEXT_DEBOUNCE_MS);
+  // True depth: a 60 mm profile on a 300 mm letter is a fifth of its height.
+  const worldDepth = Math.max(MIN_DEPTH_UNITS, mmToUnits(debouncedThickness));
 
   // Fallback (non-textured) material triple — also used directly for plexi/pvc,
   // and as the <LetterVariant> Suspense fallback while a textured material loads.
   const fallbackTriple = useMemo(
-    () => buildMaterialTriple(matOpt, baseColor, glowColor, ls, isIlluminated),
+    () => buildMaterialTriple(matOpt, baseColor, glowColor, ls, isIlluminated, faceColor, faceKind),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [material, signType, lightColor, letterColor, ls.emissiveFront, ls.emissiveSide, ls.emissiveBack],
+    [material, signType, lightColor, letterColor, faceColor, faceKind, ls.emissiveFront, ls.emissiveSide, ls.emissiveBack],
   );
 
   useEffect(() => {
     return () => disposeMaterialTriple(fallbackTriple);
   }, [fallbackTriple]);
 
-  // Park the wall just behind the sign's back face so the letters read as
-  // surface-mounted (the small gap = a realistic stand-off mount).
-  const wallZ = -(depthUnits * finalScale) / 2 - 0.06;
+  // Park the wall just behind the sign's back face. A back-lit letter stands
+  // off the wall on spacers so the light has somewhere to spread; everything
+  // else is mounted close.
+  const standOffMm = isIlluminated && lightMode === "back" ? WALL_GAP_HALO_MM : WALL_GAP_MM;
+  const wallZ = -worldDepth / 2 - mmToUnits(standOffMm);
+
+  const { size: canvasSize } = useThree();
+  const viewDistance = useMemo(() => {
+    if (backgroundUrl || !signBounds) return NOMINAL_VIEW_DISTANCE;
+    return framingDistance(signBounds, debouncedHeight, canvasSize.width / Math.max(1, canvasSize.height));
+  }, [backgroundUrl, signBounds, debouncedHeight, canvasSize.width, canvasSize.height]);
+  // How much further back than usual the camera stands — the key light and its
+  // shadow have to cover a correspondingly bigger stretch of wall.
+  // Not clamped at 1: for a small sign the shadow map is spent on a small
+  // patch of wall and stays sharp instead of smearing over metres of brick.
+  const reach = Math.max(0.2, viewDistance / NOMINAL_VIEW_DISTANCE);
+  const keyLight = useRef<THREE.DirectionalLight>(null);
+  useEffect(() => {
+    // r3f sets the shadow camera's bounds but does not rebuild its projection.
+    keyLight.current?.shadow.camera.updateProjectionMatrix();
+  }, [reach]);
 
   // While something in the preview can be dragged, the left button/one finger
   // belongs to it and turning the view moves to the right button/two fingers.
@@ -966,18 +1194,25 @@ function SceneContent({
           emissive and bloom, which are left exactly as they were. ── */}
       <ambientLight intensity={isNight ? 0.62 : 0.82} />
       <directionalLight
-        position={[3.2, 4.2, 3.5]}
-        intensity={isNight ? 0.98 : 1.4}
+        ref={keyLight}
+        position={[3.2 * reach, 4.2 * reach, 3.5 * reach]}
+        // At night the sign is the light. A strong key light then throws a
+        // hard second silhouette of the letters onto the wall, which no photo
+        // of a lit sign has — so it is kept to a gentle fill that still shows
+        // the colour of the letters.
+        intensity={isNight ? 0.55 : 1.4}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
-        shadow-normalBias={0.02}
-        shadow-camera-near={0.1}
-        shadow-camera-far={26}
-        shadow-camera-left={-6}
-        shadow-camera-right={6}
-        shadow-camera-top={6}
-        shadow-camera-bottom={-6}
+        // Biases are distances, so they follow the scale of what is on screen
+        // — a fixed one detaches a small letter's shadow from the letter.
+        shadow-normalBias={0.02 * reach}
+        shadow-camera-near={0.1 * reach}
+        shadow-camera-far={26 * reach}
+        shadow-camera-left={-6 * reach}
+        shadow-camera-right={6 * reach}
+        shadow-camera-top={6 * reach}
+        shadow-camera-bottom={-6 * reach}
       />
       <directionalLight position={[-4, 1.5, 2.5]} intensity={isNight ? 0.3 : 0.6} />
 
@@ -1028,9 +1263,13 @@ function SceneContent({
           <HaloGlow
             fontFile={fontOpt.file}
             text={debouncedText}
-            color={glowColor}
+            // The aura is light that got out of the sign, so it is the colour
+            // it got out in: through a red face it is red. A halo's light goes
+            // backwards and never passes the face — there it is the LED's.
+            color={shineColor}
             gain={glowGain}
-            scale={finalScale}
+            heightMm={debouncedHeight}
+            reachMm={lightMode === "back" ? HALO_REACH_MM : AURA_REACH_MM}
             y={0.08}
             z={wallZ + HALO_GLOW_WALL_OFFSET}
           />
@@ -1039,7 +1278,7 @@ function SceneContent({
 
       {/* ── Sign geometry — mounted flat on the wall; the viewer can drag
           within a limited arc (OrbitControls below) ── */}
-      <Center position={[0, 0.08, 0]} scale={finalScale}>
+      <Center position={[0, 0.08, 0]}>
         <group rotation={[VIEW_TILT, 0, 0]}>
           {/* Own Suspense boundary — switching fonts only hides the letters
               while their TTF loads, never the wall/lights/HDRI. */}
@@ -1047,15 +1286,19 @@ function SceneContent({
             <LetterGeometryHost
               fontFile={fontOpt.file}
               text={debouncedText}
-              depth={depthUnits}
+              heightMm={debouncedHeight}
+              worldDepth={worldDepth}
               material={material}
               matOpt={matOpt}
               baseColor={baseColor}
               glowColor={glowColor}
               ls={ls}
               isIlluminated={isIlluminated}
+              faceColor={faceColor}
+              faceKind={faceKind}
               fallbackTriple={fallbackTriple}
               onFailedGlyphs={onFailedGlyphs}
+              onBounds={setSignBounds}
             />
           </Suspense>
         </group>
@@ -1077,6 +1320,8 @@ function SceneContent({
           (the sign, or the photo behind it), the right one still turns the view
           exactly as it does on a painted wall. Same on touch — one finger
           moves, two fingers turn — so nothing is out of reach on a phone. */}
+      <FramingRig distance={viewDistance} />
+
       <OrbitControls
         makeDefault
         mouseButtons={orbitMouseButtons}

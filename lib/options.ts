@@ -434,8 +434,14 @@ export const LIGHT_COLORS: LightColorOption[] = [
 export function resolveLightColor(config: {
   lightColor: string;
   bodyColor: string;
+  faceColor?: string;
+  material?: string;
 }): string {
-  return config.lightColor === LIGHT_COLOR_AS_BODY ? config.bodyColor : config.lightColor;
+  if (config.lightColor !== LIGHT_COLOR_AS_BODY) return config.lightColor;
+  // The letter's colour is what you see of it — its face, where it has one.
+  return config.material
+    ? faceColorOf({ material: config.material, bodyColor: config.bodyColor, faceColor: config.faceColor })
+    : config.bodyColor;
 }
 
 /** Warm white: what a sign gets unless the customer says otherwise. */
@@ -515,6 +521,100 @@ export const profileColorOptions: ColorOption[] = [
 /** Which colours a sign of this kind can be made in. */
 export function bodyColorOptionsFor(signType: SignType): ColorOption[] {
   return signType === "illuminated" ? profileColorOptions : letterColorOptions;
+}
+
+// ── Čelo a hrana ─────────────────────────────────────────────────────────────
+//
+// A made letter is two parts that are rarely the same material: the RETURN
+// (the band round its edge — painted aluminium coil on alurol, printed plastic
+// on 3D print, the acrylic edge on plexi UV) and the FACE the customer looks
+// at. Each gets its own colour, because that is how these signs are ordered
+// and what makes them look the way they do: black returns with a white face
+// is the classic lit channel letter.
+//
+// The one exception is 30 mm plexi. It is cut from a single block of acrylic,
+// so there is no seam between face and edge and nothing to colour separately.
+
+export function hasSeparateFace(materialId: string): boolean {
+  return materialId !== "plexi30";
+}
+
+/**
+ * What the face is made of, for this build lit this way — which decides how it
+ * looks and whether it lights up:
+ *   · "acrylic" — a translucent plexi face. Lit from the front it glows, and
+ *     the light comes out in ITS colour (lib/… LetterScene: LED × face).
+ *   · "same"    — the same material as the return, opaque (a halo letter's
+ *     face, a painted alurol face, a solid print).
+ *   · "print"   — a UV-printed face on an acrylic sheet.
+ *   · "none"    — no separate face at all (30 mm plexi).
+ */
+export type FaceKind = "acrylic" | "same" | "print" | "none";
+
+export function faceKindFor(
+  materialId: string,
+  signType: SignType,
+  lightMode: LightModeId,
+): FaceKind {
+  if (!hasSeparateFace(materialId)) return "none";
+  if (materialId === "plexi-uv") return "print";
+  const lit = signType === "illuminated";
+  if (materialId.startsWith("alurol")) return lit && lightMode === "front" ? "acrylic" : "same";
+  // "3D tlač s plexi" has a plexi face — except the halo version, whose front
+  // is closed and printed so all the light goes to the wall behind it.
+  if (materialId === "print3d") return lit && lightMode === "back" ? "same" : "acrylic";
+  return "same";
+}
+
+// Light has to get through a front-lit face, so it is translucent acrylic —
+// and black or silver acrylic lets nothing through.
+const TRANSLUCENT_FACE_IDS = new Set(["white", "yellow", "orange", "red", "green", "blue"]);
+
+/** The colours the face can be made in, or none when it has no face of its own. */
+export function faceColorOptionsFor(
+  materialId: string,
+  signType: SignType,
+  lightMode: LightModeId,
+): ColorOption[] {
+  const kind = faceKindFor(materialId, signType, lightMode);
+  if (kind === "none") return [];
+  if (kind === "acrylic" && signType === "illuminated" && lightMode === "front") {
+    return PROFILE_COLORS.filter((c) => TRANSLUCENT_FACE_IDS.has(c.id));
+  }
+  return bodyColorOptionsFor(signType);
+}
+
+/** A colour's name, for the order sheet — "Biela", "Čierna"… */
+export function colorLabel(value: string): string {
+  const v = value.toLowerCase();
+  return profileColorOptions.find((c) => c.value.toLowerCase() === v)?.label ?? value;
+}
+
+/** The colour the face actually is — the return's, where there is no separate face. */
+export function faceColorOf(config: {
+  material: string;
+  bodyColor: string;
+  faceColor?: string;
+}): string {
+  return hasSeparateFace(config.material) ? (config.faceColor ?? config.bodyColor) : config.bodyColor;
+}
+
+/**
+ * The face colour kept, or the nearest one this face can be made in — so
+ * switching a black-faced sign to front lighting lands on a white face that
+ * lets the light through, instead of a black one that would stay dark.
+ */
+export function clampFaceColor(
+  materialId: string,
+  signType: SignType,
+  lightMode: LightModeId,
+  value: string,
+): string {
+  const offered = faceColorOptionsFor(materialId, signType, lightMode);
+  if (offered.length === 0) return value;
+  return offered.some((c) => c.value.toLowerCase() === value.toLowerCase())
+    ? value
+    : offered[0].value;
 }
 
 // ── Veľké / malé písmo ──────────────────────────────────────────────────────

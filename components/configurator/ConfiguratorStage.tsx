@@ -7,7 +7,7 @@ import EyebrowPill from "@/components/ui/EyebrowPill";
 import WallPicker from "@/components/configurator/WallPicker";
 import { DEFAULT_WALL, MAX_BACKGROUND_BYTES, type WallGrain } from "@/lib/walls";
 import { MAX_LINES } from "@/lib/sign-text";
-import type { Config, LightModeDirection, LightModeId, Placement, SignType } from "@/lib/types";
+import type { ColorOption, Config, LightModeDirection, LightModeId, Placement, SignType } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
@@ -18,6 +18,11 @@ import {
   fontsFor,
   lightColorsFor,
   clampLightColor,
+  hasSeparateFace,
+  faceColorOptionsFor,
+  faceColorOf,
+  faceKindFor,
+  clampFaceColor,
   applyTextCase,
   textCaseFor,
   resolveLightColor,
@@ -174,6 +179,15 @@ export default function ConfiguratorStage() {
   // two offer different ranges. The colours themselves are shared and keep
   // their ids, so switching Svetelné/Nesvetelné never loses what is set.
   const bodyColors = bodyColorOptionsFor(config.signType);
+  // The face has its own colour everywhere except 30 mm plexi, and a
+  // front-lit face is translucent acrylic, so it only comes in colours that
+  // let light through (lib/options.ts faceColorOptionsFor).
+  const separateFace = hasSeparateFace(config.material);
+  const faceColors = faceColorOptionsFor(config.material, config.signType, config.lightMode);
+  const currentFaceColor = faceColorOf(config);
+  const currentFaceOption = faceColors.find((c) => c.value.toLowerCase() === currentFaceColor.toLowerCase());
+  const faceGlows = faceKindFor(config.material, config.signType, config.lightMode) === "acrylic"
+    && config.signType === "illuminated" && config.lightMode === "front";
   const currentBodyColor =
     bodyColors.find((c) => c.id === selectedBodySwatch) ??
     bodyColors.find((c) => c.value.toLowerCase() === config.bodyColor.toLowerCase());
@@ -260,9 +274,11 @@ export default function ConfiguratorStage() {
     if (!pendingConfig) return;
     // A sign stored before the LED colours were cut down to a named list can
     // carry a colour that is no longer made; clamp it as it comes back in.
+    const pc = pendingConfig.config;
     const incoming: Config = {
-      ...pendingConfig.config,
-      lightColor: clampLightColor(pendingConfig.config.lightMode, pendingConfig.config.lightColor),
+      ...pc,
+      lightColor: clampLightColor(pc.lightMode, pc.lightColor),
+      faceColor: clampFaceColor(pc.material, pc.signType, pc.lightMode, pc.faceColor ?? pc.bodyColor),
     };
     setConfig(incoming);
     setSelectedBodySwatch(swatchIdFor(bodyColorOptionsFor(incoming.signType), incoming.bodyColor));
@@ -316,7 +332,17 @@ export default function ConfiguratorStage() {
     // already typed rather than leaving a nápis nobody would make.
     const text = applyTextCase(next.text ?? config.text, material);
 
-    return { ...next, signType, placement, lightMode: mode, material, font, height, lightColor, text };
+    // …and the face has to be one this build can be made with: switching to
+    // front lighting turns a black face white, because the face is now the
+    // plexi the light shines through and black lets nothing out.
+    const faceColor = clampFaceColor(
+      material,
+      signType,
+      mode,
+      next.faceColor ?? config.faceColor ?? config.bodyColor,
+    );
+
+    return { ...next, signType, placement, lightMode: mode, material, font, height, lightColor, text, faceColor };
   }
 
   function apply(update: Partial<Config>) {
@@ -541,6 +567,7 @@ export default function ConfiguratorStage() {
               font={config.font}
               lightColor={litColor}
               letterColor={config.bodyColor}
+              faceColor={currentFaceColor}
               thickness={depthMm}
               material={config.material}
               signType={config.signType}
@@ -805,56 +832,66 @@ export default function ConfiguratorStage() {
                 Ponúkame len stavby, ktoré sa v tomto zadaní naozaj vyrábajú.
               </p>
 
-              <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
-                {isIlluminated ? "Farba profilu" : "Farba materiálu"}
-                <span className="ml-1.5 font-semibold" style={{ color: "var(--color-foreground)" }}>
-                  — {currentBodyColor?.label ?? ""}
-                </span>
-              </p>
-              {/* Farba aj jej názov, nie len bodka: v náhľade sa odtieň mení
-                  podľa toho, ako je nápis nasvietený, tak nech je aspoň tu
-                  vidieť presne to, čo sa objednáva. */}
-              <div className="grid grid-cols-2 gap-2">
-                {bodyColors.map((c) => {
-                  const active = selectedBodySwatch === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setBodyColor(c.id, c.value)}
-                      aria-pressed={active}
-                      className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition"
-                      style={{
-                        background: "var(--color-surface)",
-                        border: active
-                          ? "1px solid var(--color-primary)"
-                          : "1px solid var(--color-border)",
-                        opacity: active ? 1 : 0.8,
-                      }}
-                    >
-                      <span
-                        className="h-5 w-5 shrink-0 rounded-full"
-                        style={{
-                          background: c.value,
-                          // Obrys drží aj bielu a čiernu čitateľnú na oboch témach.
-                          boxShadow: "inset 0 0 0 1px rgba(0,0,0,.28), 0 0 0 1px var(--color-border)",
-                        }}
-                        aria-hidden="true"
-                      />
-                      <span
-                        className="text-[11px] font-bold leading-tight"
-                        style={{ color: "var(--color-foreground)" }}
-                      >
-                        {c.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {isIlluminated && (
-                <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
-                  Farby, v ktorých sa profil svetelného písma štandardne vyrába.
-                </p>
+              {/* ── Farba čela a hrany ──────────────────────────────────────
+                  Dva samostatné výbery a nad nimi malá ukážka ich kombinácie,
+                  aby bolo hneď vidieť, čo s čím ide. 30 mm plexi je jeden kus
+                  akrylátu — tam je farba len jedna. */}
+              {separateFace ? (
+                <>
+                  <div
+                    className="mt-4 flex items-center gap-3 rounded-2xl px-3.5 py-3"
+                    style={{ background: "var(--color-surface)" }}
+                  >
+                    <FaceReturnSwatch face={currentFaceColor} edge={config.bodyColor} glow={faceGlows} />
+                    <div className="min-w-0 text-[11px] leading-5">
+                      <div style={{ color: "var(--color-foreground)" }}>
+                        <strong>Čelo</strong> {currentFaceOption?.label ?? ""}
+                        {" · "}
+                        <strong>Hrana</strong> {currentBodyColor?.label ?? ""}
+                      </div>
+                      <div style={{ color: "var(--color-muted)" }}>
+                        {faceGlows
+                          ? "Čelo je z presvetleného plexi — svieti vo svojej farbe."
+                          : "Čelo je predná plocha písmena, hrana jeho bok."}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                    Farba čela
+                  </p>
+                  <ColorChips
+                    options={faceColors}
+                    isActive={(c) => c.value.toLowerCase() === currentFaceColor.toLowerCase()}
+                    onPick={(c) => patch({ faceColor: c.value })}
+                  />
+
+                  <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                    Farba hrany
+                  </p>
+                  <ColorChips
+                    options={bodyColors}
+                    isActive={(c) => selectedBodySwatch === c.id}
+                    onPick={(c) => setBodyColor(c.id, c.value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
+                    Farba písmena
+                    <span className="ml-1.5 font-semibold" style={{ color: "var(--color-foreground)" }}>
+                      — {currentBodyColor?.label ?? ""}
+                    </span>
+                  </p>
+                  <ColorChips
+                    options={bodyColors}
+                    isActive={(c) => selectedBodySwatch === c.id}
+                    onPick={(c) => setBodyColor(c.id, c.value)}
+                  />
+                  <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                    30 mm plexi je jeden kus akrylátu — čelo aj hrana majú rovnakú farbu.
+                  </p>
+                </>
               )}
             </FieldCard>
 
@@ -1227,6 +1264,75 @@ function SliderBox({
         })}
       </div>
     </div>
+  );
+}
+
+// ── Colour chips ──────────────────────────────────────────────────────────────
+// A colour with its name, never just a dot — used for the face, the return and
+// the single colour of 30 mm plexi, so all three read the same way.
+function ColorChips({
+  options,
+  isActive,
+  onPick,
+}: {
+  options: ColorOption[];
+  isActive: (c: ColorOption) => boolean;
+  onPick: (c: ColorOption) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {options.map((c) => {
+        const active = isActive(c);
+        return (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => onPick(c)}
+            aria-pressed={active}
+            className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-left transition"
+            style={{
+              background: "var(--color-surface)",
+              border: active ? "1px solid var(--color-primary)" : "1px solid var(--color-border)",
+              opacity: active ? 1 : 0.8,
+            }}
+          >
+            <span
+              className="h-5 w-5 shrink-0 rounded-full"
+              style={{
+                background: c.value,
+                // Obrys drží aj bielu a čiernu čitateľnú na oboch témach.
+                boxShadow: "inset 0 0 0 1px rgba(0,0,0,.28), 0 0 0 1px var(--color-border)",
+              }}
+              aria-hidden="true"
+            />
+            <span className="text-[11px] font-bold leading-tight" style={{ color: "var(--color-foreground)" }}>
+              {c.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Face + return at a glance ────────────────────────────────────────────────
+// A letter-shaped block seen from a slight angle: the face on top, the return
+// showing as its side band. It is what the two colours look like TOGETHER,
+// which neither list of chips can show on its own.
+function FaceReturnSwatch({ face, edge, glow }: { face: string; edge: string; glow: boolean }) {
+  return (
+    <svg width="46" height="46" viewBox="0 0 46 46" aria-hidden="true" className="shrink-0">
+      {/* the return — the side of the block */}
+      <path d="M8 12 L14 6 L42 6 L42 34 L36 40 L8 40 Z" fill={edge} stroke="rgba(0,0,0,.25)" strokeWidth="1" />
+      {/* the face */}
+      <rect
+        x="8" y="12" width="28" height="28" rx="3"
+        fill={face}
+        stroke="rgba(0,0,0,.28)"
+        strokeWidth="1"
+        style={glow ? { filter: `drop-shadow(0 0 5px ${face})` } : undefined}
+      />
+    </svg>
   );
 }
 

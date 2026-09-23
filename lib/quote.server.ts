@@ -19,6 +19,8 @@ import {
   fontsFor,
   clampHeight,
   applyTextCase,
+  hasSeparateFace,
+  clampFaceColor,
 } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 
@@ -91,6 +93,17 @@ export function sanitizeConfig(raw: unknown): Config | null {
     lightMode: c.lightMode ?? "front",
     lightColor: typeof c.lightColor === "string" ? c.lightColor.slice(0, 32) : "#ffffff",
     bodyColor: typeof c.bodyColor === "string" ? c.bodyColor.slice(0, 32) : "#ffffff",
+    // Checked, not trusted: a front-lit face has to be a colour light gets
+    // through, and 30 mm plexi has no separate face at all.
+    faceColor: hasSeparateFace(material.id)
+      ? clampFaceColor(
+          material.id,
+          c.signType,
+          c.lightMode ?? "front",
+          typeof c.faceColor === "string" ? c.faceColor.slice(0, 32)
+            : typeof c.bodyColor === "string" ? c.bodyColor.slice(0, 32) : "#ffffff",
+        )
+      : undefined,
     // Clamped, not rejected: the build's own range is what it is made in, and
     // a height just outside it is a stale cart line, not an attack.
     height: clampHeight(material.id, height),

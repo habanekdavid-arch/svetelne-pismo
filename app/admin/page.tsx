@@ -12,7 +12,7 @@ import {
   type OrderGroup,
   type OrderStatus,
 } from "@/lib/orders";
-import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor } from "@/lib/options";
+import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor, hasSeparateFace, faceColorOf, colorLabel } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
 import StatusBadge from "@/components/orders/StatusBadge";
@@ -202,7 +202,8 @@ export default async function AdminPage({
                       <div className="mt-2 flex items-center gap-2">
                         <span
                           className="h-4 w-4 shrink-0 rounded-full"
-                          style={{ background: o.config.bodyColor, border: "1px solid var(--color-border)" }}
+                          style={{ background: faceColorOf(o.config), border: `3px solid ${o.config.bodyColor}` }}
+                          title="čelo a hrana"
                           aria-hidden="true"
                         />
                         <p className="truncate text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
@@ -227,6 +228,16 @@ export default async function AdminPage({
                           label="Hrúbka"
                           value={`${depthMmFor(o.config.material, o.config.height)} mm`}
                         />
+                        {/* Dielňa potrebuje obe farby menom — čelo a hrana sa
+                            objednávajú a lakujú zvlášť. */}
+                        {hasSeparateFace(o.config.material) ? (
+                          <>
+                            <SpecLine label="Čelo" value={colorLabel(faceColorOf(o.config))} />
+                            <SpecLine label="Hrana" value={colorLabel(o.config.bodyColor)} />
+                          </>
+                        ) : (
+                          <SpecLine label="Farba" value={colorLabel(o.config.bodyColor)} />
+                        )}
                       </dl>
                     </div>
 

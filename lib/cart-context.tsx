@@ -12,7 +12,7 @@ import {
 import type { Config } from "@/lib/types";
 import { calculatePrice } from "@/lib/pricing";
 import type { SignSize } from "@/lib/useSignSize";
-import { depthMmFor } from "@/lib/options";
+import { depthMmFor, faceColorOf } from "@/lib/options";
 
 // Cart of configured signs. Each entry is one complete Config — the same shape
 // the configurator publishes and /api/orders already accepts — plus the price
@@ -110,6 +110,7 @@ function sameConfig(a: Config, b: Config): boolean {
     a.lightMode === b.lightMode &&
     a.lightColor === b.lightColor &&
     a.bodyColor === b.bodyColor &&
+    faceColorOf(a) === faceColorOf(b) &&
     a.placement === b.placement &&
     a.height === b.height
   );
