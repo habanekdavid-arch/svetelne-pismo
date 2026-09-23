@@ -11,7 +11,7 @@ export default function ConfirmTransferButton({ groupId }: { groupId: string }) 
       type="button"
       disabled={pending}
       onClick={() => {
-        if (!window.confirm("Potvrdiť, že platba prevodom prišla na účet?")) return;
+        if (!window.confirm("Potvrdiť, že platba za túto objednávku prišla na účet?")) return;
         startTransition(() => {
           confirmTransferPaid(groupId);
         });

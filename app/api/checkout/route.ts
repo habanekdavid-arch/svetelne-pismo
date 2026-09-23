@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { getUserSession } from "@/lib/user-auth";
-import { attachStripeSession, getOrderGroup, listOrdersForGroup } from "@/lib/orders";
+import { attachStripeSession, getOrderGroup, listOrdersForGroup, quoteState } from "@/lib/orders";
 import { siteOrigin, stripe } from "@/lib/stripe";
 import { materialById } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 import { formatDeliveryPrice } from "@/lib/shipping";
-import { INSTALLATION_METHOD } from "@/lib/payment-methods";
 
 // Opens the Stripe Checkout Session for an order that has already been placed
 // and priced (app/api/orders). The amount comes from the stored order, never
@@ -38,8 +37,8 @@ export async function POST(req: Request) {
   if (group.paymentStatus === "paid") {
     return NextResponse.json({ error: "already_paid" }, { status: 409 });
   }
-  // A consultation is priced and paid once the mounting is agreed, not here.
-  if (group.deliveryMethod === INSTALLATION_METHOD) {
+  // An installation order is paid against the quote, and not before it is sent.
+  if (quoteState(group) === "requested") {
     return NextResponse.json({ error: "not_payable" }, { status: 400 });
   }
   if (group.totalCents <= 0) {
@@ -75,7 +74,8 @@ export async function POST(req: Request) {
         currency: group.currency.toLowerCase(),
         unit_amount: group.deliveryCents,
         product_data: {
-          name: "Doprava",
+          // For an installation order this line is the quoted mounting.
+          name: quoteState(group) ? "Montáž" : "Doprava",
           description: formatDeliveryPrice(group.deliveryCents / 100),
         },
       },

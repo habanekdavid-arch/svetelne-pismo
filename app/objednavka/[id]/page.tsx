@@ -6,6 +6,7 @@ import {
   getOrderGroup,
   listOrdersForGroup,
   PAYMENT_STATUS_LABEL,
+  quoteState,
   type OrderGroup,
 } from "@/lib/orders";
 import { materialById } from "@/lib/options";
@@ -47,16 +48,19 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const paid = group.paymentStatus === "paid";
   const cancelled = stav === "zrusene";
   const installation = group.deliveryMethod === INSTALLATION_METHOD;
+  const quote = quoteState(group);
+  // Something to pay: an ordinary order, or an installation order once its
+  // quote — the pre-invoice — has been sent. Before that there is nothing.
+  const payable = !paid && group.totalCents > 0 && (!installation || quote === "sent");
   // A card can be (re)tried whenever the shop takes cards — also by someone
-  // who picked a transfer and changed their mind. A consultation is paid only
-  // once the mounting is agreed.
-  const canPayByCard = !paid && !installation && group.totalCents > 0 && stripeConfigured();
-  const bank = group.paymentMethod === "transfer" && !paid ? bankAccount() : null;
+  // who picked a transfer and changed their mind.
+  const canPayByCard = payable && stripeConfigured();
+  const bank = payable && (group.paymentMethod === "transfer" || quote === "sent") ? bankAccount() : null;
   const vs = orders[0] ? variableSymbol(orders[0].id) : null;
 
   return (
     <AccountShell
-      title={installation ? "Konzultácia k montáži" : "Objednávka"}
+      title={quote === "sent" ? "Predfaktúra" : installation ? "Objednávka s montážou" : "Objednávka"}
       description={`Číslo ${group.id.split("-")[0].toUpperCase()}`}
     >
       <AccountSection title={headline(group, cancelled)}>
@@ -118,13 +122,18 @@ export default async function OrderPage({ params, searchParams }: Props) {
 
         <dl className="mt-5 space-y-2 text-sm">
           <Row label={installation ? "Adresa inštalácie" : "Doprava"} value={deliveryLabel(group)} />
-          {group.deliveryCents > 0 && (
+          {installation ? (
+            <Row
+              label="Montáž"
+              value={quote === "requested" ? "pripravujeme cenovú ponuku" : formatEur(group.deliveryCents / 100)}
+            />
+          ) : group.deliveryCents > 0 && (
             <Row label="Cena dopravy" value={formatEur(group.deliveryCents / 100)} />
           )}
           {group.paymentMethod && (
             <Row label="Spôsob platby" value={PAYMENT_METHOD_LABEL[group.paymentMethod]} />
           )}
-          {!installation && (
+          {quote !== "requested" && (
             <Row label="Platba" value={PAYMENT_STATUS_LABEL[group.paymentStatus]} />
           )}
           {group.packetaBarcode && (
@@ -135,7 +144,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
             style={{ borderColor: "var(--color-border)" }}
           >
             <dt className="text-xs font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
-              {installation ? "Za nápisy, s DPH" : "Spolu s DPH"}
+              {quote === "requested" ? "Za nápisy, s DPH" : "Spolu s DPH"}
             </dt>
             <dd className="text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
               {formatEur(group.totalCents / 100)}
@@ -165,7 +174,9 @@ export default async function OrderPage({ params, searchParams }: Props) {
 }
 
 function headline(group: OrderGroup, cancelled: boolean): string {
-  if (group.deliveryMethod === INSTALLATION_METHOD) return "Žiadosť o konzultáciu je prijatá";
+  const quote = quoteState(group);
+  if (quote === "requested") return "Objednávka čaká na cenovú ponuku";
+  if (quote === "sent") return "Cenová ponuka je pripravená";
   if (group.paymentStatus === "paid") return "Objednávka je zaplatená";
   if (cancelled) return "Platba nebola dokončená";
   if (group.paymentStatus === "failed") return "Platba zlyhala";
@@ -174,11 +185,17 @@ function headline(group: OrderGroup, cancelled: boolean): string {
 }
 
 function body(group: OrderGroup, cancelled: boolean): string {
-  if (group.deliveryMethod === INSTALLATION_METHOD) {
-    return "Ozveme sa vám telefonicky a dohodneme obhliadku, montáž a jej cenu. Teraz nič neplatíte.";
+  const quote = quoteState(group);
+  if (quote === "requested") {
+    return "Objednávku s montážou máme. Pripravíme cenovú ponuku — predfaktúru s montážou na vašej adrese — a ozveme sa vám. Vopred nič neplatíte.";
+  }
+  if (quote === "sent") {
+    return "Toto je naša cenová ponuka s montážou. Ak s ňou súhlasíte, uhraďte prosím sumu nižšie — výrobu začneme hneď, ako platba príde, a termín montáže dohodneme telefonicky.";
   }
   if (group.paymentStatus === "paid") {
-    return "Ďakujeme. Nápis ideme vyrábať a hneď ako bude hotový, odošleme ho — číslo zásielky sa objaví tu.";
+    return group.deliveryMethod === INSTALLATION_METHOD
+      ? "Ďakujeme. Nápis ideme vyrábať a termín montáže s vami dohodneme telefonicky."
+      : "Ďakujeme. Nápis ideme vyrábať a hneď ako bude hotový, odošleme ho — číslo zásielky sa objaví tu.";
   }
   if (cancelled) {
     return "Platba bola prerušená a nič sme vám nestrhli. Objednávku máme uloženú — môžete ju zaplatiť kedykoľvek.";

@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 import type { Config } from "@/lib/types";
-import { isPaymentMethod, type PaymentMethodId } from "@/lib/payment-methods";
+import { INSTALLATION_METHOD, isPaymentMethod, type PaymentMethodId } from "@/lib/payment-methods";
 
 export type OrderStatus = "new" | "in_progress" | "done" | "cancelled";
 
@@ -162,6 +162,8 @@ export type OrderGroup = {
   paymentStatus: PaymentStatus;
   /** Card or transfer; null when nothing is paid at checkout (enquiry, consultation). */
   paymentMethod: PaymentMethodId | null;
+  /** When the shop sent its quote for an installation order; null until then. */
+  quoteSentAt: string | null;
   stripeSessionId: string | null;
   stripePaymentIntent: string | null;
   packetaPacketId: string | null;
@@ -191,6 +193,7 @@ function mapGroup(row: Row): OrderGroup {
     currency: row.currency,
     paymentStatus: row.payment_status as PaymentStatus,
     paymentMethod: isPaymentMethod(row.payment_method) ? row.payment_method : null,
+    quoteSentAt: row.quote_sent_at ? new Date(row.quote_sent_at).toISOString() : null,
     stripeSessionId: row.stripe_session_id ?? null,
     stripePaymentIntent: row.stripe_payment_intent ?? null,
     packetaPacketId: row.packeta_packet_id ?? null,
@@ -338,4 +341,49 @@ export async function listGroupsByIds(ids: string[]): Promise<Map<string, OrderG
     console.error("[objednávky] skupiny sa nepodarilo načítať:", err);
     return new Map();
   }
+}
+
+// ── Installation orders: quote first, payment after ─────────────────────────
+// An installation order is placed without paying anything. The shop prices
+// the mounting, sends the quote — a pre-invoice with the signs and the
+// mounting — and only then is there something to pay.
+
+export type QuoteState = "requested" | "sent" | "paid";
+
+/** Where an installation order stands; null for an ordinary order. */
+export function quoteState(group: Pick<OrderGroup, "deliveryMethod" | "quoteSentAt" | "paymentStatus">): QuoteState | null {
+  if (group.deliveryMethod !== INSTALLATION_METHOD) return null;
+  if (group.paymentStatus === "paid") return "paid";
+  return group.quoteSentAt ? "sent" : "requested";
+}
+
+export const QUOTE_STATE_LABEL: Record<QuoteState, string> = {
+  requested: "Čaká na cenovú ponuku",
+  sent:      "Cenová ponuka pripravená",
+  paid:      "Zaplatené",
+};
+
+/**
+ * Sends the quote: the mounting price goes in beside the signs, the total is
+ * what is now owed, and the order waits for payment. Refused once paid, so a
+ * paid order's amount can never change under it.
+ */
+export async function sendInstallationQuote(
+  groupId: string,
+  installationCents: number,
+  paymentMethod: PaymentMethodId | null,
+): Promise<boolean> {
+  const sql = await getDb();
+  const rows = (await sql`
+    UPDATE order_groups
+    SET delivery_cents = ${installationCents},
+        total_cents = items_cents + ${installationCents},
+        payment_method = ${paymentMethod},
+        quote_sent_at = now()
+    WHERE id = ${groupId}
+      AND delivery_method = ${INSTALLATION_METHOD}
+      AND payment_status <> 'paid'
+    RETURNING id
+  `) as Row[];
+  return rows.length > 0;
 }

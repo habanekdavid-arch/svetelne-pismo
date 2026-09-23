@@ -17,8 +17,9 @@ import type { Config } from "@/lib/types";
 // (our own Prisma-backed session, lib/user-auth.ts), in one of two shapes:
 //   · a standard order — delivery and payment chosen, terms agreed, and, when
 //     paying by card, right before being sent to Stripe;
-//   · an installation consultation (`kind: "installation"`) — contact details
-//     and the address the sign is to be mounted at; the shop calls back.
+//   · an order with installation (`kind: "installation"`) — contact details
+//     and the address the sign is to be mounted at; nothing is paid until the
+//     shop sends its quote.
 //
 // Nothing about money or delivery is taken from the request: every sign is
 // re-measured and re-priced here (lib/quote.server.ts), and the chosen
@@ -73,10 +74,11 @@ export async function POST(req: Request) {
 
   const quote = await quoteBasket(configs);
 
-  // ── Installation consultation ──────────────────────────────────────────────
-  // The customer wants the sign mounted, so the shop calls them first. Nothing
-  // is paid or shipped yet; what has to be right is how to reach them and
-  // where the sign is going on the wall.
+  // ── Order with installation ────────────────────────────────────────────────
+  // The customer wants the sign mounted. The order goes in without payment and
+  // waits for the shop's quote — a pre-invoice with the mounting in it
+  // (lib/orders.ts sendInstallationQuote). What has to be right now is how to
+  // reach them and where the sign is going on the wall.
   if (body?.kind === "installation") {
     const site = readAddress(body?.installation?.address);
     if (!site) {

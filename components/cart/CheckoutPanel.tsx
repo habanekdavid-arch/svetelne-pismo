@@ -18,10 +18,10 @@ import AuthGate, { type SessionUser } from "@/components/checkout/AuthGate";
 // summary with an "Upraviť" link, payment as two cards (card, transfer), the
 // price breakdown, the terms tick and one order button.
 //
-// One addition of our own: a third delivery card for an installation
-// consultation. A sign that is to be mounted is not posted — the shop calls
-// the customer and agrees the mounting, so that choice asks for the address
-// it goes up at and takes no payment.
+// One addition of our own: a third delivery card for an order with
+// installation. A sign that is to be mounted is not posted — the order goes in
+// without any payment and waits for the shop's quote (a pre-invoice with the
+// mounting in it), so that choice asks for the address it goes up at instead.
 //
 // Nothing about money is decided here: prices, delivery methods and payment
 // methods all come from app/api/quote, and app/api/orders checks them again.
@@ -252,9 +252,11 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
       }
 
       // Transfer: the order page shows the IBAN, variable symbol and amount.
-      if (placed?.payment === "transfer" && placed?.groupId) {
+      // Installation: the order page shows it waiting for our quote, and is
+      // where the pre-invoice will appear.
+      if ((installation || placed?.payment === "transfer") && placed?.groupId) {
         clearCart();
-        window.location.href = `/objednavka/${placed.groupId}?stav=prevod`;
+        window.location.href = `/objednavka/${placed.groupId}${installation ? "" : "?stav=prevod"}`;
         return;
       }
 
@@ -262,8 +264,8 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
       onPlaced(
         installation
           ? {
-              title: "Žiadosť o konzultáciu odoslaná",
-              text: `Ďakujeme, ${name}! Ozveme sa vám na ${phone} a dohodneme montáž na adrese ${site.street} ${site.houseNumber}, ${site.city}.`,
+              title: "Objednávka čaká na cenovú ponuku",
+              text: `Ďakujeme, ${name}! Pripravíme cenovú ponuku s montážou a ozveme sa vám na ${phone}. Vopred nič neplatíte.`,
             }
           : {
               title: "Objednávka odoslaná",
@@ -284,7 +286,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
   const buttonLabel = submitting
     ? payment === "card" && !installation ? "Presmerúvam…" : "Odosielam…"
     : installation
-      ? "Požiadať o konzultáciu"
+      ? "Objednať s montážou — na cenovú ponuku"
       : paymentMethods.length === 0 || carrier?.price === null
         ? "Odoslať objednávku"
         : payment === "transfer"
@@ -326,8 +328,8 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
               active={installation}
               onClick={() => setMethod(INSTALLATION)}
               icon={<WrenchIcon />}
-              title="Montáž u vás — konzultácia"
-              sub="Zavoláme vám a dohodneme montáž. Teraz nič neplatíte."
+              title="Montáž u vás — na cenovú ponuku"
+              sub="Pošleme vám cenovú ponuku (predfaktúru) s montážou. Vopred nič neplatíte."
               wide
             />
           </div>
@@ -451,7 +453,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         <div className="flex justify-between" style={{ color: "var(--color-muted)" }}>
           <span>{installation ? "Montáž" : "Doprava"}</span>
           <span className="font-semibold">
-            {installation ? "po konzultácii" : carrier ? carrier.priceLabel : "—"}
+            {installation ? "v cenovej ponuke" : carrier ? carrier.priceLabel : "—"}
           </span>
         </div>
         <div

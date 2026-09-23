@@ -19,7 +19,7 @@ import { netToGross } from "@/lib/vat";
  * jednotky eur, za čo sa vyrobiť nedá. Platí na nápis, nie na objednávku —
  * tri drobné nápisy sú tri kusy práce.
  */
-export const MIN_PRICE_GROSS = 30;
+export const MIN_PRICE_GROSS = 50;
 
 // Estimates used only while the webfont is still loading and the sign has not
 // been measured yet. Calibrated against real measurements of "PIZZA",

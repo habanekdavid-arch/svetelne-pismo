@@ -1313,18 +1313,67 @@ function ColorChips({
 // showing as its side band. It is what the two colours look like TOGETHER,
 // which neither list of chips can show on its own.
 function FaceReturnSwatch({ face, edge, glow }: { face: string; edge: string; glow: boolean }) {
+  // A small block drawn the way the letter is built: the face in front, the
+  // return (edge colour) running back on the top and the side. The top takes
+  // the light and the side the shade, so the two colours read as one solid
+  // object rather than two flat patches — and a lit face glows in its own
+  // colour, as it will on the wall.
+  const id = useId().replace(/:/g, "");
   return (
-    <svg width="46" height="46" viewBox="0 0 46 46" aria-hidden="true" className="shrink-0">
-      {/* the return — the side of the block */}
-      <path d="M8 12 L14 6 L42 6 L42 34 L36 40 L8 40 Z" fill={edge} stroke="rgba(0,0,0,.25)" strokeWidth="1" />
-      {/* the face */}
-      <rect
-        x="8" y="12" width="28" height="28" rx="3"
-        fill={face}
+    <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true" className="shrink-0 overflow-visible">
+      <defs>
+        <linearGradient id={`${id}-gloss`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity=".45" />
+          <stop offset=".45" stopColor="#fff" stopOpacity=".06" />
+          <stop offset="1" stopColor="#000" stopOpacity=".12" />
+        </linearGradient>
+        <linearGradient id={`${id}-top`} x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="#fff" stopOpacity=".18" />
+          <stop offset="1" stopColor="#fff" stopOpacity=".42" />
+        </linearGradient>
+        <linearGradient id={`${id}-side`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#000" stopOpacity=".22" />
+          <stop offset="1" stopColor="#000" stopOpacity=".42" />
+        </linearGradient>
+        <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="4" />
+        </filter>
+        <filter id={`${id}-shadow`} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="2.2" />
+        </filter>
+      </defs>
+
+      {/* shadow on the surface it stands on */}
+      <ellipse cx="29" cy="52" rx="21" ry="3.2" fill="#000" opacity=".18" filter={`url(#${id}-shadow)`} />
+
+      {/* light the face gives off */}
+      {glow && (
+        <rect x="4" y="15" width="36" height="36" rx="6" fill={face} opacity=".75" filter={`url(#${id}-glow)`} />
+      )}
+
+      {/* the return: top and side, in the edge colour, lit and shaded */}
+      <path d="M8 17 L19 7 L50 7 L39 17 Z" fill={edge} />
+      <path d="M8 17 L19 7 L50 7 L39 17 Z" fill={`url(#${id}-top)`} />
+      <path d="M39 17 L50 7 L50 38 L39 48 Z" fill={edge} />
+      <path d="M39 17 L50 7 L50 38 L39 48 Z" fill={`url(#${id}-side)`} />
+      <path
+        d="M8 17 L19 7 L50 7 L50 38 L39 48"
+        fill="none"
         stroke="rgba(0,0,0,.28)"
-        strokeWidth="1"
-        style={glow ? { filter: `drop-shadow(0 0 5px ${face})` } : undefined}
+        strokeWidth=".8"
+        strokeLinejoin="round"
       />
+
+      {/* the face */}
+      <rect x="8" y="17" width="31" height="31" rx="2.5" fill={face} />
+      <rect x="8" y="17" width="31" height="31" rx="2.5" fill={`url(#${id}-gloss)`} />
+      <rect
+        x="8.5" y="17.5" width="30" height="30" rx="2.2"
+        fill="none"
+        stroke="rgba(255,255,255,.35)"
+        strokeWidth=".8"
+      />
+      <rect x="8" y="17" width="31" height="31" rx="2.5" fill="none" stroke="rgba(0,0,0,.3)" strokeWidth=".8" />
     </svg>
   );
 }

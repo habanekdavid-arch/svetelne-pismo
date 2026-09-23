@@ -2,8 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { getAdminIdentity } from "@/lib/admin-auth";
-import { getOrderGroup, markGroupPaid, updateOrderStatus, type OrderStatus } from "@/lib/orders";
+import {
+  getOrderGroup,
+  markGroupPaid,
+  quoteState,
+  sendInstallationQuote,
+  updateOrderStatus,
+  type OrderStatus,
+} from "@/lib/orders";
 import { createPacketFor } from "@/lib/fulfilment.server";
+import { bankAccount } from "@/lib/bank";
 
 // Re-checks the admin session inside the action itself — a Server Action is
 // its own callable endpoint, so it must not rely solely on the page-level
@@ -27,8 +35,28 @@ export async function confirmTransferPaid(groupId: string) {
     throw new Error("Nemáte oprávnenie na túto akciu.");
   }
   const group = await getOrderGroup(groupId);
-  if (!group || group.paymentMethod !== "transfer") return;
+  // A transfer, or an installation order whose quote has gone out and was
+  // paid against it.
+  if (!group || (group.paymentMethod !== "transfer" && quoteState(group) !== "sent")) return;
   const firstTime = await markGroupPaid(groupId, null);
   if (firstTime) await createPacketFor({ ...group, paymentStatus: "paid" });
+  revalidatePath("/admin");
+}
+
+/**
+ * Sends the quote for an installation order: the mounting price (€ incl. VAT)
+ * goes in beside the signs, and the customer sees the pre-invoice — the total
+ * and how to pay it — on their order page.
+ */
+export async function sendQuote(groupId: string, installationEur: number) {
+  const session = await getAdminIdentity();
+  if (!session) {
+    throw new Error("Nemáte oprávnenie na túto akciu.");
+  }
+  if (!Number.isFinite(installationEur) || installationEur < 0 || installationEur > 100_000) {
+    throw new Error("Neplatná cena montáže.");
+  }
+  const cents = Math.round(installationEur * 100);
+  await sendInstallationQuote(groupId, cents, bankAccount() ? "transfer" : null);
   revalidatePath("/admin");
 }

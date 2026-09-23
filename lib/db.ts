@@ -107,6 +107,10 @@ function ensureSchema(): Promise<void> {
       // How the customer chose to pay — 'card' or 'transfer' — or NULL for an
       // enquiry and an installation consultation, where nothing is paid yet.
       await sql`ALTER TABLE order_groups ADD COLUMN IF NOT EXISTS payment_method TEXT`;
+      // An installation order is priced by hand: until the shop sends its
+      // quote (the pre-invoice with the mounting in it) this stays NULL and
+      // the customer has nothing to pay.
+      await sql`ALTER TABLE order_groups ADD COLUMN IF NOT EXISTS quote_sent_at TIMESTAMPTZ`;
       await sql`
         CREATE INDEX IF NOT EXISTS orders_group_id_idx
         ON orders (group_id)

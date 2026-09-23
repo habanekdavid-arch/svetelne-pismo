@@ -9,6 +9,8 @@ import {
   ORDER_STATUSES,
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
+  QUOTE_STATE_LABEL,
+  quoteState,
   type OrderGroup,
   type OrderStatus,
 } from "@/lib/orders";
@@ -16,6 +18,7 @@ import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor, hasSeparateFace, faceC
 import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
 import ConfirmTransferButton from "@/components/admin/ConfirmTransferButton";
+import InstallationQuoteForm from "@/components/admin/InstallationQuoteForm";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import StatusBadge from "@/components/orders/StatusBadge";
 import LogoutButton from "@/components/admin/LogoutButton";
@@ -312,7 +315,7 @@ const DELIVERY_LABEL: Record<string, string> = {
   "packeta-home":   "Kuriér",
   freight:          "Preprava na dohodu",
   personal:         "Osobný odber",
-  [INSTALLATION_METHOD]: "Konzultácia k montáži",
+  [INSTALLATION_METHOD]: "Montáž — na cenovú ponuku",
 };
 
 function DeliveryPanel({ group }: { group: OrderGroup | null }) {
@@ -339,20 +342,25 @@ function DeliveryPanel({ group }: { group: OrderGroup | null }) {
 
   const paid = group.paymentStatus === "paid";
   const installation = group.deliveryMethod === INSTALLATION_METHOD;
+  const quote = quoteState(group);
 
   return (
     <div className="min-w-0 text-sm">
       <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-        {installation ? "Konzultácia k montáži" : "Doprava a platba"}
+        {installation ? "Montáž — cenová ponuka" : "Doprava a platba"}
       </p>
       <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
         <SpecLine label="Spôsob" value={DELIVERY_LABEL[group.deliveryMethod] ?? group.deliveryMethod} />
         <SpecLine label={installation ? "Adresa inštalácie" : "Kam"} value={where} />
         {group.customerPhone && <SpecLine label="Telefón" value={group.customerPhone} />}
+        {quote && <SpecLine label="Stav" value={QUOTE_STATE_LABEL[quote]} />}
+        {quote === "sent" && (
+          <SpecLine label="Montáž" value={formatEur(group.deliveryCents / 100)} />
+        )}
         {group.paymentMethod && (
           <SpecLine label="Platba cez" value={PAYMENT_METHOD_LABEL[group.paymentMethod]} />
         )}
-        {!installation && (
+        {(!installation || quote !== "requested") && (
           <SpecLine label="Platba" value={PAYMENT_STATUS_LABEL[group.paymentStatus]} />
         )}
         {group.packetaBarcode && <SpecLine label="Zásielka" value={group.packetaBarcode} />}
@@ -362,12 +370,19 @@ function DeliveryPanel({ group }: { group: OrderGroup | null }) {
           Zaplatené {formatEur(group.totalCents / 100)}
         </p>
       )}
-      {installation && (
+      {quote === "requested" && (
         <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
-          Zavolať zákazníkovi a dohodnúť montáž
+          Pripraviť cenovú ponuku s montážou — zákazník zatiaľ nič neplatil
         </p>
       )}
-      {!paid && group.paymentMethod === "transfer" && (
+      {(quote === "requested" || quote === "sent") && (
+        <InstallationQuoteForm
+          groupId={group.id}
+          itemsEur={group.itemsCents / 100}
+          currentEur={quote === "sent" ? group.deliveryCents / 100 : null}
+        />
+      )}
+      {!paid && (group.paymentMethod === "transfer" || quote === "sent") && (
         <ConfirmTransferButton groupId={group.id} />
       )}
       {group.packetaError && (
