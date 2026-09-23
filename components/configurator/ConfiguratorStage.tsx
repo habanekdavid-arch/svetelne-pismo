@@ -155,6 +155,9 @@ export default function ConfiguratorStage() {
   // …and the LED colours are the ones this way of lighting is made in.
   const availableLightColors = LIGHT_COLORS;
   const litColor = config.lightColor;
+  // Edge-lit (30 mm plexi only): the edges glow in the LED's white, the colour
+  // the customer picks is the face's.
+  const edgeLit = isIlluminated && config.lightMode === "edge";
   // Alurol sa v cenníku vedie zvlášť pre veľké a zvlášť pre malé písmo, tak
   // sa do poľa ani nedá napísať to druhé (lib/options.ts textCaseFor).
   const textCase = textCaseFor(config.material);
@@ -903,7 +906,7 @@ export default function ConfiguratorStage() {
               ) : (
                 <>
                   <p className="mb-2 mt-4 text-[11px] font-bold" style={{ color: "var(--color-muted)" }}>
-                    Farba písmena
+                    {edgeLit ? "Farba čela" : "Farba písmena"}
                     <span className="ml-1.5 font-semibold" style={{ color: "var(--color-foreground)" }}>
                       — {currentBodyColor?.label ?? ""}
                     </span>
@@ -914,7 +917,9 @@ export default function ConfiguratorStage() {
                     onPick={(c) => setBodyColor(c.id, c.value)}
                   />
                   <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
-                    30 mm plexi je jeden kus akrylátu — čelo aj hrana majú rovnakú farbu.
+                    {edgeLit
+                      ? "Pri svietení hranami svietia hrany vždy bielou alebo teplou bielou (podľa farby svetla) — mení sa len farba čela."
+                      : "30 mm plexi je jeden kus akrylátu — čelo aj hrana majú rovnakú farbu a svieti v nej celé písmeno."}
                   </p>
                 </>
               )}

@@ -219,6 +219,9 @@ const WHITE_BASE_BLEND = 0.12;
 // how black and dark grey acrylic stay dark when lit from behind.
 const DARK_SHEET_PASS = 0.1;
 
+/** Clear cast acrylic — the sides of an edge-lit plexi letter. */
+const CLEAR_ACRYLIC = "#f2f4f5";
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 type LightSettings = {
@@ -395,9 +398,11 @@ function emittedColor(
   faceKind: FaceKind,
   lightMode: LightModeId,
 ): THREE.Color {
-  // 30 mm plexi is coloured acrylic all the way through (faceKind "none"), so
-  // whichever way it is lit the light leaves it in the plexi's own colour.
-  if (faceKind === "none") return filteredThroughFace(led, face);
+  // 30 mm plexi (faceKind "none"). Front-lit it is coloured acrylic all the
+  // way through, so its light leaves in the plexi's own colour. Edge-lit the
+  // edges glow in the LED's own white or warm white and only the face is
+  // coloured — the light itself never changes colour.
+  if (faceKind === "none") return lightMode === "edge" ? led : filteredThroughFace(led, face);
   return faceKind === "acrylic" && lightMode === "front" ? filteredThroughFace(led, face) : led;
 }
 
@@ -438,13 +443,15 @@ function buildMaterialTriple(
   isIlluminated: boolean,
   faceColor: THREE.Color = baseColor,
   faceKind: FaceKind = "none",
+  /** What the face emits, when it is not the same light as the returns. */
+  faceGlow: THREE.Color = glowColor,
 ): MaterialTriple {
   return {
     // The return — its own colour, its own material.
     sideMat:  buildPhysicalMat(matOpt, baseColor.clone(), glowColor.clone(), ls.emissiveSide,  true,  isIlluminated),
     backMat:  buildPhysicalMat(matOpt, baseColor.clone(), glowColor.clone(), ls.emissiveBack,  false, isIlluminated),
     // The face — see buildFaceMat.
-    frontMat: buildFaceMat(faceKind, matOpt, faceColor.clone(), glowColor.clone(), ls.emissiveFront, isIlluminated),
+    frontMat: buildFaceMat(faceKind, matOpt, faceColor.clone(), faceGlow.clone(), ls.emissiveFront, isIlluminated),
   };
 }
 
@@ -1114,6 +1121,19 @@ function SceneContent({
   // not warm white on red (which read as salmon). Everything else emits the
   // LED itself and lets its face (buildFaceMat) do the filtering.
   const materialGlow = faceKind === "none" ? shineColor : glowColor;
+  // Edge-lit plexi: clear acrylic round the sides, glowing in the LED's
+  // white, with the chosen colour on the face only.
+  const edgeLitPlexi = faceKind === "none" && isIlluminated && lightMode === "edge";
+  const returnColor = useMemo(
+    () => (edgeLitPlexi ? new THREE.Color(CLEAR_ACRYLIC) : baseColor),
+    [edgeLitPlexi, baseColor],
+  );
+  // …and the little light that reaches its face comes out through the face's
+  // colour, so a red face stays red at night instead of washing to tan.
+  const faceGlow = useMemo(
+    () => (edgeLitPlexi ? filteredThroughFace(glowColor, faceColor) : materialGlow),
+    [edgeLitPlexi, glowColor, faceColor, materialGlow],
+  );
 
   // Size is REAL now. The letters are scaled in LetterGeometryHost so their
   // capital is exactly as tall as ordered, measured in the same millimetres
@@ -1143,9 +1163,9 @@ function SceneContent({
   // Fallback (non-textured) material triple — also used directly for plexi/pvc,
   // and as the <LetterVariant> Suspense fallback while a textured material loads.
   const fallbackTriple = useMemo(
-    () => buildMaterialTriple(matOpt, baseColor, materialGlow, ls, isIlluminated, faceColor, faceKind),
+    () => buildMaterialTriple(matOpt, returnColor, materialGlow, ls, isIlluminated, faceColor, faceKind, faceGlow),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [material, signType, lightColor, letterColor, faceColor, faceKind, materialGlow, ls.emissiveFront, ls.emissiveSide, ls.emissiveBack],
+    [material, signType, lightColor, letterColor, faceColor, faceKind, materialGlow, returnColor, faceGlow, ls.emissiveFront, ls.emissiveSide, ls.emissiveBack],
   );
 
   useEffect(() => {
@@ -1332,7 +1352,7 @@ function SceneContent({
               worldDepth={worldDepth}
               material={material}
               matOpt={matOpt}
-              baseColor={baseColor}
+              baseColor={returnColor}
               glowColor={materialGlow}
               ls={ls}
               isIlluminated={isIlluminated}

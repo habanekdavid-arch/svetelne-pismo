@@ -241,7 +241,7 @@ export default async function AdminPage({
                             <SpecLine label="Hrana" value={colorLabel(o.config.bodyColor)} />
                           </>
                         ) : (
-                          <SpecLine label="Farba" value={colorLabel(o.config.bodyColor)} />
+                          <SpecLine label={o.config.signType === "illuminated" && o.config.lightMode === "edge" ? "Čelo" : "Farba"} value={colorLabel(o.config.bodyColor)} />
                         )}
                       </dl>
                     </div>
