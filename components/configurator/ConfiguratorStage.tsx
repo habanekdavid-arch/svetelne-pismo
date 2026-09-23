@@ -45,6 +45,9 @@ import type { DragTarget } from "@/components/three/LetterScene";
 // 3D preview needs WebGL — never render it on the server. Suspense shows a
 // skeleton until the chunk loads; the scene itself renders instantly on top
 // since Config already ships with non-empty defaults (text/font/material).
+/** Where the night slider starts — kept in step with LetterScene's DEFAULT_NIGHT_LEVEL. */
+const DEFAULT_NIGHT_PCT = 70;
+
 const LetterScene = dynamic(() => import("@/components/three/LetterScene"), {
   ssr: false,
   loading: () => <LetterSceneSkeleton />,
@@ -88,6 +91,9 @@ function swatchIdFor(options: readonly { id: string; value: string }[], value: s
 
 export default function ConfiguratorStage() {
   const [manualMode, setManualMode] = useState<"day" | "night" | null>(null);
+  // How dark the night preview is, 0–100 % — from dusk (the LEDs are on but
+  // the wall is still lit) to a dark street where the sign is the only light.
+  const [nightPct, setNightPct] = useState(DEFAULT_NIGHT_PCT);
   // The LED colour lives in config.lightColor alone now — the catalogue is
   // five named colours (lib/options.ts LIGHT_COLORS), so there is no separate
   // hue to keep in step with it.
@@ -543,6 +549,31 @@ export default function ConfiguratorStage() {
             </div>
           </div>
 
+          {isNight && isIlluminated && (
+            <label className="mb-3 flex items-center gap-3 rounded-full px-3 py-1.5" style={{ background: "var(--color-surface)" }}>
+              <span className="shrink-0 text-[10px] font-bold" style={{ color: "var(--color-muted)" }}>
+                Intenzita noci
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={nightPct}
+                onChange={(e) => setNightPct(Number(e.target.value))}
+                aria-label="Intenzita noci v percentách"
+                className="h-1.5 min-w-0 flex-1 cursor-pointer"
+                style={{ accentColor: "var(--accent)" }}
+              />
+              <span
+                className="w-10 shrink-0 text-right text-[11px] font-extrabold tabular-nums"
+                style={{ color: "var(--color-foreground)" }}
+              >
+                {nightPct} %
+              </span>
+            </label>
+          )}
+
           <div
             className="relative h-105 w-full overflow-hidden rounded-[20px] transition-colors duration-500 lg:h-[clamp(18rem,calc(100vh_-_17rem),32rem)]"
             style={{
@@ -570,6 +601,7 @@ export default function ConfiguratorStage() {
               lightMode={config.lightMode}
               height={config.height}
               previewMode={previewMode}
+              nightLevel={nightPct / 100}
               wall={wall}
               backgroundUrl={backgroundUrl}
               offset={signOffset}
