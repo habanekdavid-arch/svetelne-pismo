@@ -3,7 +3,13 @@ import { oneLine } from "@/lib/sign-text";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getUserSession } from "@/lib/user-auth";
-import { listOrdersForUser, orderCountLabel } from "@/lib/orders";
+import {
+  listGroupsByIds,
+  listOrdersForUser,
+  orderCountLabel,
+  QUOTE_STATE_LABEL,
+  quoteState,
+} from "@/lib/orders";
 import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor, faceColorOf } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import StatusBadge from "@/components/orders/StatusBadge";
@@ -20,6 +26,9 @@ export default async function AccountOrdersPage() {
   if (!session) redirect("/prihlasenie");
 
   const orders = await listOrdersForUser(session.userId);
+  // The checkout each sign belongs to — where payment, delivery and, for an
+  // order with installation, the quote live.
+  const groups = await listGroupsByIds(orders.map((o) => o.groupId ?? ""));
 
   return (
     <AccountShell title="Moje objednávky" description="Tu nájdete svoje objednávky, ich stav a históriu.">
@@ -58,6 +67,8 @@ export default async function AccountOrdersPage() {
             {orders.map((o) => {
               const font     = fontOptions.find((f) => f.id === o.config.font);
               const material = MATERIALS.find((m) => m.id === o.config.material);
+              const group = o.groupId ? groups.get(o.groupId) : undefined;
+              const quote = group ? quoteState(group) : null;
               const lighting = o.config.signType === "illuminated"
                 ? LIGHT_MODES.find((l) => l.id === o.config.lightMode)
                 : null;
@@ -97,6 +108,23 @@ export default async function AccountOrdersPage() {
                       <div className="mt-1.5">
                         <StatusBadge status={o.status} />
                       </div>
+                      {quote && (
+                        <p
+                          className="mt-1.5 text-xs font-bold"
+                          style={{ color: quote === "sent" ? "#ea580c" : "var(--color-accent-text)" }}
+                        >
+                          {QUOTE_STATE_LABEL[quote]}
+                        </p>
+                      )}
+                      {o.groupId && (
+                        <Link
+                          href={`/objednavka/${o.groupId}`}
+                          className="mt-1.5 inline-block text-xs font-semibold underline underline-offset-2"
+                          style={{ color: "var(--color-foreground)" }}
+                        >
+                          {quote === "sent" ? "Zobraziť predfaktúru" : "Detail objednávky"}
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </article>
