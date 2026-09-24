@@ -77,6 +77,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
             <Row label="Suma" value={formatEur(group.totalCents / 100)} />
             <Row label="IBAN" value={bank.iban} />
             {bank.bic && <Row label="BIC / SWIFT" value={bank.bic} />}
+            {bank.bank && <Row label="Banka" value={bank.bank} />}
             <Row label="Variabilný symbol" value={vs} />
             <Row label="Príjemca" value={bank.holder} />
             <Row label="Správa pre príjemcu" value={`Objednávka ${group.id.split("-")[0].toUpperCase()}`} />
