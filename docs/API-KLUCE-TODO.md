@@ -28,14 +28,13 @@ Po uložení treba spraviť **Redeploy** (Deployments → posledné nasadenie �
   Signing secret daného webhooku (`whsec_…`).
 - [ ] **Test:** objednávka s platbou kartou (testovacia karta `4242 4242 4242 4242`). Objednávka musí byť v admine „Zaplatené“.
 
-## 3. Bankový prevod
+## 3. Bankový prevod — ✅ hotové, rovnaký účet ako vytlacto3d
 
-- [ ] **`BANK_IBAN`**
-  IBAN firemného účtu, napr. `SK12 3456 7890 1234 5678 9012`.
-- [ ] **`BANK_ACCOUNT_HOLDER`**
-  Názov príjemcu na účte, napr. `4from media s.r.o.`
-- [ ] **`BANK_BIC`** (voliteľné)
-  SWIFT/BIC kód banky.
+Nič netreba dopĺňať. Prevody chodia na ten istý účet ako na vytlacto3d:
+**4from media, s.r.o., Tatra banka, IBAN SK35 1100 0000 0029 4526 7328, BIC TATRSKBX.**
+
+- Variabilný symbol rozsvieťTO je 10-miestny a začína číslicou 9 (napr. `9000000042`), aby sa na spoločnom účte nikdy nezhodol s objednávkou vytlacto3d (tie majú 8 číslic).
+- Iný účet by sa nastavil cez `BANK_IBAN`, `BANK_ACCOUNT_HOLDER` a `BANK_BIC`.
 - [ ] **Test:** objednávka s prevodom. Stránka objednávky musí ukázať IBAN, variabilný symbol a sumu. Po príchode peňazí kliknite v admine na **„Platba prijatá“**.
 
 ## 4. Packeta (Zásielkovňa)
@@ -53,23 +52,30 @@ Všetko nájdete v klientskej sekcii <https://client.packeta.com>.
 - [ ] Porovnajte limity balíka so zmluvou. Predvolené sú 10 kg / 70 cm na výdajné miesto a 30 kg / 120 cm pre kuriéra. Ak máte iné, nastavte `NEXT_PUBLIC_PACKETA_PICKUP_MAX_KG`, `NEXT_PUBLIC_PACKETA_PICKUP_MAX_CM`, `NEXT_PUBLIC_PACKETA_HOME_MAX_KG` a `NEXT_PUBLIC_PACKETA_HOME_MAX_CM`.
 - [ ] **Test:** zaplatená objednávka na výdajné miesto. V admine sa musí objaviť číslo zásielky a zákazníkovi príde e-mail s odkazom na sledovanie.
 
-## 5. E-maily (SMTP)
+## 5. E-maily — rovnaké ako na vytlacto3d
 
-Posielajú sa: potvrdenie objednávky, oznámenie o novej objednávke pre vás, cenová ponuka k objednávke s montážou, potvrdenie platby, číslo zásielky, správy z kontaktného formulára a obnova hesla.
+Web posiela e-maily presne tak ako vytlacto3d: cez Microsoft 365 (`smtp.office365.com`) zo schránky **info@4frommedia.sk**, so záložným Gmailom. Posielajú sa:
+- potvrdenie objednávky,
+- oznámenie o novej objednávke pre vás,
+- cenová ponuka k objednávke s montážou,
+- potvrdenie platby,
+- číslo zásielky,
+- správy z kontaktného formulára,
+- obnova hesla.
 
-- [ ] **`SMTP_HOST`**
-  Napr. `smtp.office365.com` (Microsoft 365, rovnako ako vytlacto3d), `smtp.gmail.com` (Google Workspace) alebo `smtp.m1.websupport.sk`.
-- [ ] **`SMTP_PORT`**
-  `587` (STARTTLS). Ak používate port `465`, nastavte aj `SMTP_SECURE` = `true`.
+Názvy premenných sú rovnaké ako vo Verceli pri projekte **vytlacto3d-5mxw**. Vercel ich tam má ako „Sensitive“, takže sa nedajú prečítať ani automaticky skopírovať. Hodnoty zadajte znovu, rovnaké ako pri vytlacto3d:
+
 - [ ] **`SMTP_USER`**
   Prihlasovací e-mail schránky.
 - [ ] **`SMTP_PASSWORD`**
-  Heslo schránky. Pri Microsoft 365 alebo Gmaile s dvojfaktorovým overením použite **heslo aplikácie**.
-- [ ] **`EMAIL_FROM`**
-  Odosielateľ, napr. `rozsvieťTO <info@rozsvietto.sk>`. Schránka musí mať právo odosielať pod touto adresou.
-- [ ] **`SHOP_EMAIL`**
-  Vaša schránka pre nové objednávky, žiadosti o cenovú ponuku a kontaktný formulár.
-- [ ] Pri vlastnej doméne nastavte u DNS SPF, DKIM a DMARC, aby e-maily nekončili v spame.
+  Heslo schránky (pri Microsoft 365 heslo aplikácie).
+- [ ] **`SMTP_HOST`** a **`SMTP_PORT`**
+  Len ak sa pri vytlacto3d líšia od `smtp.office365.com` a `587`. Tieto hodnoty sa použijú aj bez vyplnenia.
+- [ ] **`GMAIL_USER`** a **`GMAIL_APP_PASSWORD`**
+  Záložný Gmail, rovnaký ako pri vytlacto3d. Voliteľné, ale odporúčané.
+- [ ] **`ADMIN_ORDER_EMAIL`**
+  Len ak majú objednávky chodiť inam než na `info@4frommedia.sk`.
+- **`EMAIL_FROM` nekopírujte.** Pri vytlacto3d je v ňom meno VytlačTo3D. rozsvieťTO odosiela z tej istej adresy pod menom `rozsvieťTO <info@4frommedia.sk>`.
 - [ ] **Test:** kontaktný formulár, objednávka a na stránke *Zabudli ste heslo?* pošlite odkaz na obnovu.
 
 ## 6. Analytika (voliteľné)

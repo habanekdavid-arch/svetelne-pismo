@@ -1,7 +1,7 @@
 import "server-only";
 
 import { bankAccount } from "@/lib/bank";
-import { mailConfigured } from "@/lib/mailer.server";
+import { mailConfigured, mailSetup, MAIL_FROM, SHOP_INBOX } from "@/lib/mailer.server";
 import { packetaConfigured, homeCarrierId } from "@/lib/packeta";
 import { stripeConfigured, webhookSecret } from "@/lib/stripe";
 
@@ -56,11 +56,9 @@ export function integrations(): Integration[] {
       name: "Bankový prevod",
       ok: Boolean(bank),
       status: bank
-        ? `Zapnutý — ${bank.iban}, príjemca ${bank.holder}.`
-        : set("BANK_IBAN")
-          ? "BANK_IBAN nie je platný IBAN."
-          : "Vypnutý — v košíku sa neponúka, predfaktúra nemá platobné údaje.",
-      missing: missing("BANK_IBAN", "BANK_ACCOUNT_HOLDER"),
+        ? `Zapnutý — ${bank.iban} (${bank.holder}${bank.bank ? `, ${bank.bank}` : ""}), ten istý účet ako vytlacto3d.`
+        : "BANK_IBAN nie je platný IBAN — prevod sa neponúka.",
+      missing: [],
     },
     {
       name: "Packeta — výdajné miesta",
@@ -82,9 +80,9 @@ export function integrations(): Integration[] {
       name: "E-maily",
       ok: mail,
       status: mail
-        ? "Zapnuté — potvrdenia objednávok, cenové ponuky, platby, zásielky, kontaktný formulár, obnova hesla."
-        : "Vypnuté — nič sa neposiela; objednávky a správy sú len v administrácii.",
-      missing: missing("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "EMAIL_FROM", "SHOP_EMAIL"),
+        ? `Zapnuté — ${mailSetup().host} ako ${mailSetup().user}, odosiela ${MAIL_FROM}, objednávky chodia na ${SHOP_INBOX}${mailSetup().fallback ? ", záložný Gmail zapnutý" : ""}.`
+        : "Vypnuté — chýba prihlásenie do schránky (rovnaké ako na vytlacto3d). Objednávky a správy sú zatiaľ len v administrácii.",
+      missing: mail ? missing("GMAIL_USER", "GMAIL_APP_PASSWORD") : missing("SMTP_USER", "SMTP_PASSWORD"),
     },
     {
       name: "Analytika (Google Tag Manager)",

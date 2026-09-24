@@ -103,6 +103,7 @@ function bankBlock(group: OrderGroup, orders: Order[]): string {
       ["Suma", formatEur(group.totalCents / 100)],
       ["IBAN", esc(bank.iban)],
       ["BIC", bank.bic ? esc(bank.bic) : null],
+      ["Banka", bank.bank ? esc(bank.bank) : null],
       ["Variabilný symbol", variableSymbol(orders[0].id)],
       ["Príjemca", esc(bank.holder)],
       ["Správa", `Objednávka ${orderNo(group)}`],
