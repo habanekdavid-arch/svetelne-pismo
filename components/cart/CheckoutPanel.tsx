@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Config } from "@/lib/types";
 import type { DeliveryAddress, DeliveryPoint } from "@/lib/orders";
 import { useCart, type CartItem } from "@/lib/cart-context";
@@ -62,7 +63,8 @@ type Props = {
 type Errors = Partial<Record<"name" | "email" | "phone" | "point" | "address" | "site" | "payment", string>>;
 
 export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Props) {
-  const { clear: clearCart } = useCart();
+  const { clear: clearCart, close } = useCart();
+  const router = useRouter();
   const configs: Config[] = items.map((i) => i.config);
 
   // ── Who is ordering ──────────────────────────────────────────────────────
@@ -256,7 +258,8 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
       // where the pre-invoice will appear.
       if ((installation || placed?.payment === "transfer") && placed?.groupId) {
         clearCart();
-        window.location.href = `/objednavka/${placed.groupId}${installation ? "" : "?stav=prevod"}`;
+        router.push(`/objednavka/${placed.groupId}${installation ? "" : "?stav=prevod"}`);
+        close();
         return;
       }
 

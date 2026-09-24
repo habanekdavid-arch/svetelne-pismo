@@ -1,7 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { mailOrderPlaced, mailShopNewOrder } from "@/lib/emails.server";
 import { randomUUID } from "node:crypto";
 import { getUserSession } from "@/lib/user-auth";
-import { createOrder, createOrderGroup, type DeliveryAddress, type DeliveryPoint } from "@/lib/orders";
+import {
+  createOrder,
+  createOrderGroup,
+  type DeliveryAddress,
+  type DeliveryPoint,
+  type Order,
+  type OrderGroup,
+} from "@/lib/orders";
 import {
   deliveryCents,
   quoteBasket,
@@ -101,6 +109,7 @@ export async function POST(req: Request) {
       paymentMethod: null,
     });
     const orders = await saveSigns(quote, session.userId, name, email, groupId);
+    after(() => notifyPlaced(group, orders));
     return NextResponse.json({
       groupId,
       orders,
@@ -172,6 +181,7 @@ export async function POST(req: Request) {
   });
 
   const orders = await saveSigns(quote, session.userId, name, email, groupId);
+  after(() => notifyPlaced(group, orders));
 
   return NextResponse.json({
     groupId,
@@ -184,6 +194,11 @@ export async function POST(req: Request) {
     /** True when the next step is a redirect to Stripe. */
     payOnline: payment === "card" && group.totalCents > 0,
   });
+}
+
+/** Confirmation to the customer and a heads-up to the shop — after the response. */
+async function notifyPlaced(group: OrderGroup, orders: Order[]): Promise<void> {
+  await Promise.all([mailOrderPlaced(group, orders), mailShopNewOrder(group, orders)]);
 }
 
 /** One order row per sign, all tied to the checkout they were part of. */

@@ -9,6 +9,7 @@ import {
 import { createPacket, packetaConfigured, splitName, PacketaError } from "@/lib/packeta";
 import { estimateParcel, totalParcel } from "@/lib/shipping";
 import { measureSign } from "@/lib/sign-metrics.server";
+import { mailPacketCreated, mailPaymentReceived } from "@/lib/emails.server";
 
 // What happens once an order is paid, however it was paid — by card (the
 // Stripe webhook) or by transfer (confirmed in the admin).
@@ -58,9 +59,20 @@ export async function createPacketFor(group: OrderGroup): Promise<void> {
     });
 
     await attachPacket(group.id, { id: packet.id, barcode: packet.barcode });
+    await mailPacketCreated(group, packet.barcode);
   } catch (err) {
     const message = err instanceof PacketaError ? err.message : String(err);
     console.error(`[packeta] zásielka pre ${group.id} zlyhala:`, message);
     await recordPacketError(group.id, message);
   }
+}
+
+/**
+ * Everything that follows a payment, once: the customer hears it arrived, and
+ * the parcel goes to Packeta. Called from the Stripe webhook and from the
+ * admin's "Platba prijatá".
+ */
+export async function afterPaid(group: OrderGroup): Promise<void> {
+  await mailPaymentReceived(group);
+  await createPacketFor(group);
 }

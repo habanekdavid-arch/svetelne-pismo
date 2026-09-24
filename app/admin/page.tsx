@@ -19,6 +19,7 @@ import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
 import ConfirmTransferButton from "@/components/admin/ConfirmTransferButton";
 import InstallationQuoteForm from "@/components/admin/InstallationQuoteForm";
+import { integrations } from "@/lib/integrations.server";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import StatusBadge from "@/components/orders/StatusBadge";
 import LogoutButton from "@/components/admin/LogoutButton";
@@ -125,6 +126,10 @@ export default async function AdminPage({
             {session.via === "password" && <LogoutButton />}
           </div>
         </div>
+
+        {/* Which outside services are on — the checklist for the API keys
+            (docs/API-KLUCE-TODO.md), read live from the environment. */}
+        <IntegrationsPanel />
 
         {/* Stat tiles — counts per status + total revenue; click to filter */}
         <div className="mb-10 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
@@ -391,5 +396,48 @@ function DeliveryPanel({ group }: { group: OrderGroup | null }) {
         </p>
       )}
     </div>
+  );
+}
+
+function IntegrationsPanel() {
+  const list = integrations();
+  const on = list.filter((i) => i.ok).length;
+  return (
+    <details
+      className="mb-8 rounded-3xl border p-5"
+      style={{ background: "var(--color-background)", borderColor: "var(--color-border)" }}
+      open={on < list.length}
+    >
+      <summary className="cursor-pointer text-sm font-extrabold" style={{ color: "var(--color-foreground)" }}>
+        Stav integrácií — zapnuté {on} z {list.length}
+      </summary>
+      <ul className="mt-4 grid gap-2 md:grid-cols-2">
+        {list.map((i) => (
+          <li
+            key={i.name}
+            className="rounded-2xl px-4 py-3 text-sm"
+            style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+          >
+            <div className="flex items-center gap-2 font-bold" style={{ color: "var(--color-foreground)" }}>
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ background: i.ok ? "#16a34a" : "#f59e0b" }}
+                aria-hidden="true"
+              />
+              {i.name}
+            </div>
+            <p className="mt-1 text-xs leading-5" style={{ color: "var(--color-muted)" }}>{i.status}</p>
+            {i.missing.length > 0 && (
+              <p className="mt-1 text-[11px] leading-5" style={{ color: "var(--color-muted)" }}>
+                {i.ok ? "Voliteľné: " : "Doplniť: "}
+                {i.missing.map((m) => (
+                  <code key={m} className="mr-1 rounded bg-black/5 px-1 py-0.5">{m}</code>
+                ))}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

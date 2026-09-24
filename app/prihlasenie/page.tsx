@@ -127,6 +127,12 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <div className="-mt-2 text-right">
+            <Link href="/zabudnute-heslo" className="text-xs font-semibold underline underline-offset-4" style={{ color: "var(--color-muted)" }}>
+              Zabudli ste heslo?
+            </Link>
+          </div>
+
           {error && <p className="text-[13px] text-red-500">{error}</p>}
 
           <button

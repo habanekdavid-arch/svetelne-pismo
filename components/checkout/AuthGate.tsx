@@ -113,6 +113,11 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
         />
 
         {error && <p className="text-[12px] text-red-400">{error}</p>}
+        {mode === "login" && (
+          <a href="/zabudnute-heslo" className="block text-right text-[11px] font-semibold underline underline-offset-2" style={{ color: "var(--color-muted)" }}>
+            Zabudli ste heslo?
+          </a>
+        )}
 
         <button
           type="submit"

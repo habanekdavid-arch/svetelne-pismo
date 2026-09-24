@@ -4,13 +4,15 @@ import { revalidatePath } from "next/cache";
 import { getAdminIdentity } from "@/lib/admin-auth";
 import {
   getOrderGroup,
+  listOrdersForGroup,
   markGroupPaid,
   quoteState,
   sendInstallationQuote,
   updateOrderStatus,
   type OrderStatus,
 } from "@/lib/orders";
-import { createPacketFor } from "@/lib/fulfilment.server";
+import { afterPaid } from "@/lib/fulfilment.server";
+import { mailQuoteSent } from "@/lib/emails.server";
 import { bankAccount } from "@/lib/bank";
 
 // Re-checks the admin session inside the action itself — a Server Action is
@@ -39,7 +41,7 @@ export async function confirmTransferPaid(groupId: string) {
   // paid against it.
   if (!group || (group.paymentMethod !== "transfer" && quoteState(group) !== "sent")) return;
   const firstTime = await markGroupPaid(groupId, null);
-  if (firstTime) await createPacketFor({ ...group, paymentStatus: "paid" });
+  if (firstTime) await afterPaid({ ...group, paymentStatus: "paid" });
   revalidatePath("/admin");
 }
 
@@ -57,6 +59,12 @@ export async function sendQuote(groupId: string, installationEur: number) {
     throw new Error("Neplatná cena montáže.");
   }
   const cents = Math.round(installationEur * 100);
-  await sendInstallationQuote(groupId, cents, bankAccount() ? "transfer" : null);
+  const sent = await sendInstallationQuote(groupId, cents, bankAccount() ? "transfer" : null);
+  if (sent) {
+    // The customer hears about it by e-mail, with the pre-invoice attached as
+    // a link — without SMTP set up, call them.
+    const group = await getOrderGroup(groupId);
+    if (group) await mailQuoteSent(group, await listOrdersForGroup(groupId));
+  }
   revalidatePath("/admin");
 }

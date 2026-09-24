@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe, webhookSecret } from "@/lib/stripe";
 import { getOrderGroup, markGroupPaid, setGroupPaymentStatus } from "@/lib/orders";
-import { createPacketFor } from "@/lib/fulfilment.server";
+import { afterPaid } from "@/lib/fulfilment.server";
 
 // Stripe's own report of what happened to a payment.
 //
@@ -109,5 +109,5 @@ async function onPaid(session: Stripe.Checkout.Session): Promise<void> {
   if (!firstTime) return;
 
   const group = await getOrderGroup(groupId);
-  if (group) await createPacketFor(group);
+  if (group) await afterPaid({ ...group, paymentStatus: "paid" });
 }
