@@ -5,6 +5,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ScrollReveal from "@/components/layout/ScrollReveal";
 import CookieConsent from "@/components/layout/CookieConsent";
+import TagManager from "@/components/layout/TagManager";
 import { CartProvider } from "@/lib/cart-context";
 import CartSidebar from "@/components/cart/CartSidebar";
 import FourFromFloatingButton from "@/components/layout/FourFromFloatingButton";
@@ -68,6 +69,7 @@ export default function RootLayout({
         </CartProvider>
         <ScrollReveal />
         <CookieConsent />
+        <TagManager />
       </body>
     </html>
   );

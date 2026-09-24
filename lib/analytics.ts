@@ -1,6 +1,6 @@
-// GA4 ecommerce tracking via GTM's dataLayer. No GTM container is installed
-// on the site yet (see app/layout.tsx) — these pushes are inert until one is
-// added, but are ready to fire the moment it is.
+// GA4 ecommerce tracking via GTM's dataLayer. The container itself is loaded
+// by components/layout/TagManager.tsx once NEXT_PUBLIC_GTM_ID is set and the
+// visitor accepts analytics cookies; until then these pushes just wait.
 //
 // Gated on cookie consent (lib/consent.ts) — trackPurchase is a no-op until
 // the visitor has accepted analytics cookies via the CookieConsent banner

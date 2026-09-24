@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { mailShopContact } from "@/lib/emails.server";
 import { createContactMessage } from "@/lib/contact";
 
 const MAX = { name: 120, email: 200, subject: 200, message: 5000 };
@@ -34,6 +35,9 @@ export async function POST(req: Request) {
     // Don't leak database detail to the browser; the form shows a retry hint.
     return NextResponse.json({ error: "store_failed" }, { status: 500 });
   }
+
+  // Saved first, e-mailed after: the message is never lost to a mail problem.
+  after(() => mailShopContact({ name, email, subject, message }));
 
   return NextResponse.json({ ok: true });
 }
