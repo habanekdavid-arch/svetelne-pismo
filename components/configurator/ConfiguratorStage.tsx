@@ -430,7 +430,7 @@ function Configurator() {
             to its right scrolls past it. Nothing here clips its overflow,
             which is what lets `sticky` work at all. ── */}
         <div className="space-y-4">
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(24rem,1fr)]">
         <div
           className="rounded-[26px] p-4 lg:sticky lg:top-20 lg:z-10"
           style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
@@ -571,12 +571,12 @@ function Configurator() {
         </div>
 
         {/* ── The five steps ───────────────────────────────────────────────
-            From lg up the steps sit in two columns beside the preview — text
-            and size, then light, build and colours — so every setting is in
-            view at once, nothing to scroll. Below lg they are an ordinary
-            block under the preview. ── */}
-        <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
-        <div className="space-y-3">
+            One column beside the preview. From lg up the steps are drawn
+            compact (step-compact: tighter cards, tiles with the icon beside
+            the word) so all five fit the screen at once, nothing to scroll.
+            Below lg they are an ordinary block under the preview. ── */}
+        <div className="step-compact space-y-3 lg:space-y-2.5">
+        <div className="space-y-3 lg:space-y-2.5">
 
           {/* ── 1 · Text and font — the font is picked right under what is
               typed, and every dot shows the customer's own first letter. ── */}
@@ -590,19 +590,19 @@ function Configurator() {
               value={config.text}
               onChange={(e) => apply({ text: limitLines(e.target.value) })}
               onKeyDown={handleTextKeyDown}
-              rows={2}
+              rows={config.text.includes("\n") ? 2 : 1}
               maxLength={MAX_TEXT_LENGTH}
-              className="w-full resize-none rounded-2xl px-5 py-4 text-center text-xl font-extrabold leading-8 tracking-[0.01em] outline-none transition-colors"
+              className="w-full resize-none rounded-2xl px-5 py-4 text-center text-xl font-extrabold leading-8 lg:py-2 tracking-[0.01em] outline-none transition-colors"
               style={{
                 background: "var(--color-surface)",
                 color: "var(--color-foreground)",
                 border: "1px solid var(--color-border)",
                 fontFamily: currentFont?.name,
               }}
-              placeholder="Napíšte váš text…"
+              placeholder="Napíšte váš text… (Enter = druhý riadok)"
               aria-label="Text na nápis"
             />
-            <div className="mt-3">
+            <div className="mt-3 lg:mt-2.5">
               <FontDots
                 char={previewChar}
                 value={config.font}
@@ -610,19 +610,17 @@ function Configurator() {
                 onPick={chooseFont}
               />
             </div>
-            <Hint>
-              Enter = druhý riadok.
-            </Hint>
           </StepCard>
 
           {/* ── 2 · Size ── */}
           <StepCard
             step={2}
             title="Rozmer"
+            aside={`hrúbka písma ${depthMm} mm`}
           >
             {/* The letter height is typed in — the only way to set it; the whole
                 nápis, which has to fit the wall, is shown beside it. */}
-            <div className="mb-3 grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <HeightInput
                 value={config.height}
                 min={minHeight}
@@ -631,13 +629,10 @@ function Configurator() {
               />
               <SizeReadout label="Celý nápis" value={signSizeLabel ?? "…"} />
             </div>
-            <Hint>
-              Hrúbka písma <strong style={{ color: "var(--color-foreground)" }}>{depthMm} mm</strong> — určí sa podľa výšky.
-            </Hint>
           </StepCard>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 lg:space-y-2.5">
           {/* ── 3 · Variant ── */}
           <StepCard
             step={3}
@@ -663,12 +658,13 @@ function Configurator() {
               ))}
             </div>
 
+            {/* Spelled out on a phone; on a wide screen the tile's hover says it. */}
             {isIlluminated && (
-              <Hint>
+              <div className="lg:hidden"><Hint>
                 {variant === "front"
                   ? "Svieti bielym svetlom cez čelo — nápis svieti vo farbe čela."
                   : "Svieti bielym svetlom dozadu na stenu."}
-              </Hint>
+              </Hint></div>
             )}
           </StepCard>
 
@@ -956,7 +952,7 @@ function StepCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="field-card rounded-[24px] p-4" aria-label={`Krok ${step}: ${title}`}>
+    <section className="field-card rounded-[24px] p-4 lg:px-4 lg:py-3" aria-label={`Krok ${step}: ${title}`}>
       <div className="flex items-center gap-2.5">
         <span className="step-badge" aria-hidden="true">{step}</span>
         <h3 className="text-[15px] font-extrabold tracking-[0.005em]" style={{ color: "var(--color-foreground)" }}>
@@ -972,7 +968,7 @@ function StepCard({
         )}
         {corner && <div className="-my-2 ml-auto">{corner}</div>}
       </div>
-      <div className="mt-3.5">{children}</div>
+      <div className="mt-3.5 lg:mt-2.5">{children}</div>
     </section>
   );
 }
@@ -1002,7 +998,7 @@ function HeightInput({
   }
   return (
     <label
-      className="block cursor-text rounded-2xl px-3.5 py-2.5"
+      className="block cursor-text rounded-2xl px-3.5 py-2.5 lg:py-1.5"
       style={{
         background: "color-mix(in srgb, var(--accent) 12%, var(--color-background))",
         border: "1.5px solid var(--accent)",
@@ -1033,7 +1029,7 @@ function HeightInput({
 function SizeReadout({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div
-      className="rounded-2xl px-3.5 py-2.5"
+      className="rounded-2xl px-3.5 py-2.5 lg:py-1.5"
       style={{
         background: strong ? "color-mix(in srgb, var(--accent) 12%, var(--color-background))" : "var(--color-surface)",
         border: `1.5px solid ${strong ? "var(--accent)" : "var(--color-border)"}`,
@@ -1157,8 +1153,9 @@ function ColorRow({
 }) {
   const chosen = options.find((c) => sameColor(c.value, value));
   return (
-    <div>
-      <p className="mb-1.5 text-[13px] leading-tight" title={hint}>
+    // Wide screens: the name sits to the left of its dots, one line per row.
+    <div className="lg:flex lg:items-center lg:gap-3">
+      <p className="mb-1.5 text-[13px] leading-tight lg:mb-0 lg:w-[128px] lg:shrink-0 lg:truncate" title={hint}>
         <strong style={{ color: "var(--color-foreground)" }}>{label}</strong>
         <span className="font-semibold" style={{ color: "var(--color-muted)" }}> — {chosen?.label ?? "vlastná"}</span>
       </p>
