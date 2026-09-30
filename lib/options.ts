@@ -479,13 +479,12 @@ export function variantLabel(config: { signType: SignType; lightMode?: string })
   return variantById(variantOf(config)).name;
 }
 
-// ── Light colours ───────────────────────────────────────────────────────────
+// ── Light colour ────────────────────────────────────────────────────────────
 //
-// White and warm white — nothing else. The colour a customer sees is the
-// FACE's: white LEDs behind a red acrylic face make a red letter
-// (components/three/LetterScene.tsx filteredThroughFace), so the face and
-// wall colours are how a sign is coloured, and the LEDs only decide whether
-// its light is warm or cold. The same two whites for every way of lighting.
+// White, always — there is no choice of LED colour. The colour a customer
+// sees is the FACE's: white LEDs behind a red acrylic face make a red letter
+// (components/three/LetterScene.tsx filteredThroughFace), and a halo letter
+// throws plain white light onto the wall behind it.
 
 export type LightColorOption = {
   id: string;
@@ -496,22 +495,18 @@ export type LightColorOption = {
 };
 
 export const LIGHT_COLORS: LightColorOption[] = [
-  { id: "white-warm", label: "Teplá biela",      value: "#ffcf9a", hint: "Mäkké, teplé svetlo — najčastejšia voľba" },
-  { id: "white-cool", label: "Biela intenzívna", value: "#ffffff", hint: "Studená biela, najsilnejší svit" },
+  { id: "white", label: "Biela", value: "#ffffff", hint: "Biele LED svetlo" },
 ];
 
-/** Warm white: what a sign gets unless the customer says otherwise. */
 export const DEFAULT_LIGHT_COLOR = LIGHT_COLORS[0].value;
 
 /**
- * The colour kept when it is one of the two whites, warm white otherwise — so
- * a cart saved back when coloured LEDs were offered still quotes a sign that
- * is actually made.
+ * Always white. Signs saved while warm white or coloured LEDs were offered
+ * come back white, since that is the only light still made.
  */
-export function clampLightColor(value: string): string {
-  return LIGHT_COLORS.some((c) => c.value.toLowerCase() === value.toLowerCase())
-    ? value
-    : DEFAULT_LIGHT_COLOR;
+export function clampLightColor(_value: string): string {
+  void _value;
+  return DEFAULT_LIGHT_COLOR;
 }
 
 /** The option behind a stored hex, for showing its name back to the customer. */

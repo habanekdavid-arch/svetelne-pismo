@@ -18,7 +18,6 @@ import {
   CATALOGUE_FONTS,
   MATERIAL_GROUPS,
   VARIANTS,
-  LIGHT_COLORS,
   DEFAULT_LIGHT_COLOR,
   DEFAULT_MATERIAL,
   fontById,
@@ -46,7 +45,6 @@ import {
   clampHeight,
   bandStarts,
   normalizeConfig,
-  lightColorOption,
 } from "@/lib/options";
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
 import type { DragTarget } from "@/components/three/LetterScene";
@@ -697,27 +695,11 @@ function Configurator() {
             </div>
 
             {isIlluminated && (
-              <>
-                <Label>Farba svetla</Label>
-                {/* Teplá a studená biela — farbu nápisu robí čelo, LED
-                    rozhoduje iba o tom, či svieti teplo alebo studeno. */}
-                <div className="flex items-center gap-3">
-                  {LIGHT_COLORS.map((c) => (
-                    <SwatchDot
-                      key={c.id}
-                      color={c.value}
-                      glow
-                      active={sameColor(config.lightColor, c.value)}
-                      label={c.label}
-                      sub={c.hint}
-                      onClick={() => patch({ lightColor: c.value })}
-                    />
-                  ))}
-                  <span className="text-[13px] font-semibold tracking-[0.01em]" style={{ color: "var(--color-foreground-soft)" }}>
-                    {lightColorOption(config.lightColor)?.label}
-                  </span>
-                </div>
-              </>
+              <Hint>
+                {variant === "front"
+                  ? "Svieti bielym svetlom cez čelo — nápis svieti vo farbe čela."
+                  : "Svieti bielym svetlom dozadu na stenu."}
+              </Hint>
             )}
           </StepCard>
 
@@ -855,9 +837,6 @@ function Configurator() {
                   ? `${colorLabel(currentFaceColor)} / ${colorLabel(config.bodyColor)}`
                   : colorLabel(config.bodyColor)}
               />
-              {isIlluminated && (
-                <TechLine label="Farba svetla" value={lightColorOption(config.lightColor)?.label ?? "—"} />
-              )}
             </div>
           </div>
           </details>

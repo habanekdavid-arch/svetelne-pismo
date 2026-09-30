@@ -134,7 +134,7 @@ export async function runSelfTest(kind: SelfTestKind, to?: string): Promise<Self
           material: "alurol-upper",
           signType: "illuminated",
           lightMode: "front",
-          lightColor: "#ffcf9a",
+          lightColor: "#ffffff",
           bodyColor: "#0a0a0a",
           faceColor: "#f1f0ea",
           height: 400,

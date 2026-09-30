@@ -186,13 +186,6 @@ export default function CartSidebar() {
                                 style={{ background: faceColorOf(item.config), boxShadow: `inset 0 0 0 2px ${item.config.bodyColor}, 0 0 0 1px var(--color-border)` }}
                                 aria-hidden="true"
                               />
-                              {item.config.signType === "illuminated" && (
-                                <span
-                                  className="h-3 w-3 rounded-full"
-                                  style={{ background: item.config.lightColor, boxShadow: "0 0 0 1px var(--color-border)" }}
-                                  aria-hidden="true"
-                                />
-                              )}
                             </div>
                           </div>
 
