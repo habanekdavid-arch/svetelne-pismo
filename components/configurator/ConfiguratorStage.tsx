@@ -653,7 +653,12 @@ function Configurator() {
                   tipSub={v.description}
                   onClick={() => chooseVariant(v.id)}
                 >
-                  <VariantGlyph variant={v.id} />
+                  <VariantGlyph
+                    variant={v.id}
+                    char={previewChar}
+                    fontFamily={currentFont?.name}
+                    glowColor={litColor}
+                  />
                 </OptionTile>
               ))}
             </div>
@@ -1234,87 +1239,106 @@ function SliderBox({
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 /**
- * The three variants as simple line symbols, in the icon colour with the
- * light in amber: a panel shining forward, a panel with light behind it, and
- * a panel that is not lit.
+ * What a variant looks like, drawn on the customer's own first letter in the
+ * chosen font: lit through its face, glowing onto the wall behind it, or not
+ * lit at all.
  */
-function VariantGlyph({ variant }: { variant: VariantId }) {
-  const light = "#f5a300";
-  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
+function VariantGlyph({
+  variant,
+  char,
+  fontFamily,
+  glowColor,
+}: {
+  variant: VariantId;
+  char: string;
+  fontFamily?: string;
+  glowColor: string;
+}) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const tightId = `vgt-${uid}`;
+  const haloId = `vgh-${uid}`;
+  const glyph = {
+    x: 32,
+    y: 45,
+    textAnchor: "middle" as const,
+    fontSize: 40,
+    fontWeight: 900,
+    style: fontFamily ? { fontFamily } : undefined,
+  };
+  // Warm white reads as cream on a light tile; the lit face is drawn in the
+  // brand amber-white so it is visibly "on".
+  const light = glowColor === "#ffffff" ? "#fff6d6" : glowColor;
+
   return (
-    <svg viewBox="0 0 32 32" width={34} height={34} aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 64 64" width={36} height={36} aria-hidden="true">
+      <defs>
+        <filter id={tightId} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation={1.6} result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id={haloId} x="-120%" y="-120%" width="340%" height="340%">
+          <feGaussianBlur stdDeviation={6.5} />
+        </filter>
+      </defs>
+      <rect x="2" y="2" width="60" height="60" rx="14" fill="#16161b" opacity={variant === "plain" ? 0 : 1} />
       {variant === "front" && (
-        <>
-          {rays.map((a) => (
-            <line key={a} x1="16" y1="16" x2="16" y2="2" transform={`rotate(${a} 16 16)`}
-              stroke={light} strokeWidth="1.8" strokeDasharray="0 9.5 4 20" />
-          ))}
-          <rect x="10.5" y="10.5" width="11" height="11" rx="2" fill={light} stroke="currentColor" strokeWidth="1.8" />
-        </>
+        <text {...glyph} fill={light} stroke="#2a2a30" strokeWidth={1} filter={`url(#${tightId})`}>{char}</text>
       )}
       {variant === "back" && (
         <>
-          <rect x="5" y="5" width="22" height="22" rx="6" stroke={light} strokeWidth="1.8" />
-          <rect x="10.5" y="10.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+          <text {...glyph} fill={light} filter={`url(#${haloId})`} opacity={0.95}>{char}</text>
+          <text {...glyph} fill="#26262c">{char}</text>
         </>
       )}
       {variant === "plain" && (
-        <rect x="10.5" y="10.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+        <text {...glyph} fill="currentColor">{char}</text>
       )}
     </svg>
   );
 }
 
-/**
- * Hliník / Plast / Plexi as clean line icons of the material itself — an
- * aluminium profile, a filament spool, a pane of acrylic glass — drawn in one
- * colour like every other icon on the site.
- */
+/** Hliník / Plast / Plexi, as simple sections through what each is. */
 function GroupIcon({ group }: { group: MaterialGroupId }) {
   const common = {
-    width: 34,
-    height: 34,
-    viewBox: "0 0 32 32",
+    width: 30,
+    height: 30,
+    viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 1.8,
+    strokeWidth: 1.7,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     "aria-hidden": true,
   };
-
   if (group === "aluminium") {
-    // A square aluminium tube: its open end and the length running back.
+    // A channel letter's profile: an aluminium band round a face.
     return (
       <svg {...common}>
-        <path d="M4 11 L10 8 L28 8 L22 11 Z" />
-        <path d="M22 11 L28 8 L28 20 L22 23" />
-        <rect x="4" y="11" width="18" height="12" rx="1" />
-        <rect x="8" y="14" width="10" height="6" rx=".5" />
+        <path d="M4 20V6.5L8 4h12v13.5L16 20H4Z" fill="currentColor" fillOpacity=".12" />
+        <path d="M4 6.5h12V20M16 6.5 20 4" />
+        <path d="M7.5 10h5M7.5 13.5h5" opacity=".55" />
       </svg>
     );
   }
-
   if (group === "plastic") {
-    // A spool of 3D-printing filament with a strand running off it.
+    // 3D print: a body built up in layers.
     return (
       <svg {...common}>
-        <circle cx="15" cy="16" r="11" />
-        <circle cx="15" cy="16" r="7.5" />
-        <circle cx="15" cy="16" r="3" />
-        <path d="M24 9 C 27 7, 30 9, 30 13" />
+        <rect x="4" y="5" width="16" height="15" rx="2.5" fill="currentColor" fillOpacity=".12" />
+        <path d="M4 9.5h16M4 13.5h16M4 17h16" opacity=".6" />
+        <path d="M10 2.5h4l-2 2.5-2-2.5Z" fill="currentColor" />
       </svg>
     );
   }
-
-  // A pane of acrylic glass, its thickness showing at the edge, with the
-  // diagonal glints glass has.
+  // Plexi: a clear sheet catching light at its edge.
   return (
     <svg {...common}>
-      <path d="M6 5 L23 8 L23 28 L6 25 Z" />
-      <path d="M23 8 L27 6 L27 26 L23 28" />
-      <path d="M10 15 L16 9.8" />
-      <path d="M10 20 L19 12.2" />
+      <path d="M6 3.5h9l4 4v13H6z" fill="currentColor" fillOpacity=".08" />
+      <path d="M15 3.5v4h4" />
+      <path d="M9 16.5 15.5 10M9 12.5l3-3" opacity=".6" />
     </svg>
   );
 }
