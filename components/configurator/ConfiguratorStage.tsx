@@ -26,8 +26,9 @@ import {
   variantOf,
   variantFields,
   buildsFor,
-  isOffered,
-  pickBuild,
+  autoBuild,
+  groupHeightRange,
+  groupBandStarts,
   buildForFont,
   hasSeparateFace,
   faceColorOptionsFor,
@@ -38,12 +39,8 @@ import {
   clampBodyColor,
   clampLightColor,
   colorLabel,
-  applyTextCase,
-  textCaseFor,
-  heightRange,
   depthMmFor,
   clampHeight,
-  bandStarts,
   normalizeConfig,
 } from "@/lib/options";
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
@@ -154,14 +151,13 @@ function Configurator() {
   const variant = variantOf(config);
   const isIlluminated = config.signType === "illuminated";
   const currentFont = fontById(config.font);
-  const textCase = textCaseFor(config.material);
-  const buildsInGroup = buildsFor(variant, currentMat.group);
+
   const groupsMade = MATERIAL_GROUPS.filter((g) => buildsFor(variant, g.id).length > 0);
 
   // Height is the only dimension chosen; the build turns it into a thickness.
-  const { minMm: minHeight, maxMm: maxHeight } = heightRange(config.material);
+  const { minMm: minHeight, maxMm: maxHeight } = groupHeightRange(variant, currentMat.group, config.text);
   const depthMm = depthMmFor(config.material, config.height);
-  const heightChips = bandStarts(config.material);
+  const heightChips = groupBandStarts(variant, currentMat.group, config.text);
 
   // The letter every font dot is drawn with: the first one the customer typed.
   const previewChar = Array.from(config.text.trim())[0] ?? "A";
@@ -244,9 +240,15 @@ function Configurator() {
     const v = variantOf(merged);
     const { signType, lightMode } = variantFields(v);
 
-    const material = isOffered(v, merged.material)
-      ? merged.material
-      : pickBuild(v, materialById(merged.material).group, merged.material);
+    // The group is the customer's choice; the build within it follows from
+    // the text and the height (lib/options.ts autoBuild).
+    const wanted = materialById(merged.material).group;
+    const group = buildsFor(v, wanted).length > 0
+      ? wanted
+      : (MATERIAL_GROUPS.find((g) => buildsFor(v, g.id).length > 0)?.id ?? wanted);
+    const range = groupHeightRange(v, group, merged.text);
+    const height = Math.min(range.maxMm, Math.max(range.minMm, merged.height));
+    const material = autoBuild(v, group, merged.text, height) ?? merged.material;
     const fonts = materialById(material).fonts;
     const font = fonts.includes(merged.font) ? merged.font : fonts[0];
 
@@ -256,10 +258,8 @@ function Configurator() {
       lightMode,
       material,
       font,
-      height: clampHeight(material, merged.height),
+      height: clampHeight(material, height),
       lightColor: clampLightColor(merged.lightColor),
-      // Alurol comes as veľké or malé písmená, so the text follows the build.
-      text: applyTextCase(merged.text, material),
       bodyColor: clampBodyColor(material, signType, lightMode, merged.bodyColor),
       faceColor: hasSeparateFace(material)
         ? clampFaceColor(material, signType, lightMode, merged.faceColor ?? merged.bodyColor)
@@ -282,7 +282,8 @@ function Configurator() {
   }
 
   function chooseGroup(group: MaterialGroupId) {
-    apply({ material: pickBuild(variant, group, config.material) });
+    const first = buildsFor(variant, group)[0];
+    if (first) apply({ material: first.id });
   }
 
   function chooseFont(fontId: string) {
@@ -534,7 +535,7 @@ function Configurator() {
             <textarea
               ref={textInputRef}
               value={config.text}
-              onChange={(e) => patch({ text: applyTextCase(limitLines(e.target.value), config.material) })}
+              onChange={(e) => apply({ text: limitLines(e.target.value) })}
               onKeyDown={handleTextKeyDown}
               rows={2}
               maxLength={MAX_TEXT_LENGTH}
@@ -558,8 +559,6 @@ function Configurator() {
             </div>
             <Hint>
               Enter = druhý riadok.
-              {textCase === "upper" && " Toto prevedenie sa vyrába len veľkými písmenami."}
-              {textCase === "lower" && " Toto prevedenie sa vyrába len malými písmenami."}
             </Hint>
           </StepCard>
 
@@ -576,7 +575,7 @@ function Configurator() {
                 value={config.height}
                 min={minHeight}
                 max={maxHeight}
-                onChange={(v) => { patch({ height: v }); }}
+                onChange={(v) => apply({ height: v })}
               />
               <SizeReadout label="Celý nápis" value={signSizeLabel ?? "…"} />
             </div>
@@ -586,7 +585,7 @@ function Configurator() {
               max={maxHeight}
               suffix=" mm"
               chips={heightChips}
-              onChange={(v) => { patch({ height: v }); }}
+              onChange={(v) => apply({ height: v })}
               ariaLabel="Výška písmen"
             />
             <Hint>
@@ -702,25 +701,6 @@ function Configurator() {
                 );
               })}
             </div>
-
-            {buildsInGroup.length > 1 && (
-              <>
-                <Label>Typ</Label>
-                <div role="radiogroup" aria-label="Typ prevedenia" className="grid grid-cols-2 gap-2">
-                  {buildsInGroup.map((b) => (
-                    <BuildPill
-                      key={b.id}
-                      id={b.id}
-                      active={config.material === b.id}
-                      label={b.shortName}
-                      tip={b.displayName}
-                      tipSub={b.subtitle}
-                      onClick={() => apply({ material: b.id })}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
 
           </StepCard>
 
@@ -1019,17 +999,6 @@ function SizeReadout({ label, value, strong }: { label: string; value: string; s
   );
 }
 
-function Label({ children, flush }: { children: React.ReactNode; flush?: boolean }) {
-  return (
-    <p
-      className={`${flush ? "" : "mt-4 "}mb-2 text-[12px] font-bold uppercase tracking-[0.07em]`}
-      style={{ color: "var(--color-muted)" }}
-    >
-      {children}
-    </p>
-  );
-}
-
 function Hint({ children }: { children: React.ReactNode }) {
   return (
     <p className="mt-2 text-[12.5px] leading-5 tracking-[0.005em]" style={{ color: "var(--color-muted)" }}>
@@ -1071,39 +1040,6 @@ function OptionTile({
       {...tipProps}
     >
       {children}
-      <span className="opt-label">{label}</span>
-    </button>
-  );
-}
-
-/** One build within a material group: "Veľké písmená", "Plné písmo"… */
-function BuildPill({
-  id,
-  active,
-  label,
-  tip,
-  tipSub,
-  onClick,
-}: {
-  id: string;
-  active: boolean;
-  label: string;
-  tip: string;
-  tipSub?: string;
-  onClick: () => void;
-}) {
-  const tipProps = useTip()(tip, tipSub);
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      aria-label={tip}
-      onClick={onClick}
-      className="opt-tile !min-h-0 !flex-row !gap-2.5 !py-2.5"
-      {...tipProps}
-    >
-      <BuildIcon id={id} />
       <span className="opt-label">{label}</span>
     </button>
   );
@@ -1365,90 +1301,70 @@ function VariantGlyph({
 }
 
 /**
- * Hliník / Plast / Plexi as a small extruded "A" in each material: a lacquered
- * aluminium letter with its metal band, a 3D-printed one with its layer lines,
- * and a clear acrylic one catching the light — the difference read at a
- * glance, without words.
+ * Hliník / Plast / Plexi as the material itself: a brushed aluminium profile,
+ * a spool of 3D-printing filament, and a clear pane of acrylic glass.
  */
 function GroupIcon({ group }: { group: MaterialGroupId }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const glyph = { x: 22, textAnchor: "middle" as const, fontSize: 36, fontWeight: 900, fontFamily: "Arial Black, Arial, sans-serif" };
-  const depth = [4, 3, 2, 1];
 
   if (group === "aluminium") {
+    // A square aluminium tube seen at an angle: brushed top, shaded side,
+    // the open end showing its wall.
     return (
       <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
         <defs>
-          <linearGradient id={`${uid}-m`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#f4f6f8" />
-            <stop offset=".45" stopColor="#9aa3ad" />
-            <stop offset=".6" stopColor="#d9dee3" />
-            <stop offset="1" stopColor="#6b737c" />
+          <linearGradient id={`${uid}-top`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#c9ced4" />
+            <stop offset=".35" stopColor="#f7f9fb" />
+            <stop offset=".55" stopColor="#aeb5bd" />
+            <stop offset="1" stopColor="#e4e8ec" />
+          </linearGradient>
+          <linearGradient id={`${uid}-side`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#8d949c" />
+            <stop offset=".5" stopColor="#b9c0c7" />
+            <stop offset="1" stopColor="#7c838b" />
           </linearGradient>
         </defs>
-        {depth.map((d) => (
-          <text key={d} {...glyph} x={22 + d} y={38 + d} fill={`url(#${uid}-m)`} opacity={0.9}>A</text>
-        ))}
-        <text {...glyph} y={38} fill="#fafafa" stroke="#8a929b" strokeWidth={0.8}>A</text>
+        <path d="M6 18 L30 8 L44 14 L20 24 Z" fill={`url(#${uid}-top)`} stroke="#6b737c" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M20 24 L44 14 L44 28 L20 38 Z" fill={`url(#${uid}-side)`} stroke="#6b737c" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M6 18 L20 24 L20 38 L6 32 Z" fill="#dfe3e7" stroke="#6b737c" strokeWidth=".8" strokeLinejoin="round" />
+        <path d="M9 21.5 L17 25 L17 34 L9 30.5 Z" fill="#5d646c" />
+        <path d="M11 17 L31 9" stroke="#ffffff" strokeWidth="1.2" opacity=".8" strokeLinecap="round" />
       </svg>
     );
   }
 
   if (group === "plastic") {
+    // A filament spool: two flanges, the wound filament between them, and a
+    // strand running off it.
     return (
       <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
-        <defs>
-          <pattern id={`${uid}-l`} width="4" height="2.2" patternUnits="userSpaceOnUse">
-            <rect width="4" height="2.2" fill="#3d3d44" />
-            <rect width="4" height="0.7" fill="#6a6a74" />
-          </pattern>
-        </defs>
-        {depth.map((d) => (
-          <text key={d} {...glyph} x={22 + d} y={38 + d} fill={`url(#${uid}-l)`}>A</text>
+        <ellipse cx="24" cy="24" rx="17" ry="17" fill="#2f2f36" />
+        <circle cx="24" cy="24" r="13.5" fill="#f28c28" />
+        {[12.2, 10.6, 9].map((r) => (
+          <circle key={r} cx="24" cy="24" r={r} fill="none" stroke="#c96a12" strokeWidth=".9" />
         ))}
-        <text {...glyph} y={38} fill="#f4f1ea" stroke="#3d3d44" strokeWidth={0.8}>A</text>
+        <circle cx="24" cy="24" r="6.5" fill="#2f2f36" />
+        <circle cx="24" cy="24" r="3" fill="#f4f1ea" />
+        <path d="M36 15 C 41 12, 44 16, 45 20" fill="none" stroke="#f28c28" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
 
+  // A pane of clear acrylic standing at an angle, with the glints glass has.
   return (
     <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
       <defs>
         <linearGradient id={`${uid}-g`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#e8f6ff" stopOpacity=".95" />
-          <stop offset=".5" stopColor="#9fd4f2" stopOpacity=".55" />
-          <stop offset="1" stopColor="#5fb3e0" stopOpacity=".75" />
-        </linearGradient>
-        <linearGradient id={`${uid}-s`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" stopOpacity=".95" />
-          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="0" stopColor="#e9f7ff" stopOpacity=".95" />
+          <stop offset=".55" stopColor="#a8dcf5" stopOpacity=".6" />
+          <stop offset="1" stopColor="#6fbde6" stopOpacity=".85" />
         </linearGradient>
       </defs>
-      {depth.map((d) => (
-        <text key={d} {...glyph} x={22 + d} y={38 + d} fill="#bfe3f7" opacity={0.5} stroke="#ffffff" strokeWidth={0.5}>A</text>
-      ))}
-      <text {...glyph} y={38} fill={`url(#${uid}-g)`} stroke="#3a9ad0" strokeWidth={0.9}>A</text>
-      <path d="M9 11 L20 6 L21 9 L10 14 Z" fill={`url(#${uid}-s)`} opacity={0.9} />
-    </svg>
-  );
-}
-
-/** What sets the builds of one group apart, drawn: letter case, or how the letter is made. */
-function BuildIcon({ id }: { id: string }) {
-  if (id === "alurol-upper" || id === "alurol-lower") {
-    return (
-      <span className="text-[17px] font-black leading-none tracking-tight" aria-hidden="true" style={{ fontFamily: "Arial Black, Arial, sans-serif" }}>
-        {id === "alurol-upper" ? "AB" : "ab"}
-      </span>
-    );
-  }
-  // 3D print: a body with a separate plexi face, or printed solid through.
-  const withFace = id === "print3d";
-  return (
-    <svg width={26} height={22} viewBox="0 0 26 22" aria-hidden="true">
-      <rect x="6" y="2" width="17" height="17" rx="2" fill="#3d3d44" />
-      <rect x="3" y="5" width="17" height="15" rx="2" fill={withFace ? "#e8f6ff" : "#3d3d44"} stroke={withFace ? "#3a9ad0" : "#1f1f24"} strokeWidth="1.2" />
-      {!withFace && <path d="M5 9h13M5 12h13M5 15h13" stroke="#6a6a74" strokeWidth="1" />}
+      <path d="M12 6 L38 11 L38 42 L12 37 Z" fill={`url(#${uid}-g)`} stroke="#3a9ad0" strokeWidth="1.1" strokeLinejoin="round" />
+      <path d="M38 11 L41 9 L41 40 L38 42 Z" fill="#cbeaf9" stroke="#3a9ad0" strokeWidth=".8" strokeLinejoin="round" />
+      <path d="M17 13 L25 14.6 L17 26 Z" fill="#ffffff" opacity=".75" />
+      <path d="M28 30 L34 31.2 L30 36.5 Z" fill="#ffffff" opacity=".55" />
     </svg>
   );
 }

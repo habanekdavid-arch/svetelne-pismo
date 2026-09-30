@@ -275,12 +275,12 @@ export const MATERIALS: MaterialOption[] = [
       // as the swatch — the way a solid acrylic letter looks in a shop window,
       // not pale glass. Only part of the light goes through; the rest is the
       // sheet's own colour.
-      roughness: 0.02,
+      roughness: 0.0,
       metalness: 0,
-      transmission: 0.38,
-      ior: 1.49,
-      thickness: 0.6,
-      attenuationDistance: 0.12,
+      transmission: 0.55,
+      ior: 1.5,
+      thickness: 0.8,
+      attenuationDistance: 0.16,
       clearcoat: 1.0,
       clearcoatRoughness: 0.0,
       // The polished edge is clear acrylic — glass-like, it lets almost
@@ -291,7 +291,7 @@ export const MATERIALS: MaterialOption[] = [
       // bright as a channel letter's.
       emissiveFrontScale: 1.6,
       emissiveSideScale: 1.4,
-      envIntensity: 1.8,
+      envIntensity: 2.6,
     },
   },
   {
@@ -311,10 +311,16 @@ export const MATERIALS: MaterialOption[] = [
     ],
     plainPrice: PLEXI_UV_PLAIN,
     pbr: {
-      roughness: 0.12,
+      // Cut acrylic sheet: the printed face is its own material; the polished
+      // edges and back are clear, glossy acrylic that catches the light.
+      roughness: 0.0,
       metalness: 0,
+      transmission: 0.6,
+      ior: 1.5,
+      thickness: 0.3,
       clearcoat: 1.0,
-      clearcoatRoughness: 0.03,
+      clearcoatRoughness: 0.0,
+      envIntensity: 2.4,
     },
   },
 ];
@@ -684,34 +690,64 @@ export function clampBodyColor(
   return clampTo(bodyColorOptionsFor(materialId, signType, lightMode), value);
 }
 
-// ── Veľké / malé písmo ──────────────────────────────────────────────────────
+// ── Which build within a group — chosen, not asked ──────────────────────────
 //
-// Cenník vedie alurol ako dve samostatné stavby: "veľké písmo" od 250 mm
-// a "malé písmo" od 350 mm (hárok "parametre"). Nie je to štýl, ale to, čo sa
-// naozaj vyrába — tak nech sa do nápisu ani nedá napísať nič iné. Ostatné
-// stavby žiadne takéto obmedzenie nemajú a vracajú null.
+// The price list keeps a few builds apart that a customer should not have to
+// pick between: alurol comes as "veľké písmená" and "malé písmená" (the same
+// profile, the second starting at 350 mm), and unlit 3D print as a letter
+// with a plexi face or printed solid (50–300 mm, sold by volume). The
+// configurator asks only for the group; the build follows from what is
+// already set:
+//   · alurol — by the text: any lower-case letter makes it "malé písmená";
+//   · plast, unlit — by the height: under 120 mm, where the plexi-faced build
+//     does not go, it is printed solid.
 
-export type TextCase = "upper" | "lower";
+const SOLID_BELOW_MM = 120;
 
-const TEXT_CASE: Record<string, TextCase> = {
-  "alurol-upper": "upper",
-  "alurol-lower": "lower",
-};
-
-/** Ktorou veľkosťou písmen sa táto stavba vyrába, alebo null keď je jedno. */
-export function textCaseFor(materialId: string): TextCase | null {
-  return TEXT_CASE[materialId] ?? null;
+/** Does the text have a lower-case letter in it? */
+export function hasLowercase(text: string): boolean {
+  return text !== text.toLocaleUpperCase("sk-SK");
 }
 
-/**
- * Text prepísaný tak, ako sa dá vyrobiť. Prepisuje sa, nie odmieta: kto
- * prepne stavbu na "malé písmená", chce svoj nápis malými, nie prázdne pole.
- * Slovenská diakritika sa mení podľa locale, aby "Č" bolo "č" a nie "C".
- */
-export function applyTextCase(text: string, materialId: string): string {
-  const mode = textCaseFor(materialId);
-  if (!mode) return text;
-  return mode === "upper" ? text.toLocaleUpperCase("sk-SK") : text.toLocaleLowerCase("sk-SK");
+/** The build a group is made in for this variant, text and height — or null when the group is not offered. */
+export function autoBuild(
+  variant: VariantId,
+  group: MaterialGroupId,
+  text: string,
+  heightMm: number,
+): string | null {
+  const builds = buildsFor(variant, group);
+  if (builds.length === 0) return null;
+  if (group === "aluminium") return hasLowercase(text) ? "alurol-lower" : "alurol-upper";
+  if (builds.some((b) => b.id === "print3d-solid") && builds.some((b) => b.id === "print3d")) {
+    return heightMm < SOLID_BELOW_MM ? "print3d-solid" : "print3d";
+  }
+  return builds[0].id;
+}
+
+/** The builds the height slider covers for a group: the one the text decides for alurol, all of them otherwise. */
+function slidingBuilds(variant: VariantId, group: MaterialGroupId, text: string): MaterialOption[] {
+  if (group === "aluminium") {
+    const id = autoBuild(variant, group, text, 0);
+    return id ? [materialById(id)] : [];
+  }
+  return buildsFor(variant, group);
+}
+
+/** Heights a group is made in, for this variant and text. */
+export function groupHeightRange(variant: VariantId, group: MaterialGroupId, text: string): { minMm: number; maxMm: number } {
+  const builds = slidingBuilds(variant, group, text);
+  if (builds.length === 0) return { minMm: 50, maxMm: 2000 };
+  return {
+    minMm: Math.min(...builds.map((b) => heightRange(b.id).minMm)),
+    maxMm: Math.max(...builds.map((b) => heightRange(b.id).maxMm)),
+  };
+}
+
+/** Where the thickness steps up across a group — the slider's shortcuts. */
+export function groupBandStarts(variant: VariantId, group: MaterialGroupId, text: string): number[] {
+  const starts = slidingBuilds(variant, group, text).flatMap((b) => bandStarts(b.id));
+  return [...new Set(starts)].sort((a, b) => a - b);
 }
 
 /** How a chosen colour behaves under light — used by the 3D preview. */
@@ -735,9 +771,13 @@ export function normalizeConfig(config: Config): Config {
   // front: the nearest thing still made.
   const variant = variantOf(config);
   const { signType, lightMode } = variantFields(variant);
-  const material = isOffered(variant, config.material)
-    ? config.material
-    : pickBuild(variant, MATERIALS.find((m) => m.id === config.material)?.group ?? "plastic", config.material);
+  const wantedGroup = MATERIALS.find((m) => m.id === config.material)?.group ?? "plastic";
+  const group = buildsFor(variant, wantedGroup).length > 0
+    ? wantedGroup
+    : (MATERIAL_GROUPS.find((g) => buildsFor(variant, g.id).length > 0)?.id ?? "plastic");
+  const range = groupHeightRange(variant, group, config.text);
+  const wantedHeight = Math.min(range.maxMm, Math.max(range.minMm, Number(config.height) || range.minMm));
+  const material = autoBuild(variant, group, config.text, wantedHeight) ?? DEFAULT_MATERIAL;
   const fonts = materialById(material).fonts;
   const font = fonts.includes(config.font) ? config.font : fonts[0];
   // The old Config carried `placement`; the new price list does not ask.
@@ -749,8 +789,7 @@ export function normalizeConfig(config: Config): Config {
     lightMode,
     material,
     font,
-    text: applyTextCase(config.text, material),
-    height: clampHeight(material, Number(config.height) || heightRange(material).minMm),
+    height: clampHeight(material, wantedHeight),
     lightColor: clampLightColor(String(config.lightColor ?? "")),
     bodyColor: clampBodyColor(material, signType, lightMode, config.bodyColor ?? "#0a0a0a"),
     faceColor: hasSeparateFace(material)
