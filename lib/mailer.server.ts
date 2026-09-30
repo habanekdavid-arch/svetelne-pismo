@@ -27,8 +27,10 @@ const gmailPass = process.env.GMAIL_APP_PASSWORD || "";
 const useLegacyGmail = !process.env.SMTP_USER?.trim() && Boolean(gmailUser);
 
 const host = process.env.SMTP_HOST?.trim() || (useLegacyGmail ? "smtp.gmail.com" : DEFAULT_SMTP_HOST);
-const user = process.env.SMTP_USER?.trim() || gmailUser;
-const pass = process.env.SMTP_PASSWORD || gmailPass;
+// The mailbox is info@4frommedia.sk unless told otherwise, so its password is
+// the only thing that has to be entered.
+const user = process.env.SMTP_USER?.trim() || (useLegacyGmail ? gmailUser : DEFAULT_FROM_EMAIL);
+const pass = process.env.SMTP_PASSWORD || (useLegacyGmail ? gmailPass : "");
 // 587 = STARTTLS (Microsoft 365 and Gmail), 465 = implicit TLS.
 const port = Number(process.env.SMTP_PORT) || 587;
 const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : port === 465;
@@ -139,6 +141,45 @@ export async function sendMail(mail: Mail): Promise<boolean> {
     }
     console.error(`[e-mail] odoslanie zlyhalo: „${mail.subject}“ → ${mail.to}:`, err);
     return false;
+  }
+}
+
+/**
+ * The admin's "Poslať testovací e-mail": unlike sendMail it does not hide the
+ * reason a message did not go out, because finding that reason is the point.
+ * Logs in, sends, and says which way it went — the mailbox, or the Gmail
+ * fallback — or exactly what the server answered.
+ */
+export async function sendTestMail(mail: Mail): Promise<{ ok: boolean; detail: string }> {
+  if (!mailConfigured()) {
+    return { ok: false, detail: "Chýba heslo schránky (SMTP_PASSWORD) — e-maily sa neposielajú." };
+  }
+  const message = {
+    from: MAIL_FROM,
+    to: mail.to,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text ?? htmlToText(mail.html),
+    replyTo: mail.replyTo ?? REPLY_TO,
+  };
+  try {
+    await primaryTransport().sendMail(message);
+    return { ok: true, detail: `Odoslané cez ${host}:${port} ako ${user}, odosielateľ ${MAIL_FROM}.` };
+  } catch (err) {
+    const e = err as { code?: string; response?: string; message?: string };
+    const reason = `${e.code ?? "chyba"}: ${e.response ?? e.message ?? String(err)}`.slice(0, 400);
+    const backup = fallbackTransport();
+    if (!backup) return { ok: false, detail: `${host} odmietol: ${reason}` };
+    try {
+      await backup.sendMail({ ...message, from: `rozsvieťTO <${gmailUser}>` });
+      return { ok: true, detail: `${host} odmietol (${reason}) — odoslané záložným Gmailom ${gmailUser}.` };
+    } catch (err2) {
+      const e2 = err2 as { code?: string; response?: string; message?: string };
+      return {
+        ok: false,
+        detail: `${host} odmietol (${reason}); aj Gmail zlyhal: ${e2.code ?? ""} ${e2.response ?? e2.message ?? ""}`.slice(0, 600),
+      };
+    }
   }
 }
 

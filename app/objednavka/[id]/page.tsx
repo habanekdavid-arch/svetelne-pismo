@@ -17,7 +17,7 @@ import PayAgainButton from "@/components/orders/PayAgainButton";
 import { bankAccount, variableSymbol } from "@/lib/bank";
 import { stripeConfigured } from "@/lib/stripe";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
+import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, leadTimeNotice, PRODUCTION_TIME } from "@/lib/shipping";
 
 export const metadata: Metadata = {
   title: "Objednávka | rozsvieťTO",
@@ -124,6 +124,11 @@ export default async function OrderPage({ params, searchParams }: Props) {
 
         <dl className="mt-5 space-y-2 text-sm">
           <Row label={installation ? "Adresa inštalácie" : "Doprava"} value={deliveryLabel(group)} />
+          {!installation && group.paymentStatus !== "paid" && (
+            <p className="text-xs leading-5" style={{ color: "var(--color-muted)" }}>
+              {leadTimeNotice(group.deliveryMethod)}
+            </p>
+          )}
           {installation ? (
             <Row
               label="Montáž"
@@ -197,7 +202,7 @@ function body(group: OrderGroup, cancelled: boolean): string {
   if (group.paymentStatus === "paid") {
     return group.deliveryMethod === INSTALLATION_METHOD
       ? "Ďakujeme. Nápis ideme vyrábať a termín montáže s vami dohodneme telefonicky."
-      : `Ďakujeme. Nápis ideme vyrábať. ${afterMadeText(group.deliveryMethod)}`;
+      : `Ďakujeme. Nápis ideme vyrábať. ${PRODUCTION_TIME} ${afterMadeText(group.deliveryMethod)}`;
   }
   if (cancelled) {
     return "Platba bola prerušená a nič sme vám nestrhli. Objednávku máme uloženú — môžete ju zaplatiť kedykoľvek.";

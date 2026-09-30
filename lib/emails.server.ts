@@ -6,10 +6,10 @@ import { bankAccount, variableSymbol } from "@/lib/bank";
 import type { Order, OrderGroup } from "@/lib/orders";
 import { quoteState } from "@/lib/orders";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, LIGHT_MODES, materialById } from "@/lib/options";
+import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, materialById, variantLabel } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 import { formatEur } from "@/lib/vat";
-import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
+import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, leadTimeNotice, PRODUCTION_TIME } from "@/lib/shipping";
 
 // Every e-mail the shop sends, in one place and one look. Each function is
 // fire-and-forget from the caller's point of view: sendMail never throws, and
@@ -65,10 +65,9 @@ function rows(pairs: [string, string | null | undefined][]): string {
 function signsTable(orders: Order[]): string {
   const lines = orders.map((o) => {
     const c = o.config;
-    const lit = c.signType === "illuminated";
-    const mode = lit ? (LIGHT_MODES.find((l) => l.id === c.lightMode)?.name ?? "svetelné") : "nesvetelné";
+    const mode = variantLabel(c).toLocaleLowerCase("sk-SK");
     const colours = hasSeparateFace(c.material)
-      ? `čelo ${colorLabel(faceColorOf(c))}, hrana ${colorLabel(c.bodyColor)}`
+      ? `čelo ${colorLabel(faceColorOf(c))}, telo ${colorLabel(c.bodyColor)}`
       : `farba ${colorLabel(c.bodyColor)}`;
     const spec = `${materialById(c.material).displayName} · ${c.height} mm · hrúbka ${depthMmFor(c.material, c.height)} mm · ${mode} · ${colours}`;
     return `<tr>
@@ -151,6 +150,7 @@ export async function mailOrderPlaced(group: OrderGroup, orders: Order[]): Promi
           [quote ? "Adresa inštalácie" : "Doručenie", whereTo(group)],
           ["Platba", group.paymentMethod ? PAYMENT_METHOD_LABEL[group.paymentMethod] : null],
         ]) +
+        (quote ? "" : p(esc(leadTimeNotice(group.deliveryMethod)))) +
         extra +
         button(orderUrl(group), "Zobraziť objednávku"),
     ),
@@ -184,7 +184,7 @@ export async function mailPaymentReceived(group: OrderGroup): Promise<void> {
       p(`Dobrý deň ${esc(group.customerName)}, ďakujeme — platbu ${formatEur(group.totalCents / 100)} sme prijali a nápis ideme vyrábať.`) +
         p(installation
           ? "Termín montáže s vami dohodneme telefonicky."
-          : afterMadeText(group.deliveryMethod)) +
+          : `${PRODUCTION_TIME} ${afterMadeText(group.deliveryMethod)}`) +
         button(orderUrl(group), "Zobraziť objednávku"),
     ),
   });

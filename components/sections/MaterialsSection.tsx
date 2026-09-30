@@ -75,7 +75,7 @@ export default function MaterialsSection() {
             className="mx-auto mt-4 max-w-md leading-7"
             style={{ color: "var(--color-muted)" }}
           >
-            Šesť stavieb z cenníka — vyberte podľa toho, kde bude nápis visieť a či má svietiť.
+            Hliník, plast a plexi — šesť prevedení z cenníka. Každé vyrábame len v tých variantoch svietenia, pre ktoré je stavané.
           </p>
         </div>
 

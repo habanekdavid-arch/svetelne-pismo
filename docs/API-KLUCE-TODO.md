@@ -8,6 +8,17 @@ Po uložení treba spraviť **Redeploy** (Deployments → posledné nasadenie �
 
 **Kontrola:** po redeploy otvorte `/admin` → rámček **„Stav integrácií“**. Zelená bodka znamená, že služba je zapnutá, oranžová, že jej ešte niečo chýba.
 
+## Čo musíte doplniť vy (všetko ostatné je hotové alebo nastavené v kóde)
+
+| Čo | Kľúč vo Verceli | Odkiaľ |
+|---|---|---|
+| Heslo e-mailovej schránky | `SMTP_PASSWORD` | heslo k info@4frommedia.sk, rovnaké ako pri vytlacto3d |
+| Platba kartou | `STRIPE_SECRET_KEY` | Stripe → Developers → API keys |
+| Potvrdenie platieb | `STRIPE_WEBHOOK_SECRET` | Stripe → Developers → Webhooks (návod v časti 2) |
+| Doména | `NEXT_PUBLIC_SITE_URL` = `https://rozsvietto.sk` | až keď bude doména nasmerovaná na Vercel |
+| *Voliteľné:* záložný Gmail | `GMAIL_USER`, `GMAIL_APP_PASSWORD` | ako pri vytlacto3d |
+| *Voliteľné:* analytika | `NEXT_PUBLIC_GTM_ID` | Google Tag Manager |
+
 ---
 
 ## 1. Doména a adresa webu
@@ -54,19 +65,13 @@ Web posiela e-maily presne tak ako vytlacto3d: cez Microsoft 365 (`smtp.office36
 - správy z kontaktného formulára,
 - obnova hesla.
 
-Názvy premenných sú rovnaké ako vo Verceli pri projekte **vytlacto3d-5mxw**. Vercel ich tam má ako „Sensitive“, takže sa nedajú prečítať ani automaticky skopírovať. Hodnoty zadajte znovu, rovnaké ako pri vytlacto3d:
+Adresa schránky, server (`smtp.office365.com`, port `587`) aj meno odosielateľa `rozsvieťTO <info@4frommedia.sk>` sú v kóde nastavené predvolene. Doplniť treba **len heslo**. Vercel má hodnoty pri vytlacto3d označené ako „Sensitive“, takže sa nedajú skopírovať automaticky:
 
-- [ ] **`SMTP_USER`**
-  Prihlasovací e-mail schránky.
 - [ ] **`SMTP_PASSWORD`**
-  Heslo schránky (pri Microsoft 365 heslo aplikácie).
-- [ ] **`SMTP_HOST`** a **`SMTP_PORT`**
-  Len ak sa pri vytlacto3d líšia od `smtp.office365.com` a `587`. Tieto hodnoty sa použijú aj bez vyplnenia.
+  Heslo schránky info@4frommedia.sk, rovnaké ako pri vytlacto3d (pri Microsoft 365 s dvojfázovým overením heslo aplikácie).
 - [ ] **`GMAIL_USER`** a **`GMAIL_APP_PASSWORD`**
   Záložný Gmail, rovnaký ako pri vytlacto3d. Voliteľné, ale odporúčané.
-- [ ] **`ADMIN_ORDER_EMAIL`**
-  Len ak majú objednávky chodiť inam než na `info@4frommedia.sk`.
-- **`EMAIL_FROM` nekopírujte.** Pri vytlacto3d je v ňom meno VytlačTo3D. rozsvieťTO odosiela z tej istej adresy pod menom `rozsvieťTO <info@4frommedia.sk>`.
+- `SMTP_USER`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `EMAIL_FROM`, `ADMIN_ORDER_EMAIL` **nezadávajte**, predvolené hodnoty sú správne. `EMAIL_FROM` z vytlacto3d nekopírujte, obsahuje meno VytlačTo3D.
 - [ ] **Test:** kontaktný formulár, objednávka a na stránke *Zabudli ste heslo?* pošlite odkaz na obnovu.
 
 ## 6. Analytika (voliteľné)

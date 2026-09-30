@@ -630,3 +630,113 @@ html.dark .field-card:hover {
 
 /* Rovnaký prepínač ako ostatné tokeny vyššie — html.dark, nie media query. */
 html.dark .badge-ok { color: #4ade80; }
+
+/* ─── Configurator icons + hover labels ─────────────────────────────────────
+   The configurator's choices are small tiles now — a colour is a dot, a font
+   is one letter in that font — and the full name comes up on hover
+   (components/ui/Tooltip.tsx). The labels under the tiles are set larger and
+   a little wider than the old 10–11 px captions, so they read at a glance. */
+
+.ui-tip {
+  position: fixed;
+  z-index: 100;
+  max-width: 260px;
+  padding: 7px 11px;
+  border-radius: 11px;
+  background: var(--color-foreground);
+  color: var(--color-background);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.45);
+  animation: ui-tip-in 120ms ease-out;
+}
+.ui-tip-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  opacity: 0.78;
+}
+@keyframes ui-tip-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* A choice drawn as an icon: an icon or preview on top, a short label under
+   it. Lifts on hover like the field cards; the chosen one wears the accent. */
+.opt-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 78px;
+  padding: 10px 6px 9px;
+  border-radius: 18px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+}
+.opt-tile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
+}
+.opt-tile[aria-checked="true"],
+.opt-tile[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 18px -9px rgba(255, 174, 0, 0.85), inset 0 0 0 1px var(--color-primary);
+}
+.opt-tile:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.opt-label {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.015em;
+  text-align: center;
+}
+
+/* Round swatches — colours, light colours and the one-letter font dots. */
+.opt-dot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+.opt-dot:hover:not(:disabled) {
+  transform: scale(1.08);
+}
+.opt-dot[aria-checked="true"],
+.opt-dot[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
+}
+.opt-dot:focus-visible,
+.opt-tile:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Step number badge in front of each of the five step titles. */
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 12px;
+  font-weight: 900;
+}
