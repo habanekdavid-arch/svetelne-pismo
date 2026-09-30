@@ -197,102 +197,156 @@ export default async function AdminPage({
               const font     = fontOptions.find((f) => f.id === o.config.font);
               const material = MATERIALS.find((m) => m.id === o.config.material);
 
+              const group = o.groupId ? (groups.get(o.groupId) ?? null) : null;
+              const quote = group ? quoteState(group) : null;
+              const paid = group?.paymentStatus === "paid";
+              const colours = hasSeparateFace(o.config.material)
+                ? `${colorLabel(faceColorOf(o.config))} / ${colorLabel(o.config.bodyColor)}`
+                : colorLabel(o.config.bodyColor);
+              // Something only the shop can move forward — said on the card
+              // itself, so it is not missed with the detail folded away.
+              const todo =
+                quote === "requested"
+                  ? "Pripraviť cenovú ponuku s montážou"
+                  : group && !paid && group.paymentMethod === "transfer"
+                    ? "Čaká na platbu prevodom"
+                    : null;
+
               return (
                 <article
                   key={o.id}
-                  className="rounded-3xl border p-6 shadow-sm transition hover:shadow-md"
+                  className="rounded-3xl border px-6 py-5 shadow-sm transition hover:shadow-md"
                   style={{ background: "var(--color-background)", borderColor: "var(--color-border)" }}
                 >
-                  <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr_1fr_1fr_auto]">
+                  {/* The card holds what is needed at a glance — number,
+                      state, the sign in one line, price, contact and date.
+                      Everything else waits behind "Zobraziť detail". */}
+                  <div className="grid items-start gap-6 lg:grid-cols-[1.2fr_1.6fr_1fr_auto]">
 
-                    {/* Identity — order number, the sign itself, its colour */}
                     <div className="min-w-0">
-                      <p className="text-xs font-bold tracking-wide" style={{ color: "var(--color-accent-text)" }}>
+                      <p className="text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
                         {orderNumber(o.id)}
-                        <span className="ml-2 font-medium" style={{ color: "var(--color-muted)" }}>
-                          #{o.id}
-                        </span>
                       </p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <span
-                          className="h-4 w-4 shrink-0 rounded-full"
-                          style={{ background: faceColorOf(o.config), border: `3px solid ${o.config.bodyColor}` }}
-                          title="čelo a telo"
-                          aria-hidden="true"
-                        />
-                        <p className="truncate text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                          {oneLine(o.config.text)}
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm" style={{ color: "var(--color-muted)" }}>
+                      <p className="mt-1 truncate text-sm font-semibold" style={{ color: "var(--color-foreground-soft)" }}>
+                        {oneLine(o.config.text)}
+                      </p>
+                      <span
+                        className="mt-2 inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                        style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-muted)" }}
+                      >
                         {variantLabel(o.config)}
-                      </p>
+                      </span>
                     </div>
 
-                    {/* Configuration */}
                     <div className="min-w-0 text-sm">
-                      <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-                        Konfigurácia
+                      <Label>Konfigurácia</Label>
+                      <p style={{ color: "var(--color-foreground)" }}>
+                        {[material?.displayName ?? o.config.material, `${o.config.height} mm`, colours, font?.name ?? o.config.font].join(" • ")}
                       </p>
-                      <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
-                        <SpecLine label="Font" value={font?.name ?? o.config.font} />
-                        <SpecLine label="Materiál" value={material?.displayName ?? o.config.material} />
-                        <SpecLine label="Výška" value={`${o.config.height} mm`} />
-                        <SpecLine
-                          label="Hrúbka"
-                          value={`${depthMmFor(o.config.material, o.config.height)} mm`}
-                        />
-                        {/* Dielňa potrebuje obe farby menom — čelo a stena sa
-                            objednávajú a lakujú zvlášť. */}
-                        {hasSeparateFace(o.config.material) ? (
-                          <>
-                            <SpecLine label="Čelo" value={colorLabel(faceColorOf(o.config))} />
-                            <SpecLine label="Telo" value={colorLabel(o.config.bodyColor)} />
-                          </>
-                        ) : (
-                          <SpecLine label="Farba" value={colorLabel(o.config.bodyColor)} />
-                        )}
-                      </dl>
-                    </div>
-
-                    {/* Customer + date */}
-                    <div className="min-w-0 text-sm">
-                      <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-                        Zákazník
-                      </p>
-                      <p className="truncate font-semibold" style={{ color: "var(--color-foreground)" }}>
-                        {o.customerName}
-                      </p>
+                      <div className="mt-3">
+                        <Label>Kontakt</Label>
+                      </div>
                       <a
                         href={`mailto:${o.customerEmail}`}
-                        className="block truncate underline underline-offset-2"
-                        style={{ color: "var(--color-muted)" }}
+                        className="block truncate"
+                        style={{ color: "var(--color-foreground)" }}
                       >
                         {o.customerEmail}
                       </a>
-                      <p className="mt-3 text-2xl font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                        {formatEur(o.price)}
-                      </p>
-                      <p className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>
-                        {new Date(o.createdAt).toLocaleDateString("sk-SK", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </p>
-                      <div className="mt-3">
-                        <StatusBadge status={o.status} />
-                      </div>
+                      {group && (
+                        <p className="mt-0.5 text-xs" style={{ color: "var(--color-muted)" }}>
+                          Doprava: {DELIVERY_LABEL[group.deliveryMethod] ?? group.deliveryMethod}
+                        </p>
+                      )}
                     </div>
 
-                    {/* Delivery and payment — from the checkout this sign was
-                        part of. Orders placed before checkout existed have no
-                        group, and simply show nothing here. */}
-                    <DeliveryPanel group={o.groupId ? (groups.get(o.groupId) ?? null) : null} />
+                    <div className="min-w-0 text-sm">
+                      <Label>Cena celkom</Label>
+                      <p className="text-xl font-extrabold" style={{ color: "var(--color-foreground)" }}>
+                        {formatEur(o.price)}
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--color-muted)" }}>vrátane DPH</p>
+                      <div className="mt-3">
+                        <Label>Dátum</Label>
+                      </div>
+                      <p style={{ color: "var(--color-foreground)" }}>
+                        {new Date(o.createdAt).toLocaleString("sk-SK", {
+                          day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+                        })}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <StatusBadge status={o.status} />
+                        {group && (
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${paid ? "bg-[#FFAE00] text-black" : ""}`}
+                            style={paid ? undefined : { background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-muted)" }}
+                          >
+                            {PAYMENT_STATUS_LABEL[group.paymentStatus]}
+                          </span>
+                        )}
+                      </div>
+                      {todo && (
+                        <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
+                          ● {todo}
+                        </p>
+                      )}
+                    </div>
 
-                    {/* Actions */}
                     <AdminOrderActions orderId={o.id} status={o.status} />
                   </div>
+
+                  <details className="group mt-4">
+                    <summary
+                      className="cursor-pointer select-none text-sm font-bold underline underline-offset-4"
+                      style={{ color: "var(--color-foreground)" }}
+                    >
+                      <span className="group-open:hidden">Zobraziť detail objednávky</span>
+                      <span className="hidden group-open:inline">Skryť detail objednávky</span>
+                    </summary>
+                    <div
+                      className="mt-4 grid gap-6 rounded-2xl p-5 md:grid-cols-3"
+                      style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+                    >
+                      <div className="min-w-0 text-sm">
+                        <Label>Nápis</Label>
+                        <p className="whitespace-pre-line font-extrabold" style={{ color: "var(--color-foreground)" }}>
+                          {o.config.text}
+                        </p>
+                        <dl className="mt-3 space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
+                          <SpecLine label="Svietenie" value={variantLabel(o.config)} />
+                          <SpecLine label="Font" value={font?.name ?? o.config.font} />
+                          <SpecLine label="Materiál" value={material?.displayName ?? o.config.material} />
+                          <SpecLine label="Výška" value={`${o.config.height} mm`} />
+                          <SpecLine label="Hrúbka" value={`${depthMmFor(o.config.material, o.config.height)} mm`} />
+                          {/* Dielňa potrebuje obe farby menom — čelo a telo sa
+                              objednávajú a lakujú zvlášť. */}
+                          {hasSeparateFace(o.config.material) ? (
+                            <>
+                              <SpecLine label="Čelo" value={colorLabel(faceColorOf(o.config))} />
+                              <SpecLine label="Telo" value={colorLabel(o.config.bodyColor)} />
+                            </>
+                          ) : (
+                            <SpecLine label="Farba" value={colorLabel(o.config.bodyColor)} />
+                          )}
+                        </dl>
+                      </div>
+
+                      <div className="min-w-0 text-sm">
+                        <Label>Zákazník</Label>
+                        <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
+                          <SpecLine label="Meno" value={o.customerName} />
+                          <SpecLine label="E-mail" value={o.customerEmail} />
+                          {group?.customerPhone && <SpecLine label="Telefón" value={group.customerPhone} />}
+                          <SpecLine label="Číslo v systéme" value={`#${o.id}`} />
+                        </dl>
+                      </div>
+
+                      {/* Delivery and payment — from the checkout this sign was
+                          part of. Orders placed before checkout existed have no
+                          group, and say so. */}
+                      <DeliveryPanel group={group} />
+                    </div>
+                  </details>
                 </article>
               );
             })}
@@ -301,6 +355,14 @@ export default async function AdminPage({
 
       </div>
     </main>
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--color-muted)" }}>
+      {children}
+    </p>
   );
 }
 

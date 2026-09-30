@@ -284,6 +284,21 @@ export function buildPasswordReset(to: string, link: string): BuiltMail {
   };
 }
 
+/** Right after registration — the account can order once the address is confirmed. */
+export function buildVerifyEmail(to: string, name: string, link: string): BuiltMail {
+  return {
+    to,
+    subject: "Overte svoj e-mail — rozsvieťTO",
+    html: layout(
+      "Overenie e-mailu",
+      p(`Dobrý deň${name ? ` ${esc(name)}` : ""}, ďakujeme za registráciu.`) +
+        p("Kliknutím na tlačidlo potvrdíte, že táto e-mailová adresa patrí vám. Potom môžete objednávať.") +
+        button(link, "Overiť e-mail") +
+        p('<span style="font-size:12px;color:#78716c">Odkaz platí 7 dní. Ak ste sa neregistrovali, tento e-mail ignorujte.</span>'),
+    ),
+  };
+}
+
 // ── To the shop ──────────────────────────────────────────────────────────────
 
 function customerRows(group: OrderGroup): string {
@@ -368,6 +383,7 @@ export const mailOrderReady = async (g: OrderGroup, o: Order[]) => { await send(
 export const mailOrderCancelled = async (g: OrderGroup, o: Order[]) => { await send(buildOrderCancelled(g, o)); };
 export const mailRefunded = async (g: OrderGroup) => { await send(buildRefunded(g)); };
 export const mailPasswordReset = (to: string, link: string) => send(buildPasswordReset(to, link));
+export const mailVerifyEmail = (to: string, name: string, link: string) => send(buildVerifyEmail(to, name, link));
 export const mailShopNewOrder = async (g: OrderGroup, o: Order[]) => { await send(buildShopNewOrder(g, o)); };
 export const mailShopPaid = async (g: OrderGroup, o: Order[]) => { await send(buildShopPaid(g, o)); };
 export const mailShopContact = async (m: { name: string; email: string; subject: string; message: string }) => { await send(buildShopContact(m)); };

@@ -71,7 +71,10 @@ export default function RegisterPage() {
         return;
       }
       notifySessionChange(); // so the header's account pill updates too
-      router.replace("/ucet");
+      // Back where the customer came from (e.g. the configurator, to see its
+      // price) — only a path on this site, never an outside address.
+      const back = new URLSearchParams(window.location.search).get("spat");
+      router.replace(back && back.startsWith("/") && !back.startsWith("//") ? back : "/ucet");
       router.refresh();
     } catch {
       setError("Registrácia zlyhala. Skúste to prosím znova.");

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createUserSessionToken, USER_SESSION_COOKIE } from "@/lib/user-auth";
 import { saveUserProfile, toProfile } from "@/lib/profile";
+import { markPending, sendVerification } from "@/lib/email-verification.server";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches lib/user-auth.ts
 
@@ -50,8 +51,19 @@ export async function POST(req: Request) {
     console.error("[register] profile could not be stored:", err);
   }
 
+  // The address has to be confirmed before the first order: mark the account
+  // as waiting and send the link. Signing in works meanwhile.
+  let verified = true;
+  try {
+    await markPending(user.id);
+    verified = false;
+    await sendVerification(user);
+  } catch (err) {
+    console.error("[register] verification e-mail could not be sent:", err);
+  }
+
   const token = await createUserSessionToken({ userId: user.id, email: user.email, name: user.name });
-  const res = NextResponse.json({ user: { name: user.name, email: user.email } });
+  const res = NextResponse.json({ user: { name: user.name, email: user.email, verified } });
   res.cookies.set(USER_SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

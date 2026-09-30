@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { mailOrderPlaced, mailShopNewOrder } from "@/lib/emails.server";
 import { randomUUID } from "node:crypto";
 import { getUserSession } from "@/lib/user-auth";
+import { isVerified } from "@/lib/email-verification.server";
 import {
   createOrder,
   createOrderGroup,
@@ -42,6 +43,9 @@ export async function POST(req: Request) {
   const session = await getUserSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!(await isVerified(session.userId))) {
+    return NextResponse.json({ error: "email_not_verified" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);

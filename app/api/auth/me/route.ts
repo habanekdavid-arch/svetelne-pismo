@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getUserSession } from "@/lib/user-auth";
+import { isVerified } from "@/lib/email-verification.server";
+
+export const runtime = "nodejs";
 
 // Deliberately a client-fetched endpoint rather than a server-side
 // getUserSession() call inside shared layout (Header) or page (HeroConfigurator)
@@ -8,7 +11,11 @@ import { getUserSession } from "@/lib/user-auth";
 // the cart checkout call this instead, so home/blog/legal pages stay static.
 export async function GET() {
   const session = await getUserSession();
+  // Whether the e-mail is confirmed yet — ordering waits for it. A database
+  // hiccup must not sign anyone out, so it then counts as confirmed and the
+  // order endpoint has the final word.
+  const verified = session ? await isVerified(session.userId).catch(() => true) : false;
   return NextResponse.json({
-    user: session ? { name: session.name, email: session.email } : null,
+    user: session ? { name: session.name, email: session.email, verified } : null,
   });
 }
