@@ -67,8 +67,8 @@ export default function ShowcaseSection() {
             style={{ color: "var(--color-muted)" }}
           >
             {isFallback
-              ? "Ukážka z nášho portfólia — vyber materiál a typ v konfigurátore pre personalizovaný výber."
-              : "Na základe tvojho výberu sme vybrali najsedejúcu realizáciu z nášho portfólia."}
+              ? "Ukážka z nášho portfólia — zvoľ v konfigurátore svietenie a prevedenie a ukážeme ti najbližšiu realizáciu."
+              : "Podľa tvojho výberu sme z nášho portfólia vybrali realizáciu, ktorá sa mu najviac podobá."}
           </p>
         </div>
 

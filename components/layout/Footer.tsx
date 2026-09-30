@@ -38,7 +38,7 @@ export default function Footer() {
           </Link>
           <p className="mt-4 max-w-sm text-sm leading-6" style={{ color: "var(--color-muted)" }}>
             Online konfigurátor a výroba svetelných nápisov. Napíšte text,
-            nastavte materiál a rozmery, a cenu uvidíte hneď.
+            nastavte rozmer, svietenie a materiál — po prihlásení uvidíte aj cenu.
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export default function Footer() {
             <div>4from media, s.r.o.</div>
             <div>M. Hodžu 393/5</div>
             <div>971 01 Prievidza</div>
-            <div>Email: info@4frommedia.sk</div>
+            <div>E-mail: info@4frommedia.sk</div>
           </address>
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function Footer() {
             className="flex items-center gap-1.5 text-xs transition hover:opacity-80"
             style={{ color: "var(--color-muted-light)" }}
           >
-            <span>Created by</span>
+            <span>Vytvoril</span>
             <Image src="/dnabs-logo.svg" alt="" width={14} height={14} unoptimized className="h-3.5 w-3.5" />
             <span className="font-semibold">DNABS</span>
           </a>

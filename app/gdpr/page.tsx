@@ -11,12 +11,12 @@ export default function GdprPage() {
     <LegalPage
       eyebrow="GDPR"
       title="Ochrana osobných údajov"
-      updated="11. 9. 2026"
+      updated="30. 9. 2026"
     >
       <LegalSection title="Prevádzkovateľ">
         <p>
-          Prevádzkovateľom stránky rozsvieťTO a spracovateľom osobných
-          údajov je <strong>4from media, s.r.o.</strong>, so sídlom M. Hodžu
+          Prevádzkovateľom stránky rozsvieťTO a prevádzkovateľom osobných
+          údajov v zmysle GDPR je <strong>4from media, s.r.o.</strong>, so sídlom M. Hodžu
           393/5, 971 01 Prievidza. V otázkach ochrany osobných údajov nás
           môžete kontaktovať na{" "}
           <a href="mailto:info@4frommedia.sk" className="underline">
@@ -31,15 +31,22 @@ export default function GdprPage() {
       </LegalSection>
 
       <LegalSection title="Aké údaje spracúvame">
-        <p>Pri odoslaní objednávky cez konfigurátor spracúvame:</p>
+        <p>Pri registrácii, objednávke a v kontaktnom formulári spracúvame:</p>
         <ul className="list-disc space-y-1 pl-5">
-          <li>meno a priezvisko,</li>
-          <li>e-mailovú adresu,</li>
+          <li>meno a priezvisko, e-mailovú adresu a telefónne číslo,</li>
+          <li>dodaciu, fakturačnú a prípadne aj montážnu adresu,</li>
+          <li>pri firemnom účte názov firmy, IČO, DIČ a IČ DPH,</li>
           <li>
             nastavenia objednávky (text nápisu, font, materiál, farby,
-            rozmery, svietenie) a vypočítanú orientačnú cenu.
+            rozmery, svietenie), jej cenu a stav platby,
           </li>
+          <li>obsah správ, ktoré nám pošlete cez kontaktný formulár.</li>
         </ul>
+        <p>
+          Údaje o platobnej karte nespracúvame — platbu kartou spracúva priamo
+          platobná brána Stripe. Heslo k účtu ukladáme len v zašifrovanej
+          (hashovanej) podobe.
+        </p>
         <p>
           Pri návšteve stránky, ak s tým súhlasíte v cookie lište, môžeme
           anonymne spracúvať aj údaje o návštevnosti a priebehu objednávky na
@@ -54,9 +61,10 @@ export default function GdprPage() {
       <LegalSection title="Účel a právny základ spracúvania">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong>Vybavenie objednávky</strong> — na základe vášho súhlasu
-            odoslaním formulára a nášho oprávneného záujmu pripraviť cenovú
-            ponuku (čl. 6 ods. 1 písm. b) GDPR).
+            <strong>Vybavenie objednávky a vedenie účtu</strong> — plnenie
+            zmluvy a opatrenia pred jej uzavretím (čl. 6 ods. 1 písm. b) GDPR);
+            faktúry a účtovné doklady uchovávame na základe zákona (čl. 6
+            ods. 1 písm. c) GDPR).
           </li>
           <li>
             <strong>Komunikácia</strong> — odpoveď na vašu objednávku alebo
@@ -82,9 +90,11 @@ export default function GdprPage() {
         <p>
           Vaše údaje neposkytujeme tretím stranám na marketingové účely.
           Prístup k nim môžu mať výlučne poskytovatelia technických služieb
-          nevyhnutných na prevádzku stránky (napr. hosting na Vercel Inc.) a,
-          len pri udelenom súhlase s cookies, poskytovateľ analytických
-          nástrojov (Google Analytics/GTM).
+          nevyhnutných na prevádzku stránky a vybavenie objednávky — hosting
+          (Vercel Inc.), databáza (Neon Inc.), odosielanie e-mailov
+          (Microsoft), platobná brána (Stripe) a prepravca (DPD) pri
+          doručení kuriérom — a, len pri udelenom súhlase s cookies,
+          poskytovateľ analytických nástrojov (Google Analytics/GTM).
         </p>
       </LegalSection>
 

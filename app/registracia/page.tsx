@@ -193,7 +193,7 @@ export default function RegisterPage() {
                   Som živnostník / SZČO
                 </div>
                 <div className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>
-                  Vyplňte IČO a DIČ ak potrebujete faktúru na živnosť.
+                  Vyplňte IČO a DIČ, ak potrebujete faktúru na živnosť.
                 </div>
               </div>
             </label>

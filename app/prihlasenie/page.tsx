@@ -74,7 +74,7 @@ export default function LoginPage() {
               className="mb-1 block text-sm font-medium"
               style={{ color: "var(--color-foreground-soft)" }}
             >
-              Email
+              E-mail
             </label>
             <input
               id="login-email"

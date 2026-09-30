@@ -764,7 +764,7 @@ function Configurator() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
-                Orientačná cena s DPH
+                Cena s DPH
               </div>
               {signedIn ? (
                 <>
@@ -777,7 +777,7 @@ function Configurator() {
                   <div className="mt-1 text-xs" style={{ color: "var(--color-muted-light)" }}>
                     {atMinimum
                       ? `Minimálna cena za nápis je ${MIN_PRICE_GROSS} € s DPH.`
-                      : "Záväznú cenu dostanete po overení parametrov."}
+                      : "Cena je vrátane DPH. Doprava sa pripočíta v košíku."}
                   </div>
                 </>
               ) : (
@@ -988,7 +988,7 @@ function Configurator() {
         className="mt-6 flex flex-col items-center gap-1.5 text-center transition hover:opacity-70"
       >
         <span className="text-[12px] font-medium tracking-wide" style={{ color: "var(--color-muted)" }}>
-          Pozri realizáciu, ktorá najviac sedí s tvojím výberom
+          Pozri si realizáciu, ktorá sa najviac podobá tvojmu výberu
         </span>
         <ArrowDown size={16} className="animate-bounce" style={{ color: "var(--accent)" }} />
       </a>
@@ -1074,7 +1074,7 @@ function HeightInput({
       {/* The allowed range is always written next to the label — it comes
           from the price list for the chosen svietenie and prevedenie, and a
           typed value outside it is settled back into it. */}
-      <span className="flex items-baseline justify-between gap-2 text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-muted)" }}>
+      <span className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-muted)" }}>
         <span>Výška písmen</span>
         <span className="normal-case tracking-normal" style={{ color: "var(--color-foreground-soft)" }}>
           od {min} do {max} mm

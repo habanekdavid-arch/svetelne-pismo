@@ -26,7 +26,7 @@ import AdminNav from "@/components/admin/AdminNav";
 import { listContactMessages } from "@/lib/contact";
 
 export const metadata: Metadata = {
-  title: "Administratíva objednávok | rozsvieťTO",
+  title: "Administrácia objednávok | rozsvieťTO",
   robots: { index: false, follow: false },
 };
 
