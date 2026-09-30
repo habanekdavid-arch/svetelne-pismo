@@ -749,6 +749,26 @@ html.dark .badge-ok { color: #4ade80; }
   outline-offset: 2px;
 }
 
+/* Wide screens: the five steps share one column beside the preview and all
+   have to fit the screen, so the tiles lie down — icon beside the word. */
+@media (min-width: 1024px) {
+  .step-compact .opt-tile {
+    flex-direction: row;
+    gap: 8px;
+    min-height: 50px;
+    padding: 6px 8px;
+    border-radius: 14px;
+  }
+  .step-compact .opt-tile > svg,
+  .step-compact .opt-tile > span:first-child {
+    transform: scale(0.8);
+  }
+  .step-compact .opt-tile[aria-checked="true"]::after {
+    top: -6px;
+    right: -6px;
+  }
+}
+
 /* Step number badge in front of each of the five step titles. */
 .step-badge {
   display: inline-flex;
