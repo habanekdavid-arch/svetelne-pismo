@@ -1069,8 +1069,14 @@ function HeightInput({
         border: "1.5px solid var(--accent)",
       }}
     >
-      <span className="block text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-muted)" }}>
-        Výška písmen
+      {/* The allowed range is always written next to the label — it comes
+          from the price list for the chosen svietenie and prevedenie, and a
+          typed value outside it is settled back into it. */}
+      <span className="flex items-baseline justify-between gap-2 text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-muted)" }}>
+        <span>Výška písmen</span>
+        <span className="normal-case tracking-normal" style={{ color: "var(--color-foreground-soft)" }}>
+          od {min} do {max} mm
+        </span>
       </span>
       <span className="mt-0.5 flex items-baseline gap-1">
         <input
