@@ -69,7 +69,7 @@ export default async function ThankYouPage({ params }: Props) {
   const steps = [
     { Icon: Mail, text: `Potvrdenie objednávky sme poslali na ${group.customerEmail}.` },
     installation
-      ? { Icon: Wrench, text: quote === "requested" ? "Pripravíme cenovú ponuku s montážou. Po jej úhrade začneme vyrábať." : "Po prijatí platby začneme vyrábať a termín montáže dohodneme telefonicky." }
+      ? { Icon: Wrench, text: quote === "requested" ? "Pripravíme cenovú ponuku s montážou. Po jej úhrade začneme vyrábať." : "Po prijatí platby za nápis vás budeme kontaktovať — dohodneme montáž a realizáciu: termín, detaily a cenu montáže. Výrobu začneme hneď po platbe." }
       : { Icon: Clock, text: `${PRODUCTION_TIME} Výrobu začneme po prijatí platby.` },
     ...(installation ? [] : [{ Icon: Package, text: afterMadeText(group.deliveryMethod) }]),
   ];
@@ -171,7 +171,7 @@ export default async function ThankYouPage({ params }: Props) {
             {!installation && group.deliveryCents > 0 && <Row label="Cena dopravy" value={formatEur(group.deliveryCents / 100)} />}
             <div className="flex items-baseline justify-between pt-1">
               <dt className="font-bold" style={{ color: "var(--color-muted)" }}>
-                {quote === "requested" ? "Za nápisy s DPH" : "Spolu s DPH"}
+                {quote === "requested" || quote === "pending" || quote === "consult" ? "Za nápisy s DPH" : "Spolu s DPH"}
               </dt>
               <dd className="text-xl font-black" style={{ color: "var(--color-foreground)" }}>
                 {formatEur(group.totalCents / 100)}

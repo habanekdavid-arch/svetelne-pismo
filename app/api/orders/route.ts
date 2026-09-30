@@ -27,8 +27,8 @@ import type { Config } from "@/lib/types";
 //   · a standard order — delivery and payment chosen, terms agreed, and, when
 //     paying by card, right before being sent to Stripe;
 //   · an order with installation (`kind: "installation"`) — contact details
-//     and the address the sign is to be mounted at; nothing is paid until the
-//     shop sends its quote.
+//     and the address the sign is to be mounted at; the signs are paid the
+//     same way, and the mounting is talked through with the shop afterwards.
 //
 // Nothing about money or delivery is taken from the request: every sign is
 // re-measured and re-priced here (lib/quote.server.ts), and the chosen
@@ -86,11 +86,27 @@ export async function POST(req: Request) {
 
   const quote = await quoteBasket(configs);
 
+  // Card or transfer — only one the shop can actually take right now. With
+  // neither set up the order is an enquiry and the shop confirms it by hand.
+  const offered = availablePaymentMethods();
+  let payment: PaymentMethodId | null = null;
+  if (offered.length > 0) {
+    if (!isPaymentMethod(body?.payment) || !offered.includes(body.payment)) {
+      return NextResponse.json({ error: "payment_not_available", available: offered }, { status: 400 });
+    }
+    payment = body.payment;
+  }
+
+  // Same as vytlacto3d: the terms are agreed to before anything is ordered.
+  if (body?.terms !== true) {
+    return NextResponse.json({ error: "terms_required" }, { status: 400 });
+  }
+
   // ── Order with installation ────────────────────────────────────────────────
-  // The customer wants the sign mounted. The order goes in without payment and
-  // waits for the shop's quote — a pre-invoice with the mounting in it
-  // (lib/orders.ts sendInstallationQuote). What has to be right now is how to
-  // reach them and where the sign is going on the wall.
+  // The customer wants the sign mounted. The signs are paid for now, like any
+  // order; once the money is in, the shop gets in touch about the mounting and
+  // the job — price, date, details — which are agreed separately. What has to
+  // be right now is how to reach them and where the sign is going.
   if (body?.kind === "installation") {
     const site = readAddress(body?.installation?.address);
     if (!site) {
@@ -110,7 +126,7 @@ export async function POST(req: Request) {
       deliveryAddress: site,
       itemsCents: quote.itemsCents,
       deliveryCents: 0,
-      paymentMethod: null,
+      paymentMethod: payment,
     });
     const orders = await saveSigns(quote, session.userId, name, email, groupId);
     after(() => notifyPlaced(group, orders));
@@ -120,15 +136,12 @@ export async function POST(req: Request) {
       order: orders[0],
       totalCents: group.totalCents,
       deliveryMethod: INSTALLATION_METHOD,
-      payOnline: false,
+      payment,
+      payOnline: payment === "card" && group.totalCents > 0,
     });
   }
 
   // ── Standard order ─────────────────────────────────────────────────────────
-  // Same as vytlacto3d: the terms are agreed to before anything is ordered.
-  if (body?.terms !== true) {
-    return NextResponse.json({ error: "terms_required" }, { status: 400 });
-  }
 
   const methodId = typeof body?.delivery?.method === "string" ? body.delivery.method : "";
   const method = resolveDelivery(quote, methodId);
@@ -154,17 +167,6 @@ export async function POST(req: Request) {
   // asking for it after the money has moved is too late.
   if (!phone) {
     return NextResponse.json({ error: "phone_required" }, { status: 400 });
-  }
-
-  // Card or transfer — only one the shop can actually take right now. With
-  // neither set up the order is an enquiry and the shop confirms it by hand.
-  const offered = availablePaymentMethods();
-  let payment: PaymentMethodId | null = null;
-  if (offered.length > 0) {
-    if (!isPaymentMethod(body?.payment) || !offered.includes(body.payment)) {
-      return NextResponse.json({ error: "payment_not_available", available: offered }, { status: 400 });
-    }
-    payment = body.payment;
   }
 
   // ── Persist ────────────────────────────────────────────────────────────────

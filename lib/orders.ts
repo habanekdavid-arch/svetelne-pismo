@@ -341,21 +341,36 @@ export async function listGroupsByIds(ids: string[]): Promise<Map<string, OrderG
   }
 }
 
-// ── Installation orders: quote first, payment after ─────────────────────────
-// An installation order is placed without paying anything. The shop prices
-// the mounting, sends the quote — a pre-invoice with the signs and the
-// mounting — and only then is there something to pay.
+// ── Installation orders ──────────────────────────────────────────────────────
+// Today an order with installation is paid like any other: the customer pays
+// for the signs up front (card or transfer), and once the money is in the shop
+// gets in touch to talk the mounting and the job through — price, date,
+// details. The mounting is agreed and charged separately.
+//
+// Orders placed before that worked the other way round — nothing paid, the
+// shop priced the mounting and sent a quote (sendInstallationQuote), and the
+// quote was paid. Those keep their states: "requested", "sent", "paid".
 
-export type QuoteState = "requested" | "sent" | "paid";
+export type QuoteState =
+  | "pending"   // paying for the signs first (card not finished / transfer not in yet)
+  | "consult"   // signs paid — talk the mounting through with the customer
+  | "requested" // older order: waiting for the shop's quote
+  | "sent"      // older order: quote sent, waiting for payment
+  | "paid";     // older order: quote paid
 
 /** Where an installation order stands; null for an ordinary order. */
-export function quoteState(group: Pick<OrderGroup, "deliveryMethod" | "quoteSentAt" | "paymentStatus">): QuoteState | null {
+export function quoteState(
+  group: Pick<OrderGroup, "deliveryMethod" | "quoteSentAt" | "paymentStatus" | "paymentMethod">,
+): QuoteState | null {
   if (group.deliveryMethod !== INSTALLATION_METHOD) return null;
-  if (group.paymentStatus === "paid") return "paid";
-  return group.quoteSentAt ? "sent" : "requested";
+  if (group.paymentStatus === "paid") return group.quoteSentAt ? "paid" : "consult";
+  if (group.quoteSentAt) return "sent";
+  return group.paymentMethod ? "pending" : "requested";
 }
 
 export const QUOTE_STATE_LABEL: Record<QuoteState, string> = {
+  pending:   "Čaká na platbu za nápis",
+  consult:   "Zaplatené — dohodnúť montáž",
   requested: "Čaká na cenovú ponuku",
   sent:      "Cenová ponuka pripravená",
   paid:      "Zaplatené",

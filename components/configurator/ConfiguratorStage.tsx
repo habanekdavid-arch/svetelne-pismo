@@ -438,7 +438,7 @@ function Configurator() {
             to its right scrolls past it. Nothing here clips its overflow,
             which is what lets `sticky` work at all. ── */}
         <div className="space-y-4">
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(24rem,1fr)]">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(24rem,1fr)] lg:items-stretch">
         <div
           className="rounded-[26px] p-4 lg:sticky lg:top-20 lg:z-10"
           style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
@@ -581,10 +581,12 @@ function Configurator() {
         {/* ── The five steps ───────────────────────────────────────────────
             One column beside the preview. From lg up the steps are drawn
             compact (step-compact: tighter cards, tiles with the icon beside
-            the word) so all five fit the screen at once, nothing to scroll.
+            the word) so all five fit the screen at once, nothing to scroll —
+            and the column stretches to the preview's height, the cards
+            sharing the room, so both sides end on one line.
             Below lg they are an ordinary block under the preview. ── */}
-        <div className="step-compact space-y-3 lg:space-y-2.5">
-        <div className="space-y-3 lg:space-y-2.5">
+        <div className="step-compact space-y-3 lg:flex lg:flex-col lg:gap-2.5 lg:space-y-0">
+        <div className="space-y-3 lg:contents">
 
           {/* ── 1 · Text and font — the font is picked right under what is
               typed, and every dot shows the customer's own first letter. ── */}
@@ -640,7 +642,7 @@ function Configurator() {
           </StepCard>
         </div>
 
-        <div className="space-y-3 lg:space-y-2.5">
+        <div className="space-y-3 lg:contents">
           {/* ── 3 · Variant ── */}
           <StepCard
             step={3}
@@ -1017,7 +1019,7 @@ function StepCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="field-card rounded-[24px] p-4 lg:px-4 lg:py-2.5" aria-label={`Krok ${step}: ${title}`}>
+    <section className="field-card rounded-[24px] p-4 lg:flex lg:flex-1 lg:flex-col lg:justify-center lg:px-4 lg:py-2.5" aria-label={`Krok ${step}: ${title}`}>
       <div className="flex items-center gap-2.5">
         <span className="step-badge" aria-hidden="true">{step}</span>
         <h3 className="text-[16px] font-extrabold tracking-[0.005em]" style={{ color: "var(--color-foreground)" }}>

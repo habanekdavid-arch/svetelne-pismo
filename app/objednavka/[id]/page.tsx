@@ -50,9 +50,9 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const cancelled = stav === "zrusene";
   const installation = group.deliveryMethod === INSTALLATION_METHOD;
   const quote = quoteState(group);
-  // Something to pay: an ordinary order, or an installation order once its
-  // quote — the pre-invoice — has been sent. Before that there is nothing.
-  const payable = !paid && group.totalCents > 0 && (!installation || quote === "sent");
+  // Something to pay: any order, except an older installation order whose
+  // quote — the pre-invoice — has not been sent yet.
+  const payable = !paid && group.totalCents > 0 && quote !== "requested";
   // A card can be (re)tried whenever the shop takes cards — also by someone
   // who picked a transfer and changed their mind.
   const canPayByCard = payable && stripeConfigured();
@@ -132,7 +132,11 @@ export default async function OrderPage({ params, searchParams }: Props) {
           {installation ? (
             <Row
               label="Montáž"
-              value={quote === "requested" ? "pripravujeme cenovú ponuku" : formatEur(group.deliveryCents / 100)}
+              value={
+                quote === "requested" ? "pripravujeme cenovú ponuku"
+                  : quote === "pending" || quote === "consult" ? "dohodneme po zaplatení nápisu"
+                  : formatEur(group.deliveryCents / 100)
+              }
             />
           ) : group.deliveryCents > 0 && (
             <Row label="Cena dopravy" value={formatEur(group.deliveryCents / 100)} />
@@ -151,7 +155,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
             style={{ borderColor: "var(--color-border)" }}
           >
             <dt className="text-xs font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
-              {quote === "requested" ? "Za nápisy, s DPH" : "Spolu s DPH"}
+              {quote === "requested" || quote === "pending" || quote === "consult" ? "Za nápisy, s DPH" : "Spolu s DPH"}
             </dt>
             <dd className="text-2xl font-black" style={{ color: "var(--color-foreground)" }}>
               {formatEur(group.totalCents / 100)}
@@ -183,6 +187,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
 function headline(group: OrderGroup, cancelled: boolean): string {
   const quote = quoteState(group);
   if (quote === "requested") return "Objednávka čaká na cenovú ponuku";
+  if (quote === "consult") return "Nápis je zaplatený — ozveme sa kvôli montáži";
   if (quote === "sent") return "Cenová ponuka je pripravená";
   if (group.paymentStatus === "paid") return "Objednávka je zaplatená";
   if (cancelled) return "Platba nebola dokončená";
@@ -201,7 +206,7 @@ function body(group: OrderGroup, cancelled: boolean): string {
   }
   if (group.paymentStatus === "paid") {
     return group.deliveryMethod === INSTALLATION_METHOD
-      ? "Ďakujeme. Nápis ideme vyrábať a termín montáže s vami dohodneme telefonicky."
+      ? "Ďakujeme za platbu. Nápis ideme vyrábať a čoskoro vás budeme kontaktovať — dohodneme montáž a realizáciu: termín, detaily a cenu montáže."
       : `Ďakujeme. Nápis ideme vyrábať. ${PRODUCTION_TIME} ${afterMadeText(group.deliveryMethod)}`;
   }
   if (cancelled) {
