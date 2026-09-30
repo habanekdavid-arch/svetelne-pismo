@@ -297,7 +297,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           : "Objednať a zaplatiť kartou";
 
   const blocked =
-    submitting || !terms || !quote;
+    submitting || !terms || !quote || !user;
 
   const count = items.length;
   const countLabel = `${count} ${count === 1 ? "nápis" : count < 5 ? "nápisy" : "nápisov"}`;
@@ -391,77 +391,76 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           }}
         />
       ) : (
-        <>
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <Heading flush>Kontaktné údaje</Heading>
-              <button
-                type="button"
-                onClick={() => setEditingContact((v) => !v)}
-                className="text-xs font-semibold"
-                style={{ color: "var(--color-accent-text)" }}
-              >
-                {editingContact ? "Zatvoriť" : "Upraviť"}
-              </button>
-            </div>
-            {!editingContact && name && phone ? (
-              <div
-                className="rounded-2xl px-3 py-2 text-xs"
-                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-              >
-                <div className="font-semibold" style={{ color: "var(--color-foreground)" }}>{name}</div>
-                <div style={{ color: "var(--color-muted)" }}>{phone}</div>
-                <div style={{ color: "var(--color-muted)" }}>{email}</div>
-              </div>
-            ) : (
-              <div
-                className="space-y-2 rounded-2xl p-3"
-                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Meno" value={name} onChange={setName} autoComplete="name" error={errors.name} />
-                  <Field label="Telefón" value={phone} onChange={setPhone} autoComplete="tel" type="tel" error={errors.phone} />
-                </div>
-                <Field label="E-mail" value={email} onChange={setEmail} autoComplete="email" type="email" error={errors.email} />
-              </div>
-            )}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <Heading flush>Kontaktné údaje</Heading>
+            <button
+              type="button"
+              onClick={() => setEditingContact((v) => !v)}
+              className="text-xs font-semibold"
+              style={{ color: "var(--color-accent-text)" }}
+            >
+              {editingContact ? "Zatvoriť" : "Upraviť"}
+            </button>
           </div>
-
-          {/* ── Payment ──────────────────────────────────────────────── */}
-          {!installation && (
-            <div>
-              <Heading>Spôsob platby</Heading>
-              {paymentMethods.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {paymentMethods.map((m) => (
-                      <ChoiceCard
-                        key={m}
-                        active={payment === m}
-                        onClick={() => setPayment(m)}
-                        icon={m === "card" ? <CardBadge /> : <TransferBadge />}
-                        title={m === "card" ? PAYMENT_METHOD_LABEL.card : "Prevod"}
-                        sub={m === "card" ? "Stripe" : "IBAN SK"}
-                        tone={m === "transfer" ? "orange" : "accent"}
-                        wide={paymentMethods.length === 1}
-                      />
-                    ))}
-                  </div>
-                  {payment === "transfer" && (
-                    <div className="mt-2 rounded-2xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
-                      Platobné údaje (IBAN, VS, sumu) uvidíte hneď po objednaní. Výroba začne po prijatí platby.
-                    </div>
-                  )}
-                  {errors.payment && <Err>{errors.payment}</Err>}
-                </>
-              ) : (
-                <p className="text-xs leading-5" style={{ color: "var(--color-muted)" }}>
-                  Po odoslaní vám potvrdíme cenu, termín a platobné údaje.
-                </p>
-              )}
+          {!editingContact && name && phone ? (
+            <div
+              className="rounded-2xl px-3 py-2 text-xs"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              <div className="font-semibold" style={{ color: "var(--color-foreground)" }}>{name}</div>
+              <div style={{ color: "var(--color-muted)" }}>{phone}</div>
+              <div style={{ color: "var(--color-muted)" }}>{email}</div>
+            </div>
+          ) : (
+            <div
+              className="space-y-2 rounded-2xl p-3"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Meno" value={name} onChange={setName} autoComplete="name" error={errors.name} />
+                <Field label="Telefón" value={phone} onChange={setPhone} autoComplete="tel" type="tel" error={errors.phone} />
+              </div>
+              <Field label="E-mail" value={email} onChange={setEmail} autoComplete="email" type="email" error={errors.email} />
             </div>
           )}
-        </>
+        </div>
+      )}
+
+      {/* ── Payment — shown before signing in too, so the customer sees
+          from the start how they can pay (prevodom alebo kartou). ── */}
+      {!installation && (
+        <div>
+          <Heading>Spôsob platby</Heading>
+          {paymentMethods.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {paymentMethods.map((m) => (
+                  <ChoiceCard
+                    key={m}
+                    active={payment === m}
+                    onClick={() => setPayment(m)}
+                    icon={m === "card" ? <CardBadge /> : <TransferBadge />}
+                    title={m === "card" ? PAYMENT_METHOD_LABEL.card : "Prevod"}
+                    sub={m === "card" ? "Stripe" : "IBAN SK"}
+                    tone={m === "transfer" ? "orange" : "accent"}
+                    wide={paymentMethods.length === 1}
+                  />
+                ))}
+              </div>
+              {payment === "transfer" && (
+                <div className="mt-2 rounded-2xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                  Platobné údaje (IBAN, VS, sumu) uvidíte hneď po objednaní. Výroba začne po prijatí platby.
+                </div>
+              )}
+              {errors.payment && <Err>{errors.payment}</Err>}
+            </>
+          ) : (
+            <p className="text-xs leading-5" style={{ color: "var(--color-muted)" }}>
+              Po odoslaní vám potvrdíme cenu, termín a platobné údaje.
+            </p>
+          )}
+        </div>
       )}
 
       {/* ── Summary ──────────────────────────────────────────────────── */}
@@ -485,63 +484,67 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         </div>
       </div>
 
-      {/* ── Terms + order ────────────────────────────────────────────── */}
-      {user && (
-        <div className="space-y-3">
-          <label
-            className="flex cursor-pointer items-start gap-3 rounded-2xl p-3 transition-colors"
+      {/* ── Terms + order — always in view; ordering itself still needs
+          the account above. ─────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <label
+          className="flex cursor-pointer items-start gap-3 rounded-2xl p-3 transition-colors"
+          style={{
+            border: `2px solid ${terms ? "var(--accent)" : "var(--color-border)"}`,
+            background: terms ? "color-mix(in srgb, var(--accent) 6%, transparent)" : "var(--color-background)",
+          }}
+        >
+          <span
+            className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors"
             style={{
-              border: `2px solid ${terms ? "var(--accent)" : "var(--color-border)"}`,
-              background: terms ? "color-mix(in srgb, var(--accent) 6%, transparent)" : "var(--color-background)",
+              border: `2px solid ${terms ? "var(--accent)" : "var(--color-border-strong)"}`,
+              background: terms ? "var(--accent)" : "var(--color-background)",
             }}
+            aria-hidden="true"
           >
-            <span
-              className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors"
-              style={{
-                border: `2px solid ${terms ? "var(--accent)" : "var(--color-border-strong)"}`,
-                background: terms ? "var(--accent)" : "var(--color-background)",
-              }}
-              aria-hidden="true"
+            {terms && (
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </span>
+          <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="sr-only" />
+          <span className="text-xs leading-5" style={{ color: "var(--color-foreground-soft)" }}>
+            Súhlasím so{" "}
+            <a
+              href="/obchodne-podmienky"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="font-semibold underline"
+              style={{ color: "var(--color-foreground)" }}
             >
-              {terms && (
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6l3 3 5-5" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </span>
-            <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="sr-only" />
-            <span className="text-xs leading-5" style={{ color: "var(--color-foreground-soft)" }}>
-              Súhlasím s{" "}
-              <a
-                href="/obchodne-podmienky"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="font-semibold underline"
-                style={{ color: "var(--color-foreground)" }}
-              >
-                obchodnými podmienkami
-              </a>
-            </span>
-          </label>
+              všeobecnými obchodnými podmienkami (VOP)
+            </a>
+          </span>
+        </label>
 
-          {submitError && <Err>{submitError}</Err>}
+        {submitError && <Err>{submitError}</Err>}
+        {!user && user !== undefined && (
+          <p className="text-center text-xs" style={{ color: "var(--color-muted)" }}>
+            Na dokončenie objednávky sa prihláste alebo zaregistrujte vyššie.
+          </p>
+        )}
 
-          <button
-            type="button"
-            disabled={blocked}
-            onClick={submit}
-            className="btn-press w-full rounded-2xl px-5 py-3.5 text-sm font-extrabold shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            style={
-              payment === "transfer" && !installation
-                ? { background: "#f97316", color: "#fff" }
-                : { background: "var(--accent)", color: "var(--accent-foreground)" }
-            }
-          >
-            {buttonLabel}
-          </button>
-        </div>
-      )}
+        <button
+          type="button"
+          disabled={blocked}
+          onClick={submit}
+          className="btn-press w-full rounded-2xl px-5 py-3.5 text-sm font-extrabold shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          style={
+            payment === "transfer" && !installation
+              ? { background: "#f97316", color: "#fff" }
+              : { background: "var(--accent)", color: "var(--accent-foreground)" }
+          }
+        >
+          {buttonLabel}
+        </button>
+      </div>
     </div>
   );
 }

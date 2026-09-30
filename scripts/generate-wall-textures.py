@@ -116,36 +116,87 @@ def brick():
 # One even oak tone for every board, a quiet grain along them and a clean
 # shadow gap between boards — no end joints, no board-to-board colour jumps.
 def wood():
+    """Vertical oak-like cladding boards, ~140 mm wide, running the full tile
+    height with two staggered butt joints each. Every board is cut from its own
+    log: its own tone, ring spacing, cathedral arcs, pores and the odd knot."""
     r = rng(31)
-    rows = 7
-    h = N / rows
+    boards = 7
+    w = N / boards
     yy, xx = np.mgrid[0:N, 0:N].astype(float)
-    ly = np.mod(yy, h)
-    row = np.floor(yy / h).astype(int)
-    warp = fbm(32, 3.0, aniso=(10, 1)) - 0.5
-    streak = fbm(33, 1.2, aniso=(40, 1))
-    base = np.array([0.66, 0.49, 0.32])
-    dark = np.array([0.55, 0.39, 0.24])
+    lx = np.mod(xx, w)
+    col_i = np.floor(xx / w).astype(int)
+    warp = fbm(32, 3.2, aniso=(1, 8)) - 0.5          # slow sideways wander of the grain
+    wobble = fbm(35, 3.6, aniso=(1, 4)) - 0.5        # finer wiggle in the rings
+    pores = fbm(33, 0.6, aniso=(1, 60))              # long thin pore streaks
+    fleck = fbm(36, 1.0, aniso=(1, 12))
+    blotch = fbm(34, 2.8)                            # uneven stain take-up
+    light = np.array([0.74, 0.56, 0.37])
+    late = np.array([0.47, 0.31, 0.17])
     out = np.zeros((N, N, 3))
     height = np.zeros((N, N))
-    for k in range(rows):
-        m = row == k
-        phase = r.random() * 100
-        u = (ly + warp * 40 + phase) / (16 * MM)
-        grain = (0.5 + 0.5 * np.sin(2 * np.pi * u)) ** 4
-        col = base * (1 - 0.35 * grain[..., None]) + dark * 0.35 * grain[..., None]
-        col = col * (0.95 + 0.07 * streak)[..., None]
-        out[m] = col[m]
-        height[m] = (0.7 + 0.08 * grain + 0.1 * streak)[m]
-    # Gap between boards: a thin dark shadow, and a soft rounded board edge.
-    edge = np.minimum(ly, h - ly)
-    gap = edge < 1.6 * MM
-    bevel = np.clip(edge / (5 * MM), 0, 1)
-    out *= (0.82 + 0.18 * bevel)[..., None]
-    height *= 0.6 + 0.4 * bevel
-    out[gap] = [0.16, 0.11, 0.07]
-    height[gap] = 0.0
-    out = out * shade(height, 0.6)[..., None]
+    joint = np.zeros((N, N), bool)
+    for k in range(boards):
+        m = col_i == k
+        tone = 0.86 + 0.24 * r.random()
+        warm = np.array([1.0, 0.97 + 0.05 * r.random(), 0.9 + 0.12 * r.random()])
+        spacing = (5.5 + 5.0 * r.random()) * MM
+        centre = w * (0.2 + 0.6 * r.random())
+        arcs = r.integers(1, 3)
+        depth = (40 + 80 * r.random()) * MM
+        phase = r.random() * 2 * np.pi
+        phase2 = r.random() * 2 * np.pi
+        # Two butt joints per board, staggered; the piece between them is cut
+        # from elsewhere in the log, so its grain does not run on across.
+        jy = r.random() * N
+        jlen = N * (0.35 + 0.3 * r.random())
+        piece = np.mod(yy - jy, N) < jlen
+        shift = np.where(piece, (15 + 30 * r.random()) * MM, 0.0)
+        # Distance from the heart of the log: flat-sawn boards show it as
+        # rings running along the board that close into cathedral arcs.
+        d = np.abs(lx - centre + warp * 60 * MM) \
+            + depth * (0.5 + 0.35 * np.cos(2 * np.pi * arcs * yy / N + phase)
+                     + 0.15 * np.cos(4 * np.pi * arcs * yy / N + phase2)) + shift \
+            + wobble * 3 * MM
+        ring = np.mod(d / spacing, 1.0)
+        # Early wood fades slowly into a darker late-wood band, then a crisp
+        # (but anti-aliased) edge to the next year.
+        g = np.clip((ring - 0.45) / 0.45, 0, 1) ** 2.2 * np.clip((1.0 - ring) / 0.06, 0, 1)
+        g = ndimage.gaussian_filter(g, 0.8, mode="wrap") * 0.8
+        c = light * (1 - g[..., None]) + late * g[..., None]
+        c = c * (0.93 + 0.12 * pores[..., None]) * (0.95 + 0.1 * fleck[..., None])
+        c = c * (0.92 + 0.14 * blotch[..., None]) * tone * warm
+        hgt = 0.75 - 0.12 * g - 0.06 * (1 - pores)
+        # A knot or two on some boards (wrapped vertically so the tile repeats):
+        # the rings swerve around it, and it is a darker, ringed brown eye.
+        for _ in range(r.integers(0, 2)):
+            ky = r.random() * N
+            kx = w * (0.25 + 0.5 * r.random())
+            dy = np.mod(yy - ky + N / 2, N) - N / 2
+            kr = (6 + 6 * r.random()) * MM
+            rad = np.sqrt((lx - kx) ** 2 + (dy / 1.6) ** 2)
+            kn = np.clip(1 - rad / kr, 0, 1)
+            halo = np.exp(-(rad / (kr * 2.5)) ** 2)
+            kc = np.array([0.36, 0.22, 0.11])
+            kring = 0.5 + 0.5 * np.cos(rad / (1.4 * MM))
+            a = np.clip(kn * 2.5, 0, 1)[..., None]
+            c = c * (1 - 0.25 * halo[..., None])
+            c = c * (1 - a) + (kc * (0.8 + 0.3 * kring[..., None])) * a
+            hgt = hgt - 0.08 * kn
+        out[m] = c[m]
+        height[m] = hgt[m]
+        for j in (jy, jy + jlen):
+            dj = np.abs(np.mod(yy - j + N / 2, N) - N / 2)
+            joint |= m & (dj < 0.9 * MM)
+            out[m & (dj < 3 * MM)] *= 0.9
+    # Gap between boards: a dark shadow line and a soft rounded board edge.
+    edge = np.minimum(lx, w - lx)
+    gap = edge < 1.8 * MM
+    bevel = np.clip(edge / (4 * MM), 0, 1)
+    out *= (0.8 + 0.2 * bevel)[..., None]
+    height *= 0.55 + 0.45 * bevel
+    out[gap | joint] = [0.12, 0.08, 0.05]
+    height[gap | joint] = 0.0
+    out = out * shade(height, 0.5)[..., None]
     save("wood", out, height)
 
 

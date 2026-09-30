@@ -86,8 +86,9 @@ export type MaterialOption = {
 
 // ── Colours and finishes ─────────────────────────────────────────────────────
 // What the surface does to light: a gloss lacquer keeps its sheen, a matt one
-// scatters it. LetterScene reads it to build the right PBR surface.
-export type ProfileFinish = "gloss" | "matte";
+// scatters it, a metallic one (silver, gold) mirrors it in its own colour.
+// LetterScene reads it to build the right PBR surface.
+export type ProfileFinish = "gloss" | "matte" | "metallic";
 
 export type ColorOption = {
   id: string;
