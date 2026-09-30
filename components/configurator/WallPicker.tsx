@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Hand, ImagePlus, Move, RotateCw, Sparkles, Upload, X } from "lucide-react";
+import { Hand, ImagePlus, Move, RotateCw, Upload, X } from "lucide-react";
 import { useTip } from "@/components/ui/Tooltip";
 import {
   WALL_COLORS,
@@ -91,14 +91,6 @@ export default function WallPicker({
                 }
               >
                 {t.label}
-                {t.id === "photo" && (
-                  <span
-                    className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide"
-                    style={{ background: "var(--accent)", color: "#000" }}
-                  >
-                    Odporúčame
-                  </span>
-                )}
               </button>
             );
           })}
@@ -345,13 +337,7 @@ function PhotoHelp({ onClose, onUpload }: { onClose: () => void; onUpload: () =>
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide"
-              style={{ background: "var(--accent)", color: "#000" }}
-            >
-              <Sparkles size={12} strokeWidth={2.5} /> Odporúčame
-            </span>
-            <h3 id="photo-help-title" className="mt-3 text-xl font-extrabold">
+            <h3 id="photo-help-title" className="text-xl font-extrabold">
               Vlastný návrh — nápis priamo na vašej stene
             </h3>
           </div>

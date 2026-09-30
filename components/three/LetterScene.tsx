@@ -36,7 +36,7 @@ const ENV_INTENSITY_DEEP_NIGHT = 0.06;  // night at 100 % — the sign is the li
 // default night is clearly darker than the old fixed one (ambient 0,62 / key
 // 0,55) and 100 % is a dark street where the sign is the light.
 const LIGHT_DAY        = { ambient: 0.82, key: 1.4,  fill: 0.6  } as const;
-const LIGHT_DEEP_NIGHT = { ambient: 0.07, key: 0.1,  fill: 0.03 } as const;
+const LIGHT_DEEP_NIGHT = { ambient: 0.07, key: 0.28, fill: 0.03 } as const;
 /** How dark the wall's night tint goes at 100 %. */
 const WALL_DEEP_NIGHT_SCALE = 0.5;
 /** The customer's photo at 100 % night. */
@@ -60,11 +60,11 @@ const BLOOM_LUMINANCE_SMOOTHING = 0.4;
 // throws no light onto the wall behind it — its flare is kept tight to the
 // face (small radius) so it reads as a bright face, not as a glow on the
 // wall. Only a halo letter lights the wall, and there the spread is the point.
-const BLOOM_RADIUS_FRONT        = 0.38;
+const BLOOM_RADIUS_FRONT        = 0.68;
 const BLOOM_RADIUS_HALO         = 0.75;
 // Softened across the board — bloom is what turns a bright face into a white
 // blob, so each mode gets only as much flare as it needs to read as light.
-const BLOOM_INTENSITY_BASE      = 0.3;  // front — the lit face, kept to the face
+const BLOOM_INTENSITY_BASE      = 0.62; // front — a lit face flares visibly round its edges
 const BLOOM_INTENSITY_HALO      = 0.3;  // back — the glow texture already IS the soft light; more bloom only fogs the face
 // A saturated LED is darker than a white one at the same drive, so with a
 // fixed threshold it never reached the bloom at all and a red sign looked
@@ -372,7 +372,7 @@ function buildPhysicalMat(
 //   · otherwise the face is the same stuff as the return, just its own colour.
 
 // Clear cast acrylic: a mirror-smooth sheet with a lacquer-like top coat.
-const ACRYLIC_FACE = { roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.06 } as const;
+const ACRYLIC_FACE = { roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.4 } as const;
 // UV print: the ink lies ON the sheet, so it is satin rather than glass.
 const PRINT_FACE   = { roughness: 0.42, clearcoat: 0.25, clearcoatRoughness: 0.4 } as const;
 
@@ -1263,10 +1263,9 @@ function SceneContent({
         // of a lit sign has — so it is kept to a gentle fill that still shows
         // the colour of the letters.
         intensity={mix(LIGHT_DAY.key, LIGHT_DEEP_NIGHT.key)}
-        // A lit sign at night stands in the dark: nothing throws a hard
-        // silhouette of its letters onto the wall, so the key light casts no
-        // shadow then. By day it does, as the sun would.
-        castShadow={!(isIlluminated && isNight)}
+        // The letters always cast a shadow on the wall — lit or not, a sign
+        // standing off a façade is lit by the street too.
+        castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
         // Biases are distances, so they follow the scale of what is on screen

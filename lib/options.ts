@@ -283,13 +283,15 @@ export const MATERIALS: MaterialOption[] = [
       attenuationDistance: 0.12,
       clearcoat: 1.0,
       clearcoatRoughness: 0.0,
-      // The polished edge is where acrylic looks most like glass.
-      sideTransmissionMul: 1.4,
+      // The polished edge is clear acrylic — glass-like, it lets almost
+      // all light through and picks up the surroundings.
+      sideTransmissionMul: 2.5,
+      sideRoughnessMul: 1.5,
       // Solid acrylic glows through its whole body, so its face is nearly as
       // bright as a channel letter's.
       emissiveFrontScale: 1.6,
       emissiveSideScale: 1.4,
-      envIntensity: 1.35,
+      envIntensity: 1.8,
     },
   },
   {
