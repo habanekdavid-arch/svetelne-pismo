@@ -1039,6 +1039,16 @@ function colourSaturation(hex: string): number {
 
 export default function LetterScene(props: LetterSceneProps) {
   const { signType, lightMode, previewMode } = props;
+  const [canvasKey, setCanvasKey] = useState(0);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   // Bloom follows the colour the sign really shines in (LED through its face),
   // for the same reason the emissive headroom does.
   const glowSat = colourSaturation(
@@ -1064,16 +1074,32 @@ export default function LetterScene(props: LetterSceneProps) {
     BLOOM_LUMINANCE_THRESHOLD - BLOOM_THRESHOLD_SAT_DROP * glowSat + 0.35 * (1 - nightLevel);
 
   return (
-    <div className={`relative h-full w-full ${props.onOffsetChange ? PLACING_CLASSES : ""}`}>
+    <div
+      ref={hostRef}
+      className={`relative h-full w-full ${props.onOffsetChange ? PLACING_CLASSES : ""}`}
+    >
       <Canvas
+        key={canvasKey}
         camera={{ position: CAMERA_POS, fov: CAMERA_FOV }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 2]}
-        shadows
+        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+        // Capped at 1.5: a 2× buffer on a wide preview, with transmission and
+        // bloom on top, is more than a laptop GPU keeps up with for long.
+        dpr={[1, 1.5]}
+        // Plain PCF: three.js dropped the soft variant and warned about it on
+        // every single frame.
+        shadows="percentage"
+        // Nothing is drawn while the preview is scrolled out of view.
+        frameloop={visible ? "always" : "never"}
         onCreated={({ gl }) => {
           gl.toneMapping         = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = TONEMAP_EXPOSURE;
           gl.outputColorSpace    = THREE.SRGBColorSpace;
+          // If the GPU drops the context (driver reset, memory pressure), start
+          // a fresh canvas instead of leaving a dead one — or the whole tab.
+          gl.domElement.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+            window.setTimeout(() => setCanvasKey((k) => k + 1), 300);
+          }, { once: true });
         }}
         // touchAction none while placing: without it a drag on a phone is
         // taken as a page scroll and the sign never moves.
