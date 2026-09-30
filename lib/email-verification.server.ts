@@ -96,3 +96,13 @@ export async function sendVerification(user: { id: string; email: string; name: 
   const link = `${siteOrigin()}/api/auth/verify?token=${encodeURIComponent(token)}`;
   return mailVerifyEmail(user.email, user.name, link);
 }
+
+/** Accounts still waiting to confirm their e-mail — everyone else counts as confirmed. */
+export async function listUnverified(): Promise<Set<string>> {
+  await ensureTable();
+  const sql = await getDb();
+  const rows = (await sql`
+    SELECT user_id FROM user_email_verification WHERE verified_at IS NULL
+  `) as { user_id: string }[];
+  return new Set(rows.map((r) => r.user_id));
+}

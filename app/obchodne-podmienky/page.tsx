@@ -11,7 +11,7 @@ export default function TermsPage() {
     <LegalPage
       eyebrow="Právne"
       title="Obchodné podmienky"
-      updated="11. 9. 2026"
+      updated="30. 9. 2026"
     >
       <LegalSection title="1. Úvodné ustanovenia">
         <p>
@@ -24,17 +24,32 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="2. Objednávka a cena">
+      <LegalSection title="2. Objednávka, cena a platba">
         <p>
-          Cena zobrazená v konfigurátore je <strong>orientačná</strong> a
-          vychádza z vami zvolených parametrov (text, font, materiál,
-          rozmery, svietenie). Odoslaním formulára v konfigurátore
-          nevzniká záväzná kúpna zmluva — ide o nezáväzný dopyt.
+          Dielo si zákazník nastaví v konfigurátore (text, font, rozmer,
+          svietenie, prevedenie, farby). Cena sa zobrazí prihlásenému
+          zákazníkovi s overenou e-mailovou adresou a je uvedená vrátane DPH.
         </p>
         <p>
-          Záväznú cenu a termín výroby vám potvrdíme e-mailom alebo
-          telefonicky po overení technických parametrov diela. Zmluva sa
-          považuje za uzatvorenú až týmto obojstranným potvrdením.
+          Objednávku zákazník odošle v košíku po výbere spôsobu doručenia a
+          platby a po potvrdení súhlasu s týmito obchodnými podmienkami.
+          Odoslaním objednávky vzniká záväzná objednávka; jej prijatie
+          potvrdíme e-mailom.
+        </p>
+        <p>
+          Cena sa platí vopred — <strong>kartou</strong> cez platobnú bránu
+          Stripe alebo <strong>bankovým prevodom</strong> na účet uvedený v
+          potvrdení objednávky. Výroba začne po prijatí platby.
+        </p>
+        <p>
+          Pri objednávke <strong>s montážou</strong> zákazník vopred nič
+          neplatí: pošleme mu cenovú ponuku (predfaktúru) s cenou montáže a
+          zmluva vzniká jej úhradou.
+        </p>
+        <p>
+          Ak sa po odoslaní objednávky ukáže, že dielo s danými parametrami
+          nie je technicky možné vyrobiť, zákazníka kontaktujeme a dohodneme
+          úpravu; ak k dohode nedôjde, zaplatenú sumu v plnej výške vrátime.
         </p>
       </LegalSection>
 
@@ -51,7 +66,18 @@ export default function TermsPage() {
 
       <LegalSection title="4. Dodacie podmienky">
         <p>
-          Orientačná doba výroby a dodania je uvedená v cenovej ponuke.
+          Výroba diela trvá spravidla <strong>do 3 týždňov</strong> od
+          prijatia platby. Keď je dielo hotové, zákazníka vopred kontaktujeme
+          a dohodneme odovzdanie.
+        </p>
+        <p>
+          Spôsoby doručenia: osobný odber v Prievidzi (4from media, s.r.o.,
+          M. Hodžu 393/5, 971 01 Prievidza), osobné odovzdanie kdekoľvek v
+          Bratislave, alebo kuriér DPD na adresu. Cena dopravy je uvedená v
+          košíku pred odoslaním objednávky; dielo, ktoré je na balík príliš
+          veľké, posielame prepravou na dohodu.
+        </p>
+        <p>
           Predávajúci si vyhradzuje právo predĺžiť dodaciu lehotu z dôvodu
           vyššej pracovnej vyťaženosti alebo dostupnosti materiálu, o čom
           zákazníka bezodkladne informuje.

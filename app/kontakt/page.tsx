@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ContactForm from "@/components/contact/ContactForm";
 
 export const metadata: Metadata = {
   title: "Kontakt | rozsvieťTO",
@@ -61,6 +62,11 @@ export default function KontaktPage() {
             </div>
           </div>
         </div>
+
+        <h2 className="mt-12 text-2xl font-extrabold tracking-tight" style={{ color: "var(--color-foreground)" }}>
+          Napíšte nám
+        </h2>
+        <ContactForm />
       </div>
     </main>
   );

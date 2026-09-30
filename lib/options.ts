@@ -264,7 +264,7 @@ export const MATERIALS: MaterialOption[] = [
     displayName: "30 mm plexi",
     shortName: "30 mm plexi",
     tagline: "Plexi",
-    subtitle: "Plexisklové písmo hrúbky 30 mm z jedného kusa — svieti celou prednou plochou.",
+    subtitle: "Plexisklové písmo hrúbky 30 mm z jedného kusa — čelo svieti vo zvolenej farbe, mliečne hrany bielo.",
     bullets: ["Hrúbka 30 mm", "Výška 150 – 600 mm", "Svetelné spredu"],
     fonts: PLEXI30_FONTS,
     bands: [{ minMm: 150, maxMm: 600, depthMm: 30 }],
@@ -301,7 +301,7 @@ export const MATERIALS: MaterialOption[] = [
     displayName: "Plexi s UV tlačou",
     shortName: "UV tlač",
     tagline: "Plexi",
-    subtitle: "Rezané plexi s UV potlačou — cenovo najdostupnejšia voľba.",
+    subtitle: "Rezané číre plexi s farebnou UV potlačou čela — cenovo najdostupnejšia voľba.",
     bullets: ["Hrúbka 5 / 8 / 12 mm podľa výšky", "Výška 50 – 250 mm", "Nesvetelné"],
     fonts: ALL_FONTS,
     bands: [
