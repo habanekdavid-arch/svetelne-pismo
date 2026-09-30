@@ -159,6 +159,7 @@ function Configurator() {
   const currentFont = fontById(config.font);
   const textCase = textCaseFor(config.material);
   const buildsInGroup = buildsFor(variant, currentMat.group);
+  const groupsMade = MATERIAL_GROUPS.filter((g) => buildsFor(variant, g.id).length > 0);
 
   // Height is the only dimension chosen; the build turns it into a thickness.
   const { minMm: minHeight, maxMm: maxHeight } = heightRange(config.material);
@@ -583,8 +584,6 @@ function Configurator() {
                 char={previewChar}
                 value={config.font}
                 availableIn={currentMat.fonts}
-                materialName={currentMat.displayName}
-                canSwitchTo={(id) => buildForFont(variant, config.material, id)}
                 onPick={chooseFont}
               />
             </div>
@@ -605,7 +604,12 @@ function Configurator() {
                 to fit the wall — both are shown side by side while the slider
                 moves. */}
             <div className="mb-3 grid grid-cols-2 gap-2">
-              <SizeReadout label="Výška písmen" value={`${config.height} mm`} strong />
+              <HeightInput
+                value={config.height}
+                min={minHeight}
+                max={maxHeight}
+                onChange={(v) => { setNote(null); patch({ height: v }); }}
+              />
               <SizeReadout label="Celý nápis" value={signSizeLabel ?? "…"} />
             </div>
             <SliderBox
@@ -650,8 +654,8 @@ function Configurator() {
                   </>
                 ) : (
                   <ColorRow
-                    label="Farba písmena"
-                    hint="čelo aj telo"
+                    label="Farba čela"
+                    hint="hrany svietia bielo"
                     options={bodyColors}
                     value={config.bodyColor}
                     onPick={(c) => { setNote(null); patch({ bodyColor: c.value }); }}
@@ -663,7 +667,7 @@ function Configurator() {
               <Hint>
                 {separateFace
                   ? "Pri svietení spredu svieti čelo vo svojej farbe."
-                  : "30 mm plexi je jeden kus — svieti celé v tejto farbe."}
+                  : "30 mm plexi: čelo svieti vo zvolenej farbe, hrany písmena svietia bielo."}
               </Hint>
             )}
           </StepCard>
@@ -710,20 +714,22 @@ function Configurator() {
             aside={currentMat.displayName}
             note={noteFor(5)}
           >
-            <div role="radiogroup" aria-label="Prevedenie" className="grid grid-cols-3 gap-2">
-              {MATERIAL_GROUPS.map((g) => {
+            {/* Only what this variant is made in — Plexi is not shown at all
+                for a halo sign, rather than shown and switched off. */}
+            <div
+              role="radiogroup"
+              aria-label="Prevedenie"
+              className={`grid gap-2 ${groupsMade.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
+            >
+              {groupsMade.map((g) => {
                 const builds = buildsFor(variant, g.id);
-                const made = builds.length > 0;
                 return (
                   <OptionTile
                     key={g.id}
                     active={currentMat.group === g.id}
-                    disabled={!made}
                     label={g.name}
-                    tip={made ? g.name : `${g.name} — nevyrába sa`}
-                    tipSub={made
-                      ? builds.map((b) => b.displayName).join(" · ")
-                      : `Pri variante ${variantById(variant).name.toLocaleLowerCase("sk-SK")} ${g.name.toLocaleLowerCase("sk-SK")} neponúkame.`}
+                    tip={g.name}
+                    tipSub={builds.map((b) => b.displayName).join(" · ")}
                     onClick={() => chooseGroup(g.id)}
                   >
                     <GroupIcon group={g.id} />
@@ -985,6 +991,59 @@ function StepCard({
   );
 }
 
+/**
+ * The letter height, typed straight in. What is typed is kept as it is while
+ * typing, and settled into the build's range on Enter or on leaving the field
+ * — so "4" on the way to "450" is not snapped up to the minimum mid-word.
+ */
+function HeightInput({
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  function commit() {
+    if (draft === null) return;
+    const n = Math.round(Number(draft.replace(",", ".")));
+    if (Number.isFinite(n) && n > 0) onChange(Math.min(max, Math.max(min, n)));
+    setDraft(null);
+  }
+  return (
+    <label
+      className="block cursor-text rounded-2xl px-3.5 py-2.5"
+      style={{
+        background: "color-mix(in srgb, var(--accent) 12%, var(--color-background))",
+        border: "1.5px solid var(--accent)",
+      }}
+    >
+      <span className="block text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-muted)" }}>
+        Výška písmen
+      </span>
+      <span className="mt-0.5 flex items-baseline gap-1">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={draft ?? String(value)}
+          onChange={(e) => setDraft(e.target.value.replace(/[^\d,.]/g, ""))}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") { commit(); (e.target as HTMLInputElement).blur(); } }}
+          aria-label={`Výška písmen v mm, ${min} až ${max}`}
+          className="w-full min-w-0 bg-transparent text-[18px] font-black leading-tight tabular-nums outline-none"
+          style={{ color: "var(--color-foreground)" }}
+        />
+        <span className="text-[14px] font-bold" style={{ color: "var(--color-foreground)" }}>mm</span>
+        <span className="ml-1 text-[13px]" aria-hidden="true" style={{ color: "var(--color-muted)" }}>✎</span>
+      </span>
+    </label>
+  );
+}
+
 function SizeReadout({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div
@@ -1172,48 +1231,36 @@ function FontDots({
   char,
   value,
   availableIn,
-  materialName,
-  canSwitchTo,
   onPick,
 }: {
   char: string;
   value: string;
   availableIn: string[];
-  materialName: string;
-  canSwitchTo: (fontId: string) => string | null;
   onPick: (fontId: string) => void;
 }) {
   const tip = useTip();
+  // Only the fonts this build is made in — anything else is simply not shown.
+  const fonts = CATALOGUE_FONTS.filter((id) => availableIn.includes(id));
   return (
-    <div role="radiogroup" aria-label="Font" className="grid grid-cols-8 gap-1.5">
-      {CATALOGUE_FONTS.map((id) => {
+    <div role="radiogroup" aria-label="Font" className="flex flex-wrap gap-1.5">
+      {fonts.map((id) => {
         const font = fontById(id)!;
         const active = value === id;
-        const available = availableIn.includes(id);
-        const target = available ? id : canSwitchTo(id);
-        const switchTo = target && !available ? materialById(target).displayName : null;
-        const sub = available
-          ? font.script ? "písané písmo" : undefined
-          : switchTo
-            ? `V materiáli ${materialName} sa nevyrába — prepneme na ${switchTo}.`
-            : "V tomto variante sa nevyrába.";
+        const sub = font.script ? "písané písmo" : undefined;
         return (
           <button
             key={id}
             type="button"
             role="radio"
             aria-checked={active}
-            aria-label={`${font.name}${sub ? ` — ${sub}` : ""}`}
-            disabled={!available && !switchTo}
+            aria-label={font.name}
             onClick={() => onPick(id)}
-            className="opt-dot aspect-square w-full max-w-11 justify-self-center text-[21px] leading-none"
+            className="opt-dot h-11 w-11 text-[21px] leading-none"
             style={{
               fontFamily: font.name,
               background: active ? "var(--color-primary)" : "var(--color-surface)",
               color: active ? "var(--accent-foreground)" : "var(--color-foreground)",
-              border: available ? "1px solid var(--color-border)" : "1px dashed var(--color-border-strong)",
-              opacity: available ? 1 : 0.5,
-              cursor: !available && !switchTo ? "not-allowed" : undefined,
+              border: "1px solid var(--color-border)",
             }}
             {...tip(font.name, sub)}
           >

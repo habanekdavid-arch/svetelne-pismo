@@ -216,6 +216,11 @@ const WHITE_BASE_BLEND = 0.12;
 // how black and dark grey acrylic stay dark when lit from behind.
 const DARK_SHEET_PASS = 0.1;
 
+/** Clear cast acrylic — the edges of a 30 mm plexi letter. */
+const CLEAR_ACRYLIC = "#f2f4f5";
+/** How bright a lit 30 mm plexi letter's white edges glow. */
+const PLEXI_EDGE_EMISSIVE = 0.5;
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 type LightSettings = {
@@ -1110,14 +1115,29 @@ function SceneContent({
     () => emittedColor(glowColor, faceColor, faceKind, lightMode),
     [glowColor, faceColor, faceKind, lightMode],
   );
-  const ls = getLightingSettings(signType, lightMode, isNight, shineColor);
+  const lsBase = getLightingSettings(signType, lightMode, isNight, shineColor);
+  // Lit 30 mm plexi: its edges carry white light too.
+  const ls = faceKind === "none" && lsBase.emissiveFront > 0
+    ? { ...lsBase, emissiveSide: PLEXI_EDGE_EMISSIVE * EMISSIVE_NIGHT_MULTIPLIER * EMISSIVE_BASE_INTENSITY }
+    : lsBase;
   // The colour the MATERIALS emit. For 30 mm plexi that is the light after it
   // has passed through the coloured acrylic — a red plexi letter glows red,
   // not warm white on red (which read as salmon). Everything else emits the
   // LED itself and lets its face (buildFaceMat) do the filtering.
-  const materialGlow = faceKind === "none" ? shineColor : glowColor;
-  const returnColor = baseColor;
-  const faceGlow = materialGlow;
+  //
+  // 30 mm plexi is the exception: clear acrylic whose EDGES glow in the LED's
+  // own white, with the chosen colour on its face only — the face lets the
+  // light out through its colour, the sides let it out white.
+  const plexiBlock = faceKind === "none";
+  const materialGlow = glowColor;
+  const returnColor = useMemo(
+    () => (plexiBlock ? new THREE.Color(CLEAR_ACRYLIC) : baseColor),
+    [plexiBlock, baseColor],
+  );
+  const faceGlow = useMemo(
+    () => (plexiBlock ? filteredThroughFace(glowColor, faceColor) : glowColor),
+    [plexiBlock, glowColor, faceColor],
+  );
 
   // Size is REAL now. The letters are scaled in LetterGeometryHost so their
   // capital is exactly as tall as ordered, measured in the same millimetres
