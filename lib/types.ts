@@ -34,6 +34,8 @@ export type MaterialPbr = {
   useWhiteBase?: boolean;
   // Multipliers applied to the side/bevel group (ExtrudeGeometry group-1)
   sideRoughnessMul?: number;
+  /** The side's roughness outright, where it is a different surface (milky opal edges on polished plexi). */
+  sideRoughness?: number;
   sideTransmissionMul?: number;
   // Emissive scaling per face group (useful for plexi: very low front glow, more on sides)
   emissiveFrontScale?: number;
