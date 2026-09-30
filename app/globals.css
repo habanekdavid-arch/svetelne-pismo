@@ -774,12 +774,15 @@ html.dark .badge-ok { color: #4ade80; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
+  /* Bigger than the title line, but it overhangs it rather than making every
+     card taller — the five steps still fit the screen together. */
+  margin: -3px 0;
   border-radius: 9999px;
   background: var(--accent);
   color: var(--accent-foreground);
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 900;
 }

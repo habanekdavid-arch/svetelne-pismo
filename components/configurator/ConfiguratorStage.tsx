@@ -952,10 +952,10 @@ function StepCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="field-card rounded-[24px] p-4 lg:px-4 lg:py-3" aria-label={`Krok ${step}: ${title}`}>
+    <section className="field-card rounded-[24px] p-4 lg:px-4 lg:py-2.5" aria-label={`Krok ${step}: ${title}`}>
       <div className="flex items-center gap-2.5">
         <span className="step-badge" aria-hidden="true">{step}</span>
-        <h3 className="text-[15px] font-extrabold tracking-[0.005em]" style={{ color: "var(--color-foreground)" }}>
+        <h3 className="text-[16px] font-extrabold tracking-[0.005em]" style={{ color: "var(--color-foreground)" }}>
           {title}
         </h3>
         {aside && (
