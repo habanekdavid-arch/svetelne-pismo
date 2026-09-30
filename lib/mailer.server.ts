@@ -27,8 +27,10 @@ const gmailPass = process.env.GMAIL_APP_PASSWORD || "";
 const useLegacyGmail = !process.env.SMTP_USER?.trim() && Boolean(gmailUser);
 
 const host = process.env.SMTP_HOST?.trim() || (useLegacyGmail ? "smtp.gmail.com" : DEFAULT_SMTP_HOST);
-const user = process.env.SMTP_USER?.trim() || gmailUser;
-const pass = process.env.SMTP_PASSWORD || gmailPass;
+// The mailbox is info@4frommedia.sk unless told otherwise, so its password is
+// the only thing that has to be entered.
+const user = process.env.SMTP_USER?.trim() || (useLegacyGmail ? gmailUser : DEFAULT_FROM_EMAIL);
+const pass = process.env.SMTP_PASSWORD || (useLegacyGmail ? gmailPass : "");
 // 587 = STARTTLS (Microsoft 365 and Gmail), 465 = implicit TLS.
 const port = Number(process.env.SMTP_PORT) || 587;
 const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE === "true" : port === 465;
