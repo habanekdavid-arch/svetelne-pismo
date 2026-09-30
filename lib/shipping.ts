@@ -5,16 +5,17 @@ import { priceBreakdown } from "@/lib/pricing";
 
 // How a finished sign gets to the customer.
 //
-// This is where the shop's physical reality meets Packeta's: a 120 mm "PIZZA"
-// in printed plexi is a parcel, and a 2 m alurol channel letter is a pallet.
-// Packeta must only ever be offered for what Packeta will actually carry, so
-// every option below is filtered through an estimate of the packed sign
-// (estimateParcel) before the customer ever sees it.
+// Three ways, nothing else: collected in person at the workshop in Prievidza,
+// handed over in person anywhere in Bratislava, or sent by DPD courier. A sign
+// that is too big or heavy for a DPD parcel — a 2 m alurol channel letter is a
+// pallet — is sent by freight arranged by hand, so every courier option is
+// filtered through an estimate of the packed sign (estimateParcel) first.
 
 export type DeliveryMethodId =
-  | "packeta-pickup"  // Packeta pick-up point / Z-BOX, chosen in the widget
-  | "packeta-home"    // courier to an address
-  | "freight";        // too big for a parcel — quoted and arranged by hand
+  | "pickup-prievidza"   // collected at the workshop
+  | "pickup-bratislava"  // handed over in person, anywhere in Bratislava
+  | "dpd"                // DPD courier to an address
+  | "freight";           // too big for a parcel — quoted and arranged by hand
 
 export type DeliveryMethod = {
   id: DeliveryMethodId;
@@ -22,27 +23,21 @@ export type DeliveryMethod = {
   description: string;
   /** € incl. VAT. `null` means "quoted separately", not "free". */
   price: number | null;
-  /** Does this method need the Packeta pick-up point widget? */
-  needsPoint: boolean;
-  /** Does this method need a postal address from the customer? */
+  /** Does this method need an address from the customer? */
   needsAddress: boolean;
 };
 
+/** Where a sign collected in Prievidza is picked up. */
+export const PICKUP_ADDRESS = "4from media, s.r.o., M. Hodžu 393/5, 971 01 Prievidza";
+
 // ── Parcel limits ────────────────────────────────────────────────────────────
-// Packeta's own limits, which change with their terms and with what a given
-// account has enabled — so they live here, in one place, and can be overridden
-// from the environment without a deploy. The defaults are deliberately
-// conservative; check them against your current Packeta contract.
+// DPD Classic's own limits — 31,5 kg and 175 cm on the longest side. They live
+// here, in one place, and can be overridden from the environment without a
+// deploy if the contract says otherwise.
 export const PARCEL_LIMITS = {
-  /** Pick-up point / Z-BOX. */
-  pickup: {
-    maxWeightKg: num(process.env.NEXT_PUBLIC_PACKETA_PICKUP_MAX_KG, 10),
-    maxLongestCm: num(process.env.NEXT_PUBLIC_PACKETA_PICKUP_MAX_CM, 70),
-  },
-  /** Courier to an address. */
-  home: {
-    maxWeightKg: num(process.env.NEXT_PUBLIC_PACKETA_HOME_MAX_KG, 30),
-    maxLongestCm: num(process.env.NEXT_PUBLIC_PACKETA_HOME_MAX_CM, 120),
+  dpd: {
+    maxWeightKg: num(process.env.NEXT_PUBLIC_DPD_MAX_KG, 31.5),
+    maxLongestCm: num(process.env.NEXT_PUBLIC_DPD_MAX_CM, 175),
   },
 } as const;
 
@@ -52,13 +47,11 @@ function num(raw: string | undefined, fallback: number): number {
 }
 
 // ── Prices ───────────────────────────────────────────────────────────────────
-// The same tariff vytlacto3d charges: final, VAT-inclusive prices — 4,92 € to
-// a Packeta pick-up point, 6,15 € by courier (4 € and 5 € + 23 % DPH).
-// Overridable from the environment so a change in the carrier's tariff does
-// not need a code change.
+// Final, VAT-inclusive prices. Collecting in person costs nothing; DPD is
+// 6,15 € (5 € + 23 % DPH). Overridable from the environment so a change in the
+// carrier's tariff does not need a code change.
 export const DELIVERY_PRICES = {
-  pickup: numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_PICKUP, 4.92),
-  home:   numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_HOME, 6.15),
+  dpd: numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_DPD, 6.15),
 } as const;
 
 function numOrZero(raw: string | undefined, fallback: number): number {
@@ -161,50 +154,47 @@ const FREIGHT: DeliveryMethod = {
   id: "freight",
   name: "Preprava na dohodu",
   description:
-    "Nápis je na balík príliš veľký alebo ťažký. Dopravu dohodneme individuálne a cenu potvrdíme pred výrobou.",
+    "Nápis je na balík DPD príliš veľký alebo ťažký. Dopravu dohodneme individuálne a cenu potvrdíme pred výrobou.",
   price: null,
-  needsPoint: false,
   needsAddress: true,
 };
 
 /**
- * The delivery methods this consignment may be sent by, in the order they
- * should be shown — Packeta and courier, as on vytlacto3d, each only when the
- * parcel is within its limits. A sign too big for both is arranged by hand.
+ * The delivery methods this consignment may go by, in the order they should be
+ * shown. Collecting in person works for any size; DPD only when the parcel is
+ * within its limits, and freight takes its place when it is not.
  */
 export function deliveryMethodsFor(parcel: Parcel): DeliveryMethod[] {
-  const methods: DeliveryMethod[] = [];
-
-  // A pick-up point is chosen on Packeta's map, and without the widget key
-  // there is no map — offering it would strand the customer on the last step.
-  const canPickup = Boolean(process.env.NEXT_PUBLIC_PACKETA_API_KEY?.trim());
-
-  if (canPickup && fits(parcel, PARCEL_LIMITS.pickup)) {
-    methods.push({
-      id: "packeta-pickup",
-      name: "Packeta",
-      description: "Výdajné miesto alebo Z-BOX podľa vášho výberu.",
-      price: DELIVERY_PRICES.pickup,
-      needsPoint: true,
+  return [
+    {
+      id: "pickup-prievidza",
+      name: "Osobný odber — Prievidza",
+      description: PICKUP_ADDRESS,
+      price: 0,
       needsAddress: false,
-    });
-  }
-  // A courier only needs an address. With Packeta's courier set up
-  // (PACKETA_HOME_CARRIER_ID) the label is created on payment; without it the
-  // parcel is booked by hand from the admin — either way the customer is done.
-  if (fits(parcel, PARCEL_LIMITS.home)) {
-    methods.push({
-      id: "packeta-home",
-      name: "Kuriér",
-      description: "Doručenie na vašu adresu.",
-      price: DELIVERY_PRICES.home,
-      needsPoint: false,
+    },
+    {
+      id: "pickup-bratislava",
+      name: "Osobný odber — Bratislava",
+      description: "Odovzdáme vám ho osobne kdekoľvek v Bratislave. Miesto a čas dohodneme telefonicky.",
+      price: 0,
       needsAddress: true,
-    });
-  }
+    },
+    fits(parcel, PARCEL_LIMITS.dpd)
+      ? {
+          id: "dpd",
+          name: "Kuriér DPD",
+          description: "Doručenie na vašu adresu.",
+          price: DELIVERY_PRICES.dpd,
+          needsAddress: true,
+        }
+      : FREIGHT,
+  ];
+}
 
-  if (methods.length === 0) methods.push(FREIGHT);
-  return methods;
+/** Is this address somewhere in Bratislava — the only city handed over in person? */
+export function isInBratislava(city: string): boolean {
+  return /bratislava/i.test(city.normalize("NFD").replace(/\p{M}/gu, ""));
 }
 
 /** One method by id, or null when this consignment may not be sent that way. */
@@ -220,4 +210,43 @@ export function formatDeliveryPrice(price: number | null): string {
   if (price === null) return "Cena na dohodu";
   if (price === 0) return "Zadarmo";
   return `${price.toFixed(2).replace(".", ",")} €`;
+}
+
+/** How each delivery method reads on an order — the old Packeta ones too. */
+export const DELIVERY_METHOD_LABEL: Record<string, string> = {
+  "pickup-prievidza":  "Osobný odber — Prievidza",
+  "pickup-bratislava": "Osobný odber — Bratislava",
+  dpd:                 "Kuriér DPD",
+  freight:             "Preprava na dohodu",
+  personal:            "Osobný odber",
+  "packeta-pickup":    "Packeta — výdajné miesto",
+  "packeta-home":      "Kuriér",
+};
+
+/** Where an order goes, in one line — or null when there is nowhere to say. */
+export function deliveryPlace(group: {
+  deliveryMethod: string;
+  deliveryPoint?: { name: string; street?: string | null } | null;
+  deliveryAddress?: { street: string; houseNumber: string; zip: string; city: string } | null;
+}): string | null {
+  if (group.deliveryMethod === "pickup-prievidza") return PICKUP_ADDRESS;
+  const p = group.deliveryPoint;
+  if (p) return `${p.name}${p.street ? `, ${p.street}` : ""}`;
+  const a = group.deliveryAddress;
+  if (a) return `${a.street} ${a.houseNumber}, ${a.zip} ${a.city}`;
+  return null;
+}
+
+/** What happens once the sign is made — the line after "we are making it". */
+export function afterMadeText(deliveryMethod: string): string {
+  if (deliveryMethod === "pickup-prievidza") {
+    return `Keď bude hotový, zavoláme vám a môžete si ho vyzdvihnúť na adrese ${PICKUP_ADDRESS}.`;
+  }
+  if (deliveryMethod === "pickup-bratislava") {
+    return "Keď bude hotový, zavoláme vám a dohodneme, kde a kedy vám ho v Bratislave odovzdáme.";
+  }
+  if (deliveryMethod === "freight") {
+    return "Keď bude hotový, ozveme sa vám a dohodneme dopravu.";
+  }
+  return "Keď bude hotový, odovzdáme ho kuriérovi DPD — ozve sa vám pred doručením.";
 }

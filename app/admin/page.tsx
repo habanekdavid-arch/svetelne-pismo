@@ -21,6 +21,7 @@ import ConfirmTransferButton from "@/components/admin/ConfirmTransferButton";
 import InstallationQuoteForm from "@/components/admin/InstallationQuoteForm";
 import { integrations } from "@/lib/integrations.server";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
+import { deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
 import StatusBadge from "@/components/orders/StatusBadge";
 import LogoutButton from "@/components/admin/LogoutButton";
 import EyebrowPill from "@/components/ui/EyebrowPill";
@@ -310,16 +311,12 @@ function SpecLine({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * What the workshop needs in order to send the sign: where it goes, whether it
- * has been paid for, and — once Packeta has it — the packet number. A packet
- * that could not be created says why, right here, because nobody will go
- * looking in the logs.
+ * What the workshop needs in order to send the sign: how and where it goes and
+ * whether it has been paid for. Orders from while Packeta was offered still
+ * show their packet number, or why the packet could not be created.
  */
 const DELIVERY_LABEL: Record<string, string> = {
-  "packeta-pickup": "Packeta — výdajné miesto",
-  "packeta-home":   "Kuriér",
-  freight:          "Preprava na dohodu",
-  personal:         "Osobný odber",
+  ...DELIVERY_METHOD_LABEL,
   [INSTALLATION_METHOD]: "Montáž — na cenovú ponuku",
 };
 
@@ -339,11 +336,7 @@ function DeliveryPanel({ group }: { group: OrderGroup | null }) {
     );
   }
 
-  const where = group.deliveryPoint
-    ? `${group.deliveryPoint.name}${group.deliveryPoint.street ? `, ${group.deliveryPoint.street}` : ""}`
-    : group.deliveryAddress
-      ? `${group.deliveryAddress.street} ${group.deliveryAddress.houseNumber}, ${group.deliveryAddress.zip} ${group.deliveryAddress.city}`
-      : "Osobný odber";
+  const where = deliveryPlace(group) ?? "Osobný odber";
 
   const paid = group.paymentStatus === "paid";
   const installation = group.deliveryMethod === INSTALLATION_METHOD;

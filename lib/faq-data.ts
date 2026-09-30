@@ -72,7 +72,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Aká je cena dopravy?",
-        a: "Na výdajné miesto alebo do Z-BOXu Packety 4,92 €, kuriérom na adresu 6,15 € (s DPH). Nápis, ktorý je na balík príliš veľký, posielame prepravou na dohodu — cenu potvrdíme pred výrobou.",
+        a: "Osobný odber je zadarmo — v Prievidzi na adrese 4from media, s.r.o., M. Hodžu 393/5, alebo vám nápis odovzdáme osobne kdekoľvek v Bratislave. Kuriérom DPD na adresu 6,15 € (s DPH). Nápis, ktorý je na balík príliš veľký, posielame prepravou na dohodu — cenu potvrdíme pred výrobou.",
       },
       {
         q: "Ponúkate osobné prevzatie?",

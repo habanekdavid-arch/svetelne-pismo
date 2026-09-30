@@ -37,20 +37,12 @@ Nič netreba dopĺňať. Prevody chodia na ten istý účet ako na vytlacto3d:
 - Iný účet by sa nastavil cez `BANK_IBAN`, `BANK_ACCOUNT_HOLDER` a `BANK_BIC`.
 - [ ] **Test:** objednávka s prevodom. Stránka objednávky musí ukázať IBAN, variabilný symbol a sumu. Po príchode peňazí kliknite v admine na **„Platba prijatá“**.
 
-## 4. Packeta (Zásielkovňa)
+## 4. Doprava — osobný odber a DPD
 
-Všetko nájdete v klientskej sekcii <https://client.packeta.com>.
-
-- [ ] **`NEXT_PUBLIC_PACKETA_API_KEY`**
-  API kľúč, 16 znakov (*Nastavenia klienta*). Zapne mapu výdajných miest v košíku.
-- [ ] **`PACKETA_API_PASSWORD`**
-  API heslo, 32 znakov, na tom istom mieste. **Tajné.** Po zaplatení s ním web sám vytvorí zásielku.
-- [ ] **`PACKETA_SENDER_LABEL`**
-  Označenie odosielateľa z *Odosielatelia* (<https://client.packeta.com/senders/>). Predvolené je `rozsvietTO`.
-- [ ] **`PACKETA_HOME_CARRIER_ID`**
-  ID dopravcu pre doručenie kuriérom na adresu na Slovensku (zo zoznamu dopravcov Packety). Bez neho zásielky ku kuriérovi zadávate ručne.
-- [ ] Porovnajte limity balíka so zmluvou. Predvolené sú 10 kg / 70 cm na výdajné miesto a 30 kg / 120 cm pre kuriéra. Ak máte iné, nastavte `NEXT_PUBLIC_PACKETA_PICKUP_MAX_KG`, `NEXT_PUBLIC_PACKETA_PICKUP_MAX_CM`, `NEXT_PUBLIC_PACKETA_HOME_MAX_KG` a `NEXT_PUBLIC_PACKETA_HOME_MAX_CM`.
-- [ ] **Test:** zaplatená objednávka na výdajné miesto. V admine sa musí objaviť číslo zásielky a zákazníkovi príde e-mail s odkazom na sledovanie.
+Packeta sa už nepoužíva a nič pre ňu netreba zadávať. V košíku sú tri možnosti:
+- **Osobný odber — Prievidza** (zadarmo): 4from media, s.r.o., M. Hodžu 393/5, 971 01 Prievidza.
+- **Osobný odber — Bratislava** (zadarmo): zákazník zadá miesto v Bratislave, čas odovzdania dohodnete telefonicky.
+- **Kuriér DPD** (6,15 € s DPH): zásielku podávate v DPD ručne. Nápis, ktorý je na balík DPD príliš veľký, sa ponúkne ako „Preprava na dohodu“.
 
 ## 5. E-maily — rovnaké ako na vytlacto3d
 
@@ -59,7 +51,6 @@ Web posiela e-maily presne tak ako vytlacto3d: cez Microsoft 365 (`smtp.office36
 - oznámenie o novej objednávke pre vás,
 - cenová ponuka k objednávke s montážou,
 - potvrdenie platby,
-- číslo zásielky,
 - správy z kontaktného formulára,
 - obnova hesla.
 
@@ -97,5 +88,5 @@ Tieto premenné majú rozumné predvolené hodnoty a meniť ich netreba.
 
 | Premenná | Predvolene | Čo mení |
 |---|---|---|
-| `NEXT_PUBLIC_DELIVERY_PRICE_PICKUP` | 4.92 | cena Packety na výdajné miesto (€ s DPH) |
-| `NEXT_PUBLIC_DELIVERY_PRICE_HOME` | 6.15 | cena kuriéra (€ s DPH) |
+| `NEXT_PUBLIC_DELIVERY_PRICE_DPD` | 6.15 | cena kuriéra DPD (€ s DPH) |
+| `NEXT_PUBLIC_DPD_MAX_KG` / `NEXT_PUBLIC_DPD_MAX_CM` | 31.5 / 175 | najväčší balík pre DPD, väčší ide prepravou na dohodu |

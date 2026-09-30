@@ -5,7 +5,7 @@ import Stripe from "stripe";
 // Stripe — server side only. The secret key never reaches the browser; the
 // browser only ever gets the Checkout Session's redirect URL.
 //
-// As with Packeta, nothing here runs unless the keys are set. Without them the
+// Nothing here runs unless the keys are set. Without them the
 // shop falls back to what it did before: the order is recorded and we get in
 // touch to arrange payment.
 

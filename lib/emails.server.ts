@@ -9,6 +9,7 @@ import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods
 import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, LIGHT_MODES, materialById } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 import { formatEur } from "@/lib/vat";
+import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
 
 // Every e-mail the shop sends, in one place and one look. Each function is
 // fire-and-forget from the caller's point of view: sendMail never throws, and
@@ -112,12 +113,10 @@ function bankBlock(group: OrderGroup, orders: Order[]): string {
 }
 
 function whereTo(group: OrderGroup): string | null {
-  if (group.deliveryPoint) return esc(`Packeta — ${group.deliveryPoint.name}${group.deliveryPoint.street ? `, ${group.deliveryPoint.street}` : ""}`);
-  if (group.deliveryAddress) {
-    const a = group.deliveryAddress;
-    return esc(`${a.street} ${a.houseNumber}, ${a.zip} ${a.city}`);
-  }
-  return null;
+  const place = deliveryPlace(group);
+  if (group.deliveryMethod === INSTALLATION_METHOD) return place ? esc(place) : null;
+  const method = DELIVERY_METHOD_LABEL[group.deliveryMethod];
+  return esc([method, place].filter(Boolean).join(" — ")) || null;
 }
 
 // ── Customer ─────────────────────────────────────────────────────────────────
@@ -185,22 +184,8 @@ export async function mailPaymentReceived(group: OrderGroup): Promise<void> {
       p(`Dobrý deň ${esc(group.customerName)}, ďakujeme — platbu ${formatEur(group.totalCents / 100)} sme prijali a nápis ideme vyrábať.`) +
         p(installation
           ? "Termín montáže s vami dohodneme telefonicky."
-          : "Keď bude hotový, odošleme ho a pošleme vám číslo zásielky.") +
+          : afterMadeText(group.deliveryMethod)) +
         button(orderUrl(group), "Zobraziť objednávku"),
-    ),
-  });
-}
-
-/** Packeta has the parcel. */
-export async function mailPacketCreated(group: OrderGroup, barcode: string): Promise<void> {
-  await sendMail({
-    to: group.customerEmail,
-    subject: `Zásielka k objednávke ${orderNo(group)}`,
-    html: layout(
-      "Zásielku sme odovzdali Packete",
-      p(`Dobrý deň ${esc(group.customerName)}, váš nápis je na ceste.`) +
-        rows([["Číslo zásielky", esc(barcode)], ["Doručenie", whereTo(group)]]) +
-        button(`https://tracking.packeta.com/sk/?id=${encodeURIComponent(barcode)}`, "Sledovať zásielku"),
     ),
   });
 }
