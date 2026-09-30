@@ -114,6 +114,7 @@ export default function WallPicker({
                 key={c.id}
                 active={active}
                 label={`Omietka — ${c.label}`}
+                caption={c.label}
                 onClick={() => onWall({ surface: "plaster", color: c.value })}
                 tipProps={tip(c.label, "omietka v tejto farbe")}
               >
@@ -129,6 +130,42 @@ export default function WallPicker({
               </Tile>
             );
           })}
+
+        {tab === "color" && (() => {
+          // Any colour at all, from the browser's own picker — for a wall
+          // whose shade is not among the ones above.
+          const custom = !WALL_COLORS.some((c) => c.value === wall.color);
+          const active = !photoName && wall.surface === "plaster" && custom;
+          return (
+            <label
+              className="flex cursor-pointer flex-col items-center gap-1 transition hover:-translate-y-px"
+              {...tip("Vlastná farba", "vyberte ľubovoľný odtieň steny")}
+            >
+              <span
+                className="relative block h-12 w-12 overflow-hidden rounded-xl"
+                style={{
+                  border: "1px solid var(--color-border-strong)",
+                  boxShadow: active ? "0 0 0 2px var(--color-background), 0 0 0 4px var(--accent)" : undefined,
+                  background: custom
+                    ? wall.color
+                    : "conic-gradient(#f44336, #ffeb3b, #4caf50, #00bcd4, #3f51b5, #e91e63, #f44336)",
+                }}
+              >
+                <input
+                  type="color"
+                  value={custom ? wall.color : "#9e9e9e"}
+                  onChange={(e) => onWall({ surface: "plaster", color: e.target.value })}
+                  aria-label="Vlastná farba steny"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+                {!custom && (
+                  <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-white" aria-hidden="true">+</span>
+                )}
+              </span>
+              <span className="text-[12px] font-bold" style={{ color: "var(--color-foreground)" }}>Vlastná</span>
+            </label>
+          );
+        })()}
 
         {tab === "surface" &&
           WALL_SURFACES.map((s) => {
