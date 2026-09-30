@@ -203,7 +203,9 @@ export default async function AdminPage({
               // Something only the shop can move forward — said on the card
               // itself, so it is not missed with the detail folded away.
               const todo =
-                quote === "requested"
+                quote === "consult"
+                  ? "Kontaktovať zákazníka kvôli montáži"
+                  : quote === "requested"
                   ? "Pripraviť cenovú ponuku s montážou"
                   : group && !paid && group.paymentMethod === "transfer"
                     ? "Čaká na platbu prevodom"

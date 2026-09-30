@@ -33,7 +33,11 @@ function orderUrl(group: OrderGroup): string {
 function layout(title: string, body: string): string {
   return `<!doctype html><html lang="sk"><body style="margin:0;background:#f5f5f4;font-family:Arial,Helvetica,sans-serif;color:#111">
 <div style="max-width:560px;margin:0 auto;padding:28px 16px">
-  <div style="font-size:20px;font-weight:800;margin-bottom:18px">rozsvieť<span style="color:#e59b00">TO</span></div>
+  <div style="margin-bottom:18px">
+    <a href="${siteOrigin()}" style="text-decoration:none">
+      <img src="${siteOrigin()}/logo-email.png" width="178" height="48" alt="rozsvieťTO" style="display:block;border:0;height:48px;width:178px">
+    </a>
+  </div>
   <div style="background:#fff;border-radius:18px;padding:26px 24px;border:1px solid #e7e5e4">
     <h1 style="font-size:20px;margin:0 0 14px">${esc(title)}</h1>
     ${body}
@@ -85,14 +89,16 @@ function totals(group: OrderGroup): string {
   const installation = group.deliveryMethod === INSTALLATION_METHOD;
   const quote = quoteState(group);
   const extra = installation
-    ? quote === "requested" ? ["Montáž", "v cenovej ponuke"] : ["Montáž", formatEur(group.deliveryCents / 100)]
+    ? quote === "requested" ? ["Montáž", "v cenovej ponuke"]
+      : quote === "pending" || quote === "consult" ? ["Montáž", "dohodneme po zaplatení nápisu"]
+      : ["Montáž", formatEur(group.deliveryCents / 100)]
     : ["Doprava", group.deliveryCents > 0
         ? formatEur(group.deliveryCents / 100)
         : group.deliveryMethod === "freight" ? "na dohodu" : "zadarmo"];
   return rows([
     ["Nápisy", formatEur(group.itemsCents / 100)],
     [extra[0], extra[1]],
-    [quote === "requested" ? "Za nápisy s DPH" : "Spolu s DPH", `<span style="font-size:16px">${formatEur(group.totalCents / 100)}</span>`],
+    [quote === "requested" || quote === "pending" || quote === "consult" ? "Za nápisy s DPH" : "Spolu s DPH", `<span style="font-size:16px">${formatEur(group.totalCents / 100)}</span>`],
   ]);
 }
 
@@ -136,6 +142,13 @@ export function buildOrderPlaced(group: OrderGroup, orders: Order[]): BuiltMail 
   let extra = "";
   if (quote === "requested") {
     intro = "ďakujeme za objednávku s montážou. Pripravíme cenovú ponuku — predfaktúru s montážou na vašej adrese — a ozveme sa vám. Vopred nič neplatíte.";
+  } else if (quote === "pending" && group.paymentMethod === "transfer") {
+    intro = "ďakujeme za objednávku s montážou. Najprv prosím uhraďte nápis na účet nižšie. Keď platba príde, budeme vás kontaktovať a dohodneme montáž a realizáciu — termín, detaily a cenu montáže.";
+    extra = bankBlock(group, orders);
+  } else if (quote === "pending") {
+    intro = group.paymentStatus === "paid"
+      ? "ďakujeme za objednávku s montážou aj za platbu. Budeme vás kontaktovať a dohodneme montáž a realizáciu."
+      : "ďakujeme za objednávku s montážou. Najprv prosím dokončite platbu za nápis — potom vás budeme kontaktovať a dohodneme montáž a realizáciu.";
   } else if (group.paymentMethod === "transfer") {
     intro = "ďakujeme za objednávku. Pošlite prosím sumu na účet nižšie — výrobu začneme hneď, ako platba príde.";
     extra = bankBlock(group, orders);
@@ -194,7 +207,7 @@ export function buildPaymentReceived(group: OrderGroup): BuiltMail {
       "Platbu sme prijali",
       p(`${n(group)} ďakujeme — platbu ${formatEur(group.totalCents / 100)} sme prijali a nápis ideme vyrábať.`) +
         p(installation
-          ? `${PRODUCTION_TIME} Termín montáže s vami dohodneme telefonicky.`
+          ? `${PRODUCTION_TIME} Čoskoro vás budeme kontaktovať a dohodneme montáž a realizáciu — termín, detaily a cenu montáže.`
           : `${PRODUCTION_TIME} ${afterMadeText(group.deliveryMethod)}`) +
         button(orderUrl(group), "Zobraziť objednávku"),
     ),
@@ -320,14 +333,18 @@ export function buildShopNewOrder(group: OrderGroup, orders: Order[]): BuiltMail
     replyTo: group.customerEmail,
     subject: quote === "requested"
       ? `Nová objednávka s montážou ${orderNo(group)} — pripraviť cenovú ponuku`
+      : quote
+      ? `Nová objednávka s montážou ${orderNo(group)} — ${formatEur(group.totalCents / 100)}`
       : `Nová objednávka ${orderNo(group)} — ${formatEur(group.totalCents / 100)}`,
     html: layout(
-      quote === "requested" ? "Nová objednávka s montážou" : "Nová objednávka",
+      quote ? "Nová objednávka s montážou" : "Nová objednávka",
       customerRows(group) +
         signsTable(orders) +
         totals(group) +
         p(quote === "requested"
           ? "Pripravte cenovú ponuku s montážou v administrácii."
+          : quote
+          ? "Zákazník najprv platí za nápis. Po prijatí platby ho kontaktujte a dohodnite montáž a realizáciu."
           : group.paymentMethod === "transfer"
             ? "Čaká sa na prevod. Keď peniaze prídu, potvrďte platbu v administrácii."
             : group.paymentMethod === "card"
@@ -347,6 +364,9 @@ export function buildShopPaid(group: OrderGroup, orders: Order[]): BuiltMail {
     html: layout(
       "Objednávka je zaplatená — do výroby",
       p(`Platba ${formatEur(group.totalCents / 100)} ${group.paymentMethod === "card" ? "kartou cez Stripe" : "prevodom"} je prijatá. Zákazník dostal potvrdenie.`) +
+        (quoteState(group) === "consult"
+          ? p("<strong>Objednávka s montážou:</strong> kontaktujte zákazníka a dohodnite montáž a realizáciu — termín, detaily a cenu montáže.")
+          : "") +
         customerRows(group) +
         signsTable(orders) +
         button(`${siteOrigin()}/admin`, "Otvoriť administráciu"),

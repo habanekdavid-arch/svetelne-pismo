@@ -43,7 +43,7 @@ export function SpecLine({ label, value }: { label: string; value: string }) {
  */
 export const DELIVERY_LABEL: Record<string, string> = {
   ...DELIVERY_METHOD_LABEL,
-  [INSTALLATION_METHOD]: "Montáž — na cenovú ponuku",
+  [INSTALLATION_METHOD]: "Montáž u vás",
 };
 
 export function DeliveryPanel({ group }: { group: OrderGroup | null }) {
@@ -71,7 +71,7 @@ export function DeliveryPanel({ group }: { group: OrderGroup | null }) {
   return (
     <div className="min-w-0 text-sm">
       <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-        {installation ? "Montáž — cenová ponuka" : "Doprava a platba"}
+        {installation ? "Montáž u vás" : "Doprava a platba"}
       </p>
       <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
         <SpecLine label="Spôsob" value={DELIVERY_LABEL[group.deliveryMethod] ?? group.deliveryMethod} />
@@ -92,6 +92,16 @@ export function DeliveryPanel({ group }: { group: OrderGroup | null }) {
       {paid && (
         <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
           Zaplatené {formatEur(group.totalCents / 100)}
+        </p>
+      )}
+      {quote === "consult" && (
+        <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
+          Nápis je zaplatený — kontaktujte zákazníka a dohodnite montáž, termín a cenu montáže
+        </p>
+      )}
+      {quote === "pending" && (
+        <p className="mt-2 text-xs" style={{ color: "var(--color-muted)" }}>
+          S montážou — najprv čakáme na platbu za nápis, potom zákazníka kontaktujeme.
         </p>
       )}
       {quote === "requested" && (

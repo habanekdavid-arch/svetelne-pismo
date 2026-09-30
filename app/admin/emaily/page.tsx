@@ -79,7 +79,7 @@ const FREIGHT = { deliveryMethod: "freight", deliveryCents: 0, totalCents: 69000
 const INSTALL = {
   deliveryMethod: INSTALLATION_METHOD,
   deliveryAddress: { street: "Nám. slobody", houseNumber: "1", city: "Prievidza", zip: "971 01", country: "sk" },
-  paymentMethod: null,
+  paymentMethod: "transfer" as const,
   deliveryCents: 0,
   totalCents: 69000,
 };
@@ -92,12 +92,13 @@ function samples(): Sample[] {
     { who: "zákazník", title: "Potvrdenie objednávky — platba kartou, kuriér DPD", when: "hneď po odoslaní objednávky", mail: buildOrderPlaced(group({}), SIGNS) },
     { who: "zákazník", title: "Potvrdenie objednávky — prevod, osobný odber Prievidza", when: "hneď po odoslaní objednávky; obsahuje platobné údaje", mail: buildOrderPlaced(group({ ...PRIEVIDZA, paymentMethod: "transfer" }), SIGNS) },
     { who: "zákazník", title: "Potvrdenie objednávky — prevod, osobný odber Bratislava", when: "hneď po odoslaní objednávky", mail: buildOrderPlaced(group({ ...BRATISLAVA, paymentMethod: "transfer" }), SIGNS) },
-    { who: "zákazník", title: "Objednávka s montážou — čaká na cenovú ponuku", when: "hneď po odoslaní objednávky s montážou", mail: buildOrderPlaced(group(INSTALL), SIGNS) },
-    { who: "zákazník", title: "Cenová ponuka s montážou", when: "keď v admine odošlete cenovú ponuku", mail: buildQuoteSent(group({ ...INSTALL, deliveryCents: 25000, totalCents: 94000, quoteSentAt: new Date().toISOString() }), SIGNS) },
+    { who: "zákazník", title: "Objednávka s montážou — prevod", when: "hneď po odoslaní objednávky s montážou; najprv sa platí za nápis", mail: buildOrderPlaced(group(INSTALL), SIGNS) },
+    { who: "zákazník", title: "Objednávka s montážou — kartou", when: "hneď po odoslaní objednávky s montážou", mail: buildOrderPlaced(group({ ...INSTALL, paymentMethod: "card" }), SIGNS) },
+    { who: "zákazník", title: "Cenová ponuka s montážou (staršie objednávky)", when: "len pri objednávkach s montážou z obdobia pred platbou vopred", mail: buildQuoteSent(group({ ...INSTALL, deliveryCents: 25000, totalCents: 94000, quoteSentAt: new Date().toISOString() }), SIGNS) },
     { who: "zákazník", title: "Platba prijatá — kuriér DPD", when: "po zaplatení kartou alebo po potvrdení prevodu v admine", mail: buildPaymentReceived(group(paid)) },
     { who: "zákazník", title: "Platba prijatá — osobný odber Prievidza", when: "po zaplatení", mail: buildPaymentReceived(group({ ...PRIEVIDZA, ...paid })) },
     { who: "zákazník", title: "Platba prijatá — osobný odber Bratislava", when: "po zaplatení", mail: buildPaymentReceived(group({ ...BRATISLAVA, ...paid })) },
-    { who: "zákazník", title: "Platba prijatá — montáž", when: "po úhrade cenovej ponuky", mail: buildPaymentReceived(group({ ...INSTALL, ...paid, quoteSentAt: new Date().toISOString() })) },
+    { who: "zákazník", title: "Platba prijatá — s montážou", when: "po zaplatení nápisu; ozveme sa kvôli montáži", mail: buildPaymentReceived(group({ ...INSTALL, ...paid })) },
     { who: "zákazník", title: "Platba neprebehla", when: "keď Stripe nahlási neúspešnú platbu", mail: buildPaymentFailed(group({ paymentStatus: "failed" })) },
     { who: "zákazník", title: "Nápis je hotový — osobný odber Prievidza", when: "keď v admine označíte všetky nápisy objednávky ako Hotovo", mail: buildOrderReady(group({ ...PRIEVIDZA, ...paid }), SIGNS) },
     { who: "zákazník", title: "Nápis je hotový — osobný odber Bratislava", when: "všetky nápisy Hotovo", mail: buildOrderReady(group({ ...BRATISLAVA, ...paid }), SIGNS) },
@@ -113,6 +114,7 @@ function samples(): Sample[] {
     { who: "vy", title: "Nová objednávka — prevod", when: "hneď po odoslaní objednávky", mail: buildShopNewOrder(group({ ...PRIEVIDZA, paymentMethod: "transfer" }), SIGNS) },
     { who: "vy", title: "Nová objednávka s montážou", when: "hneď po odoslaní objednávky s montážou", mail: buildShopNewOrder(group(INSTALL), SIGNS) },
     { who: "vy", title: "Objednávka zaplatená — do výroby", when: "po zaplatení kartou alebo po potvrdení prevodu", mail: buildShopPaid(group(paid), SIGNS) },
+    { who: "vy", title: "Objednávka s montážou zaplatená — kontaktovať zákazníka", when: "po zaplatení nápisu s montážou", mail: buildShopPaid(group({ ...INSTALL, ...paid }), SIGNS) },
     { who: "vy", title: "Kontaktný formulár", when: "keď niekto napíše cez kontaktný formulár", mail: buildShopContact({ name: "Ján Vzorový", email: "jan@priklad.sk", subject: "Cena nápisu", message: "Dobrý deň,\nkoľko by stál nápis KAVIAREŇ, 2 m?" }) },
   ];
 }

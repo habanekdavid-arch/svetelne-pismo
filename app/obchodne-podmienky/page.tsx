@@ -42,9 +42,10 @@ export default function TermsPage() {
           potvrdení objednávky. Výroba začne po prijatí platby.
         </p>
         <p>
-          Pri objednávke <strong>s montážou</strong> zákazník vopred nič
-          neplatí: pošleme mu cenovú ponuku (predfaktúru) s cenou montáže a
-          zmluva vzniká jej úhradou.
+          Pri objednávke <strong>s montážou</strong> zákazník rovnako najprv
+          zaplatí za dielo. Po prijatí platby ho kontaktujeme a dohodneme
+          montáž a realizáciu — termín, podrobnosti a cenu montáže, ktorá sa
+          účtuje samostatne.
         </p>
         <p>
           Ak sa po odoslaní objednávky ukáže, že dielo s danými parametrami

@@ -18,7 +18,7 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Ako prebieha objednávka?",
-        a: "Nastavte si nápis v konfigurátore — text a font, výšku, svietenie, prevedenie a farby. Cenu uvidíte po prihlásení a overení e-mailu. V košíku vyberiete doručenie a zaplatíte kartou alebo prevodom; po prijatí platby začneme vyrábať. Ak chcete nápis aj namontovať, zvoľte montáž — pošleme vám cenovú ponuku a vopred nič neplatíte.",
+        a: "Nastavte si nápis v konfigurátore — text a font, výšku, svietenie, prevedenie a farby. Cenu uvidíte po prihlásení a overení e-mailu. V košíku vyberiete doručenie a zaplatíte kartou alebo prevodom; po prijatí platby začneme vyrábať. Ak chcete nápis aj namontovať, zvoľte montáž a vyplňte adresu — najprv zaplatíte za nápis a potom vás budeme kontaktovať kvôli montáži a realizácii.",
       },
       {
         q: "Ako dlho trvá výroba?",
@@ -87,11 +87,11 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Aké sú platobné možnosti?",
-        a: "Platiť môžete kartou cez zabezpečenú platobnú bránu Stripe alebo bankovým prevodom — platobné údaje (IBAN, variabilný symbol, suma) uvidíte hneď po objednaní. Pri objednávke s montážou platíte až podľa zaslanej cenovej ponuky.",
+        a: "Platiť môžete kartou cez zabezpečenú platobnú bránu Stripe alebo bankovým prevodom — platobné údaje (IBAN, variabilný symbol, suma) uvidíte hneď po objednaní. Aj pri objednávke s montážou sa najprv platí za nápis; montáž dohodneme a účtujeme zvlášť.",
       },
       {
         q: "Musím platiť vopred?",
-        a: "Áno, nápis sa platí vopred celý — kartou alebo prevodom. Výrobu začneme po prijatí platby. Pri objednávke s montážou dostanete najprv cenovú ponuku a platíte až podľa nej.",
+        a: "Áno, nápis sa platí vopred celý — kartou alebo prevodom. Výrobu začneme po prijatí platby. Aj pri objednávke s montážou platíte najprv za nápis — montáž dohodneme po zaplatení a účtujeme zvlášť.",
       },
       {
         q: "Vystavujete faktúru?",
@@ -106,7 +106,7 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Je inštalácia v cene nápisu?",
-        a: "Cena z konfigurátora je bez montáže. Ak chcete nápis aj namontovať, vyberte v košíku „Montáž u vás — na cenovú ponuku“: zadáte adresu a my vám pošleme cenovú ponuku s montážou. Ku každému nápisu prikladáme montážny návod a schému zapojenia.",
+        a: "Cena z konfigurátora je bez montáže. Ak chcete nápis aj namontovať, vyberte v košíku „Montáž u vás“ a zadajte adresu. Zaplatíte za nápis a potom vás budeme kontaktovať — dohodneme montáž, termín a cenu montáže. Ku každému nápisu prikladáme montážny návod a schému zapojenia.",
       },
       {
         q: "Potrebujem elektrikára na zapojenie?",

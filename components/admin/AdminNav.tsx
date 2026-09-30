@@ -9,7 +9,11 @@ const TABS = [
 
 export default function AdminNav({ active }: { active: (typeof TABS)[number]["key"] }) {
   return (
-    <nav className="mb-8 flex flex-wrap gap-2" aria-label="Administrácia">
+    <nav className="mb-8 flex flex-wrap items-center gap-2" aria-label="Administrácia">
+      <Link href="/admin" className="mr-4" aria-label="rozsvieťTO — administrácia">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.svg" alt="rozsvieťTO" width={148} height={40} className="h-10 w-auto" />
+      </Link>
       {TABS.map((t) => {
         const on = t.key === active;
         return (
