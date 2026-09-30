@@ -34,8 +34,8 @@ export default function HeroConfigurator() {
             className="reveal delay-2 mx-auto mt-5 max-w-2xl text-base leading-relaxed"
             style={{ color: "var(--color-muted)" }}
           >
-            Napíš text, vyber font, rozmer, farby čela a steny, variant svietenia
-            a materiál — v 3D náhľade hneď uvidíš, ako bude nápis vyzerať na
+            Napíš text, vyber font, rozmer, farby čela a tela, svietenie a
+            prevedenie — v 3D náhľade hneď uvidíš, ako bude nápis vyzerať na
             stene, a cena sa prepočíta okamžite. Vyrábame na mieru z hliníka,
             plastu (3D tlač) aj plexi.
           </p>
