@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Upload, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Hand, ImagePlus, Move, RotateCw, Sparkles, Upload, X } from "lucide-react";
 import { useTip } from "@/components/ui/Tooltip";
 import {
   WALL_COLORS,
@@ -57,6 +57,14 @@ export default function WallPicker({
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [tab, setTab] = useState<Tab>(photoName ? "photo" : "color");
+  // The how-to comes up every time the tab is opened without a photo in it —
+  // it is the one part of the configurator that needs explaining.
+  const [help, setHelp] = useState(false);
+
+  function openTab(id: Tab) {
+    setTab(id);
+    if (id === "photo" && !photoName) setHelp(true);
+  }
   const tip = useTip();
 
   return (
@@ -74,7 +82,7 @@ export default function WallPicker({
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => setTab(t.id)}
+                onClick={() => openTab(t.id)}
                 className="rounded-full px-3.5 py-1.5 text-[13px] font-bold tracking-[0.01em] transition"
                 style={
                   active
@@ -83,6 +91,14 @@ export default function WallPicker({
                 }
               >
                 {t.label}
+                {t.id === "photo" && (
+                  <span
+                    className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide"
+                    style={{ background: "var(--accent)", color: "#000" }}
+                  >
+                    Odporúčame
+                  </span>
+                )}
               </button>
             );
           })}
@@ -141,6 +157,14 @@ export default function WallPicker({
 
         {tab === "photo" && (
           <>
+            <button
+              type="button"
+              onClick={() => setHelp(true)}
+              className="rounded-xl px-3 py-2.5 text-[13px] font-bold underline-offset-2 hover:underline"
+              style={{ color: "var(--color-foreground-soft)" }}
+            >
+              Ako to funguje?
+            </button>
             {photoName && photoUrl ? (
               <Tile active label={photoName} onClick={onClearPhoto} tipProps={tip(photoName, "kliknutím odstránite")}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -237,6 +261,112 @@ export default function WallPicker({
           {error}
         </p>
       )}
+
+      {help && (
+        <PhotoHelp
+          onClose={() => setHelp(false)}
+          onUpload={() => {
+            setHelp(false);
+            fileRef.current?.click();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── "Vlastný návrh" explained ───────────────────────────────────────────────
+// What it is, why it is the best way to see the sign, and how the preview is
+// handled once a photo is in — shown when the tab is opened.
+function PhotoHelp({ onClose, onUpload }: { onClose: () => void; onUpload: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const steps = [
+    { Icon: ImagePlus, title: "Odfoťte svoju stenu priamo spredu", text: "Postavte sa rovno oproti miestu, kde bude nápis, a držte mobil zvislo — plocha pre nápis musí byť na fotke čo najrovnejšia, nie zboku ani zospodu. Foťte za denného svetla." },
+    { Icon: Upload, title: "Nahrajte ju", text: "Fotka ostane len vo vašom prehliadači, nikam sa neodosiela." },
+    { Icon: Move, title: "Posuňte nápis na miesto", text: "Ťahajte ľavým tlačidlom myši (na mobile jedným prstom). Prepínačom „Nápis / Pozadie“ zvolíte, či posúvate nápis alebo fotku." },
+    { Icon: RotateCw, title: "Pootočte pohľad", text: "Pravým tlačidlom myši (na mobile dvoma prstami). „Na stred“ vráti všetko späť." },
+    { Icon: Hand, title: "Doladte nápis", text: "Text, výšku, farby aj svietenie meníte ďalej v krokoch vpravo — náhľad na fotke sa mení hneď. Pri svetelnom písme prepnite na Noc." },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="photo-help-title"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl p-6 shadow-2xl"
+        style={{ background: "var(--color-background)", color: "var(--color-foreground)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-wide"
+              style={{ background: "var(--accent)", color: "#000" }}
+            >
+              <Sparkles size={12} strokeWidth={2.5} /> Odporúčame
+            </span>
+            <h3 id="photo-help-title" className="mt-3 text-xl font-extrabold">
+              Vlastný návrh — nápis priamo na vašej stene
+            </h3>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Zavrieť" className="rounded-full p-1.5 hover:bg-black/5">
+            <X size={18} />
+          </button>
+        </div>
+
+        <p className="mt-2 text-[14px] leading-6" style={{ color: "var(--color-foreground-soft)" }}>
+          Najlepší spôsob, ako vidieť, ako bude nápis naozaj vyzerať: nahráte fotku svojej steny a nápis
+          sa na ňu vloží v skutočnej veľkosti — uvidíte, či sedí rozmer, farby aj svietenie.
+        </p>
+
+        <ol className="mt-5 space-y-3">
+          {steps.map(({ Icon, title, text }, i) => (
+            <li key={title} className="flex gap-3">
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
+                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border-strong)" }}
+                aria-hidden="true"
+              >
+                {i + 1}
+              </span>
+              <div>
+                <p className="flex items-center gap-1.5 text-[14px] font-bold">
+                  <Icon size={15} strokeWidth={2.2} aria-hidden="true" /> {title}
+                </p>
+                <p className="text-[13px] leading-5" style={{ color: "var(--color-muted)" }}>{text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl px-5 py-3 text-sm font-bold"
+            style={{ border: "2px solid var(--color-foreground)" }}
+          >
+            Zavrieť
+          </button>
+          <button
+            type="button"
+            onClick={onUpload}
+            className="flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black"
+            style={{ background: "var(--accent)", color: "#000" }}
+          >
+            <Upload size={15} strokeWidth={2.5} /> Nahrať fotku steny
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
