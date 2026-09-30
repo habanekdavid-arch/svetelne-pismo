@@ -2,7 +2,6 @@ import "server-only";
 
 import { bankAccount } from "@/lib/bank";
 import { mailConfigured, mailSetup, MAIL_FROM, SHOP_INBOX } from "@/lib/mailer.server";
-import { packetaConfigured, homeCarrierId } from "@/lib/packeta";
 import { stripeConfigured, webhookSecret } from "@/lib/stripe";
 
 // Which outside services are switched on — read from the environment, shown
@@ -29,8 +28,6 @@ function missing(...names: string[]): string[] {
 export function integrations(): Integration[] {
   const stripeReady = stripeConfigured() && Boolean(webhookSecret());
   const bank = bankAccount();
-  const packetaWidget = set("NEXT_PUBLIC_PACKETA_API_KEY");
-  const packetaApi = packetaConfigured();
   const mail = mailConfigured();
 
   return [
@@ -59,22 +56,6 @@ export function integrations(): Integration[] {
         ? `Zapnutý — ${bank.iban} (${bank.holder}${bank.bank ? `, ${bank.bank}` : ""}), ten istý účet ako vytlacto3d.`
         : "BANK_IBAN nie je platný IBAN — prevod sa neponúka.",
       missing: [],
-    },
-    {
-      name: "Packeta — výdajné miesta",
-      ok: packetaWidget,
-      status: packetaWidget ? "Zapnutá — mapa výdajných miest v košíku." : "Vypnutá — v košíku je len kuriér.",
-      missing: missing("NEXT_PUBLIC_PACKETA_API_KEY"),
-    },
-    {
-      name: "Packeta — zásielky automaticky",
-      ok: packetaApi,
-      status: packetaApi
-        ? homeCarrierId()
-          ? "Zásielky (výdajné miesto aj kuriér) sa vytvoria po zaplatení."
-          : "Zásielky na výdajné miesto sa vytvoria po zaplatení; kuriéra treba zadať ručne."
-        : "Vypnuté — zásielky sa zadávajú ručne v Packete.",
-      missing: missing("PACKETA_API_PASSWORD", "PACKETA_HOME_CARRIER_ID"),
     },
     {
       name: "E-maily",

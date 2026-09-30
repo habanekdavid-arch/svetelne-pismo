@@ -17,6 +17,7 @@ import PayAgainButton from "@/components/orders/PayAgainButton";
 import { bankAccount, variableSymbol } from "@/lib/bank";
 import { stripeConfigured } from "@/lib/stripe";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
+import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
 
 export const metadata: Metadata = {
   title: "Objednávka | rozsvieťTO",
@@ -196,7 +197,7 @@ function body(group: OrderGroup, cancelled: boolean): string {
   if (group.paymentStatus === "paid") {
     return group.deliveryMethod === INSTALLATION_METHOD
       ? "Ďakujeme. Nápis ideme vyrábať a termín montáže s vami dohodneme telefonicky."
-      : "Ďakujeme. Nápis ideme vyrábať a hneď ako bude hotový, odošleme ho — číslo zásielky sa objaví tu.";
+      : `Ďakujeme. Nápis ideme vyrábať. ${afterMadeText(group.deliveryMethod)}`;
   }
   if (cancelled) {
     return "Platba bola prerušená a nič sme vám nestrhli. Objednávku máme uloženú — môžete ju zaplatiť kedykoľvek.";
@@ -211,15 +212,10 @@ function body(group: OrderGroup, cancelled: boolean): string {
 }
 
 function deliveryLabel(group: OrderGroup): string {
-  if (group.deliveryPoint) {
-    const p = group.deliveryPoint;
-    return `Packeta — ${p.name}${p.street ? `, ${p.street}` : ""}`;
-  }
-  if (group.deliveryAddress) {
-    const a = group.deliveryAddress;
-    return `${a.street} ${a.houseNumber}, ${a.zip} ${a.city}`;
-  }
-  return "Osobný odber";
+  const place = deliveryPlace(group);
+  if (group.deliveryMethod === INSTALLATION_METHOD) return place ?? "—";
+  const method = DELIVERY_METHOD_LABEL[group.deliveryMethod] ?? "Osobný odber";
+  return place ? `${method} — ${place}` : method;
 }
 
 function Row({ label, value }: { label: string; value: string }) {

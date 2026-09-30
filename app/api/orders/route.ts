@@ -6,7 +6,6 @@ import {
   createOrder,
   createOrderGroup,
   type DeliveryAddress,
-  type DeliveryPoint,
   type Order,
   type OrderGroup,
 } from "@/lib/orders";
@@ -17,6 +16,7 @@ import {
   sanitizeConfig,
   type Quote,
 } from "@/lib/quote.server";
+import { isInBratislava } from "@/lib/shipping";
 import { availablePaymentMethods } from "@/lib/payment.server";
 import { INSTALLATION_METHOD, isPaymentMethod, type PaymentMethodId } from "@/lib/payment-methods";
 import type { Config } from "@/lib/types";
@@ -137,18 +137,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const point = method.needsPoint ? readPoint(body?.delivery?.point) : null;
-  if (method.needsPoint && !point) {
-    return NextResponse.json({ error: "pickup_point_required" }, { status: 400 });
-  }
-
   const address = method.needsAddress ? readAddress(body?.delivery?.address) : null;
   if (method.needsAddress && !address) {
     return NextResponse.json({ error: "address_required" }, { status: 400 });
   }
+  // Handed over in person, so only within the city.
+  if (method.id === "pickup-bratislava" && address && !isInBratislava(address.city)) {
+    return NextResponse.json({ error: "bratislava_only" }, { status: 400 });
+  }
 
-  // The carrier notifies the recipient by phone; asking for it after the
-  // money has moved is too late.
+  // The courier calls the recipient, and a hand-over is arranged by phone;
+  // asking for it after the money has moved is too late.
   if (!phone) {
     return NextResponse.json({ error: "phone_required" }, { status: 400 });
   }
@@ -173,7 +172,6 @@ export async function POST(req: Request) {
     customerEmail: email,
     customerPhone: phone,
     deliveryMethod: method.id,
-    deliveryPoint: point,
     deliveryAddress: address,
     itemsCents: quote.itemsCents,
     deliveryCents: deliveryCents(method),
@@ -230,26 +228,6 @@ function str(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
   const v = value.trim();
   return v ? v.slice(0, max) : null;
-}
-
-/** The pick-up point as the Packeta widget handed it to the browser. */
-function readPoint(raw: unknown): DeliveryPoint | null {
-  if (!raw || typeof raw !== "object") return null;
-  const p = raw as Record<string, unknown>;
-  const id = str(p.id, 64) ?? (typeof p.id === "number" ? String(p.id) : null);
-  const name = str(p.name, 200);
-  if (!id || !name) return null;
-  return {
-    id,
-    name,
-    place: str(p.place, 200),
-    street: str(p.street, 200),
-    city: str(p.city, 100),
-    zip: str(p.zip, 20),
-    country: str(p.country, 2),
-    carrierId: str(p.carrierId, 32),
-    carrierPickupPoint: str(p.carrierPickupPoint, 64) ?? str(p.carrierPickupPointId, 64),
-  };
 }
 
 function readAddress(raw: unknown): DeliveryAddress | null {

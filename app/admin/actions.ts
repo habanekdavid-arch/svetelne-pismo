@@ -29,7 +29,7 @@ export async function setOrderStatus(orderId: number, status: OrderStatus) {
 
 /**
  * A bank transfer has arrived. The same once-only step a card payment takes in
- * the Stripe webhook: the order is marked paid and handed to Packeta.
+ * the Stripe webhook: the order is marked paid and the customer is told.
  */
 export async function confirmTransferPaid(groupId: string) {
   const session = await getAdminIdentity();

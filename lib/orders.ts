@@ -122,7 +122,7 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   refunded: "Vrátené",
 };
 
-/** A pick-up point as the Packeta widget hands it back. */
+/** A Packeta pick-up point — only on orders placed while Packeta was offered. */
 export type DeliveryPoint = {
   /** Branch ID for Packeta's own points, carrier's code for external ones. */
   id: string;
@@ -293,28 +293,6 @@ export async function setGroupPaymentStatus(
 ): Promise<void> {
   const sql = await getDb();
   await sql`UPDATE order_groups SET payment_status = ${status} WHERE id = ${groupId}`;
-}
-
-export async function attachPacket(
-  groupId: string,
-  packet: { id: string; barcode: string },
-): Promise<void> {
-  const sql = await getDb();
-  await sql`
-    UPDATE order_groups
-    SET packeta_packet_id = ${packet.id},
-        packeta_barcode = ${packet.barcode},
-        packeta_error = NULL
-    WHERE id = ${groupId}
-  `;
-}
-
-/** Keeps why a packet could not be created, so it shows up in the admin. */
-export async function recordPacketError(groupId: string, message: string): Promise<void> {
-  const sql = await getDb();
-  await sql`
-    UPDATE order_groups SET packeta_error = ${message.slice(0, 500)} WHERE id = ${groupId}
-  `;
 }
 
 export async function listOrdersForGroup(groupId: string): Promise<Order[]> {

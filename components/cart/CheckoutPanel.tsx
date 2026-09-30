@@ -3,19 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Config } from "@/lib/types";
-import type { DeliveryAddress, DeliveryPoint } from "@/lib/orders";
+import type { DeliveryAddress } from "@/lib/orders";
 import { useCart, type CartItem } from "@/lib/cart-context";
 import { MATERIALS, fontOptions } from "@/lib/options";
 import { PAYMENT_METHOD_LABEL, type PaymentMethodId } from "@/lib/payment-methods";
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange, onSessionChange } from "@/lib/session-client";
 import { formatEur } from "@/lib/vat";
-import PacketaPointPicker from "@/components/checkout/PacketaPointPicker";
+import { isInBratislava } from "@/lib/shipping";
 import { AddressFields, emptyAddress } from "@/components/checkout/AddressFields";
 import AuthGate, { type SessionUser } from "@/components/checkout/AuthGate";
 
 // The whole checkout, inside the cart drawer — laid out the way vytlacto3d's
-// is: delivery as two cards (Packeta, courier), the contact details as a
+// is: delivery as cards (collect in Prievidza, hand-over in Bratislava, DPD),
+// the contact details as a
 // summary with an "Upraviť" link, payment as two cards (card, transfer), the
 // price breakdown, the terms tick and one order button.
 //
@@ -33,7 +34,6 @@ type QuotedDeliveryMethod = {
   description: string;
   price: number | null;
   priceLabel: string;
-  needsPoint: boolean;
   needsAddress: boolean;
 };
 
@@ -60,7 +60,7 @@ type Props = {
   onQuoted?: (prices: number[] | null) => void;
 };
 
-type Errors = Partial<Record<"name" | "email" | "phone" | "point" | "address" | "site" | "payment", string>>;
+type Errors = Partial<Record<"name" | "email" | "phone" | "address" | "site" | "payment", string>>;
 
 export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Props) {
   const { clear: clearCart, close } = useCart();
@@ -110,7 +110,6 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteFailed, setQuoteFailed] = useState(false);
   const [method, setMethod] = useState<string>("");
-  const [point, setPoint] = useState<DeliveryPoint | null>(null);
   const [payment, setPayment] = useState<PaymentMethodId | null>(null);
   const [site, setSite] = useState<DeliveryAddress>(emptyAddress());
 
@@ -176,8 +175,10 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
     if (installation) {
       if (!isComplete(site)) e.site = "Vyplňte celú adresu inštalácie";
     } else {
-      if (carrier?.needsPoint && !point) e.point = "Vyberte výdajné miesto";
       if (carrier?.needsAddress && !isComplete(address)) e.address = "Vyplňte celú adresu";
+      else if (carrier?.id === "pickup-bratislava" && !isInBratislava(address.city)) {
+        e.address = "Osobne odovzdávame len v Bratislave";
+      }
       if (paymentMethods.length > 0 && !payment) e.payment = "Vyberte spôsob platby";
     }
     setErrors(e);
@@ -205,7 +206,6 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
                 phone,
                 delivery: {
                   method,
-                  point: carrier?.needsPoint ? point : null,
                   address: carrier?.needsAddress ? address : null,
                 },
                 payment,
@@ -297,7 +297,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           : "Objednať a zaplatiť kartou";
 
   const blocked =
-    submitting || !terms || !quote || (!installation && carrier?.needsPoint === true && !point);
+    submitting || !terms || !quote;
 
   const count = items.length;
   const countLabel = `${count} ${count === 1 ? "nápis" : count < 5 ? "nápisy" : "nápisov"}`;
@@ -320,11 +320,11 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
                 key={d.id}
                 active={method === d.id}
                 onClick={() => setMethod(d.id)}
-                icon={d.id === "packeta-pickup" ? <HouseIcon /> : <TruckIcon />}
+                icon={d.id.startsWith("pickup-") ? <HouseIcon /> : <TruckIcon />}
                 title={d.name}
                 sub={d.priceLabel}
                 subStrong
-                wide={quote.deliveryMethods.length === 1}
+                wide={quote.deliveryMethods.length % 2 === 1 && d === quote.deliveryMethods[quote.deliveryMethods.length - 1]}
               />
             ))}
             <ChoiceCard
@@ -338,15 +338,20 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           </div>
         )}
 
-        {carrier?.needsPoint && !installation && (
-          <div className="mt-2">
-            <PacketaPointPicker value={point} onChange={setPoint} weightKg={quote?.parcel.weightKg} />
-            {errors.point && <Err>{errors.point}</Err>}
-          </div>
+        {carrier && !installation && (
+          <p className="mt-2 text-xs leading-5" style={{ color: "var(--color-muted)" }}>
+            {carrier.description}
+          </p>
         )}
         {carrier?.needsAddress && !installation && (
           <div className="mt-2 rounded-2xl p-3" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
-            <Sub>{carrier.id === "freight" ? "Adresa doručenia — dopravu dohodneme" : "Dodacia adresa"}</Sub>
+            <Sub>
+              {carrier.id === "freight"
+                ? "Adresa doručenia — dopravu dohodneme"
+                : carrier.id === "pickup-bratislava"
+                  ? "Kde v Bratislave vám ho odovzdáme"
+                  : "Dodacia adresa"}
+            </Sub>
             <AddressFields value={address} onChange={setAddress} error={errors.address} />
           </div>
         )}
