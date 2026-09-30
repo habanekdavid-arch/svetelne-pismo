@@ -151,12 +151,7 @@ export async function saveUserProfile(userId: string, profile: UserProfile): Pro
   `;
 }
 
-export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  await ensureTable();
-  const sql = await getDb();
-  const rows = (await sql`SELECT * FROM user_profiles WHERE user_id = ${userId}`) as Row[];
-  const r = rows[0];
-  if (!r) return null;
+function fromRow(r: Row): UserProfile {
   return {
     accountType: r.account_type === "COMPANY" ? "COMPANY" : "PERSON",
     phone: r.phone ?? "",
@@ -179,4 +174,21 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
       country: r.shipping_country ?? "",
     },
   };
+}
+
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  await ensureTable();
+  const sql = await getDb();
+  const rows = (await sql`SELECT * FROM user_profiles WHERE user_id = ${userId}`) as Row[];
+  const r = rows[0];
+  if (!r) return null;
+  return fromRow(r);
+}
+
+/** Every stored profile, by account — for the admin's list of customers. */
+export async function listUserProfiles(): Promise<Map<string, UserProfile>> {
+  await ensureTable();
+  const sql = await getDb();
+  const rows = (await sql`SELECT * FROM user_profiles`) as Row[];
+  return new Map(rows.map((r) => [String(r.user_id), fromRow(r)]));
 }

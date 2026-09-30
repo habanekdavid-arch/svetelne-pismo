@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
+import AdminNav from "@/components/admin/AdminNav";
 import type { Order, OrderGroup } from "@/lib/orders";
 import { INSTALLATION_METHOD } from "@/lib/payment-methods";
 import {
@@ -124,6 +125,7 @@ export default async function EmailPreviewPage() {
   return (
     <main className="px-5 py-10" style={{ background: "var(--color-background)" }}>
       <div className="mx-auto max-w-5xl">
+        <AdminNav active="emails" />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-extrabold" style={{ color: "var(--color-foreground)" }}>E-maily</h1>

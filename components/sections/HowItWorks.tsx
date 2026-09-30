@@ -83,25 +83,25 @@ const steps = [
     n: 1,
     icon: <TypeIcon />,
     title: "Napíšte svoj text",
-    text: "Zadajte text, ktorý chcete rozsvietiť — meno, slogan alebo logo prevádzky. V živom 3D náhľade hneď uvidíte, ako bude nápis vyzerať.",
+    text: "Zadajte text, ktorý chcete rozsvietiť — meno, slogan alebo názov prevádzky — a vyberte font. V 3D náhľade ho hneď uvidíte na stene — aj na fotke vašej vlastnej steny.",
   },
   {
     n: 2,
     icon: <SettingsIcon />,
     title: "Vyberte si parametre",
-    text: "Zvoľte si font, materiál, výšku písmen, hrúbku, farbu tela aj LED podsvietenia. Cena sa automaticky prepočíta na základe vašich nastavení.",
+    text: "Zadajte výšku písmen, zvoľte svietenie (spredu, zozadu alebo nesvetelné), prevedenie z hliníka, plastu či plexi a farby čela a tela. Hrúbku určíme podľa výšky. Cenu uvidíte po prihlásení.",
   },
   {
     n: 3,
     icon: <SendIcon />,
-    title: "Odoslanie objednávky",
-    text: "Skontrolujte si zhrnutie a odošlite objednávku. Parametre overíme a pošleme vám záväznú cenu spolu s termínom výroby.",
+    title: "Objednávka a platba",
+    text: "V košíku vyberte doručenie a zaplaťte kartou alebo prevodom. Ak chcete nápis aj namontovať, pošleme vám cenovú ponuku s montážou — vopred nič neplatíte.",
   },
   {
     n: 4,
     icon: <SignIcon />,
     title: "Výroba a dodanie",
-    text: "Nápis vyrobíme, odskúšame svietivosť a bezpečne ho odošleme priamo na vašu adresu. Montáž na stenu je jednoduchá a rýchla.",
+    text: "Nápis vyrobíme do 3 týždňov a odskúšame. Prevezmete si ho osobne v Prievidzi alebo v Bratislave, alebo ho pošleme kuriérom DPD.",
   },
 ] as const;
 

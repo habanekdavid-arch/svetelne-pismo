@@ -95,6 +95,13 @@ export async function listOrdersForUser(userId: string): Promise<Order[]> {
   return rows.map(mapRow);
 }
 
+export async function getOrder(id: number): Promise<Order | null> {
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+  const sql = await getDb();
+  const rows = (await sql`SELECT * FROM orders WHERE id = ${id}`) as Row[];
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
 export async function listAllOrders(): Promise<Order[]> {
   const sql = await getDb();
   const rows = (await sql`SELECT * FROM orders ORDER BY created_at DESC`) as Row[];

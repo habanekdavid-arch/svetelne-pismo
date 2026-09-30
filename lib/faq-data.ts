@@ -18,7 +18,7 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Ako prebieha objednávka?",
-        a: "Nakonfigurujte nápis v našom konfigurátore, zadajte meno a e-mail a odošlite nezáväznú objednávku. Do 24 hodín vám pošleme záväznú cenovú ponuku s termínom výroby. Po potvrdení a zaplatení zálohy začneme vyrábať.",
+        a: "Nastavte si nápis v konfigurátore — text a font, výšku, svietenie, prevedenie a farby. Cenu uvidíte po prihlásení a overení e-mailu. V košíku vyberiete doručenie a zaplatíte kartou alebo prevodom; po prijatí platby začneme vyrábať. Ak chcete nápis aj namontovať, zvoľte montáž — pošleme vám cenovú ponuku a vopred nič neplatíte.",
       },
       {
         q: "Ako dlho trvá výroba?",
@@ -26,11 +26,11 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Môžem objednávku zrušiť alebo zmeniť?",
-        a: "Zmeny sú možné do 24 hodín od potvrdenia. Po začatí výroby zmeny nie sú možné, pretože materiál je už orezaný na váš konkrétny text a rozmery.",
+        a: "Ak potrebujete niečo zmeniť, napíšte nám čo najskôr po objednaní. Kým výroba nezačala, zmenu zapracujeme. Po začatí výroby to už nie je možné, pretože materiál je orezaný na váš konkrétny text a rozmery.",
       },
       {
         q: "Vyrábate nápisy na mieru?",
-        a: "Áno, každý nápis vyrábame na mieru. Môžete si zvoliť vlastný text, font, materiál, farbu, hrúbku aj spôsob svietenia. Pokiaľ máte špeciálne požiadavky mimo konfigurátora, kontaktujte nás priamo.",
+        a: "Áno, každý nápis vyrábame na mieru. V konfigurátore si zvolíte text, font, výšku písmen, spôsob svietenia, prevedenie aj farby čela a tela. Pokiaľ máte špeciálne požiadavky mimo konfigurátora — napríklad logo — kontaktujte nás priamo.",
       },
     ],
   },
@@ -41,11 +41,11 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Z akých materiálov vyrábate nápisy?",
-        a: "Pracujeme s Alubondom (hliníkový sendvičový plech), Plexisklom (akrylát), 3D tlačou (FDM/SLA) a PVC. Každý materiál má iné vlastnosti — porovnanie nájdete v blogu.",
+        a: "Vyrábame v troch skupinách: hliník (profil Alurol — na veľké formáty a fasády), plast (3D tlačené telo s plexi čelom alebo plné 3D tlačené písmo) a plexi (30 mm svetelné plexi z jedného kusa alebo rezané číre plexi s UV potlačou). Ktoré prevedenie sa hodí, vyberie konfigurátor podľa svietenia, textu a výšky.",
       },
       {
         q: "Ktorý materiál je vhodný na vonkajšie použitie?",
-        a: "Na vonkajšie použitie odporúčame Alubond alebo Plexisklo. Oba materiály sú odolné voči poveternostným podmienkam, UV žiareniu aj teplotným výkyvom. PVC a 3D tlač sú primárne určené pre interiér.",
+        a: "Na fasády a vonkajšie použitie odporúčame hliníkový profil Alurol — je najodolnejší voči počasiu, UV žiareniu aj teplotným výkyvom. Plexi zvládne aj exteriér pod strieškou. 3D tlačené písmo je určené najmä do interiéru.",
       },
       {
         q: "Aká je životnosť LED svietenia?",
@@ -53,7 +53,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Môžem si vybrať vlastnú farbu nápisu?",
-        a: "Áno. Čelo aj telo nápisu si vyberiete z ôsmich farieb priamo v konfigurátore, pri svetelnom písme aj v matnej bielej. Svieti sa vždy bielym LED svetlom — pri svietení spredu svieti nápis vo farbe čela, pri svietení zozadu dopadá na stenu biele svetlo.",
+        a: "Áno. Čelo aj telo nápisu si vyberiete priamo v konfigurátore — bielu, žltú, oranžovú, červenú, zelenú, modrú, čiernu, striebornú alebo zlatú. Pri svietení spredu musí čelo prepúšťať svetlo, preto je na výber len v presvitných farbách. Plexi s UV tlačou má telo z číreho plexi, 30 mm plexi má mliečne hrany. Svieti sa vždy bielym LED svetlom — spredu svieti nápis vo farbe čela, zozadu dopadá na stenu biele svetlo.",
       },
     ],
   },
@@ -64,7 +64,7 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Kam doručujete?",
-        a: "Doručujeme po celom Slovensku a Česku. Na požiadanie posielame aj do iných krajín EÚ — cena dopravy sa stanoví individuálne podľa hmotnosti a rozmeru nápisu.",
+        a: "Kuriérom DPD doručujeme po celom Slovensku. Nápis si môžete prevziať aj osobne v Prievidzi, alebo vám ho odovzdáme kdekoľvek v Bratislave. Do zahraničia posielame po dohode — napíšte nám.",
       },
       {
         q: "Ako je nápis zabalený pri preprave?",
@@ -76,7 +76,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Ponúkate osobné prevzatie?",
-        a: "Áno, nápis si môžete prevziať osobne v našej dielni v Prievidzi. Dohodnutie termínu je nutné vopred telefonicky alebo e-mailom.",
+        a: "Áno, zadarmo — v Prievidzi (4from media, s.r.o., M. Hodžu 393/5) alebo osobne kdekoľvek v Bratislave. Keď bude nápis hotový, ozveme sa vám a dohodneme termín odovzdania.",
       },
     ],
   },
@@ -87,11 +87,11 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Aké sú platobné možnosti?",
-        a: "Akceptujeme bankový prevod a platbu kartou cez bezpečnú platobnú bránu. Pre firemných zákazníkov je možná úhrada na faktúru so splatnosťou 14 dní (po dohode).",
+        a: "Platiť môžete kartou cez zabezpečenú platobnú bránu Stripe alebo bankovým prevodom — platobné údaje (IBAN, variabilný symbol, suma) uvidíte hneď po objednaní. Pri objednávke s montážou platíte až podľa zaslanej cenovej ponuky.",
       },
       {
         q: "Musím platiť vopred?",
-        a: "Pred výrobou vyžadujeme zálohu vo výške 50 % z ceny. Zvyšok uhradíte po dokončení a pred odoslaním nápisu. Pre overených firemných zákazníkov je možné dohodnúť iné podmienky.",
+        a: "Áno, nápis sa platí vopred celý — kartou alebo prevodom. Výrobu začneme po prijatí platby. Pri objednávke s montážou dostanete najprv cenovú ponuku a platíte až podľa nej.",
       },
       {
         q: "Vystavujete faktúru?",
@@ -106,7 +106,7 @@ export const faqCategories: FaqCategory[] = [
     items: [
       {
         q: "Je inštalácia v cene nápisu?",
-        a: "Inštalácia nie je zahrnutá v cene, ale vieme odporučiť montážnu firmu vo vašom regióne. Ku každému nápisu prikladáme montážny návod a schému zapojenia.",
+        a: "Cena z konfigurátora je bez montáže. Ak chcete nápis aj namontovať, vyberte v košíku „Montáž u vás — na cenovú ponuku“: zadáte adresu a my vám pošleme cenovú ponuku s montážou. Ku každému nápisu prikladáme montážny návod a schému zapojenia.",
       },
       {
         q: "Potrebujem elektrikára na zapojenie?",
@@ -114,7 +114,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Na akú vzdialenosť od steny sa montuje nápis?",
-        a: "Väčšina písmen sa montuje 5–10 cm od steny pomocou priložených dištančníkov. Táto vzdialenosť vytvára halo efekt na stene za nápisom. Na požiadanie môžeme dištančníky prispôsobiť.",
+        a: "Písmo svietiace spredu a nesvetelné písmo sa montuje tesne na stenu. Písmo svietiace zozadu sa montuje na dištančníkoch s odstupom od steny, aby svetlo vytvorilo na stene za nápisom halo efekt. Odstup vieme na požiadanie prispôsobiť.",
       },
       {
         q: "Môžem nápis presunúť na inú stenu?",

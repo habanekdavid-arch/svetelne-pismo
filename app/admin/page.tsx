@@ -9,24 +9,21 @@ import {
   ORDER_STATUSES,
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
-  QUOTE_STATE_LABEL,
   quoteState,
-  type OrderGroup,
   type OrderStatus,
 } from "@/lib/orders";
-import { fontOptions, MATERIALS, depthMmFor, hasSeparateFace, faceColorOf, colorLabel, variantLabel } from "@/lib/options";
+import { fontOptions, MATERIALS, hasSeparateFace, faceColorOf, colorLabel, variantLabel } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
-import ConfirmTransferButton from "@/components/admin/ConfirmTransferButton";
-import InstallationQuoteForm from "@/components/admin/InstallationQuoteForm";
 import { integrations } from "@/lib/integrations.server";
-import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
 import StatusBadge from "@/components/orders/StatusBadge";
 import LogoutButton from "@/components/admin/LogoutButton";
 import SelfTestPanel from "@/components/admin/SelfTestPanel";
 import { SHOP_INBOX } from "@/lib/mailer.server";
 import EyebrowPill from "@/components/ui/EyebrowPill";
+import { orderNumber, Label, DELIVERY_LABEL } from "@/components/admin/OrderBits";
+import AdminNav from "@/components/admin/AdminNav";
+import { listContactMessages } from "@/lib/contact";
 
 export const metadata: Metadata = {
   title: "Administratíva objednávok | rozsvieťTO",
@@ -46,12 +43,6 @@ const TILE_HINT: Record<string, string> = {
   done:        "Odovzdané zákazníkovi",
   cancelled:   "Stornované",
 };
-
-// Human-facing order number. The database id stays visible next to it so a
-// row is still findable by its real primary key.
-function orderNumber(id: number): string {
-  return `ROZ-${String(id).padStart(4, "0")}`;
-}
 
 // Own password-based login (AdminUser + bcrypt) or an allowlisted account —
 // see lib/admin-auth.ts and app/admin/prihlasenie.
@@ -130,6 +121,8 @@ export default async function AdminPage({
           </div>
         </div>
 
+        <AdminNav active="orders" />
+
         {/* Which outside services are on — the checklist for the API keys
             (docs/API-KLUCE-TODO.md), read live from the environment. */}
         <IntegrationsPanel />
@@ -137,6 +130,10 @@ export default async function AdminPage({
         {/* Buttons that exercise each live service — a test e-mail, the
             database, Stripe and the server's own price calculation. */}
         <SelfTestPanel defaultTo={SHOP_INBOX} />
+
+        {/* Messages from the contact form — stored even when e-mail is down,
+            so this is where nothing gets lost. */}
+        <ContactMessagesPanel />
 
         {/* Stat tiles — counts per status + total revenue; click to filter */}
         <div className="mb-10 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
@@ -295,58 +292,13 @@ export default async function AdminPage({
                     <AdminOrderActions orderId={o.id} status={o.status} />
                   </div>
 
-                  <details className="group mt-4">
-                    <summary
-                      className="cursor-pointer select-none text-sm font-bold underline underline-offset-4"
-                      style={{ color: "var(--color-foreground)" }}
-                    >
-                      <span className="group-open:hidden">Zobraziť detail objednávky</span>
-                      <span className="hidden group-open:inline">Skryť detail objednávky</span>
-                    </summary>
-                    <div
-                      className="mt-4 grid gap-6 rounded-2xl p-5 md:grid-cols-3"
-                      style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-                    >
-                      <div className="min-w-0 text-sm">
-                        <Label>Nápis</Label>
-                        <p className="whitespace-pre-line font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                          {o.config.text}
-                        </p>
-                        <dl className="mt-3 space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
-                          <SpecLine label="Svietenie" value={variantLabel(o.config)} />
-                          <SpecLine label="Font" value={font?.name ?? o.config.font} />
-                          <SpecLine label="Materiál" value={material?.displayName ?? o.config.material} />
-                          <SpecLine label="Výška" value={`${o.config.height} mm`} />
-                          <SpecLine label="Hrúbka" value={`${depthMmFor(o.config.material, o.config.height)} mm`} />
-                          {/* Dielňa potrebuje obe farby menom — čelo a telo sa
-                              objednávajú a lakujú zvlášť. */}
-                          {hasSeparateFace(o.config.material) ? (
-                            <>
-                              <SpecLine label="Čelo" value={colorLabel(faceColorOf(o.config))} />
-                              <SpecLine label="Telo" value={colorLabel(o.config.bodyColor)} />
-                            </>
-                          ) : (
-                            <SpecLine label="Farba" value={colorLabel(o.config.bodyColor)} />
-                          )}
-                        </dl>
-                      </div>
-
-                      <div className="min-w-0 text-sm">
-                        <Label>Zákazník</Label>
-                        <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
-                          <SpecLine label="Meno" value={o.customerName} />
-                          <SpecLine label="E-mail" value={o.customerEmail} />
-                          {group?.customerPhone && <SpecLine label="Telefón" value={group.customerPhone} />}
-                          <SpecLine label="Číslo v systéme" value={`#${o.id}`} />
-                        </dl>
-                      </div>
-
-                      {/* Delivery and payment — from the checkout this sign was
-                          part of. Orders placed before checkout existed have no
-                          group, and say so. */}
-                      <DeliveryPanel group={group} />
-                    </div>
-                  </details>
+                  <Link
+                    href={`/admin/objednavka/${o.id}`}
+                    className="mt-4 inline-block text-sm font-bold underline underline-offset-4"
+                    style={{ color: "var(--color-foreground)" }}
+                  >
+                    Zobraziť detail objednávky →
+                  </Link>
                 </article>
               );
             })}
@@ -355,105 +307,6 @@ export default async function AdminPage({
 
       </div>
     </main>
-  );
-}
-
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--color-muted)" }}>
-      {children}
-    </p>
-  );
-}
-
-function SpecLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt style={{ color: "var(--color-muted)" }}>{label}</dt>
-      <dd className="truncate font-semibold">{value}</dd>
-    </div>
-  );
-}
-
-/**
- * What the workshop needs in order to send the sign: how and where it goes and
- * whether it has been paid for. Orders from while Packeta was offered still
- * show their packet number, or why the packet could not be created.
- */
-const DELIVERY_LABEL: Record<string, string> = {
-  ...DELIVERY_METHOD_LABEL,
-  [INSTALLATION_METHOD]: "Montáž — na cenovú ponuku",
-};
-
-function DeliveryPanel({ group }: { group: OrderGroup | null }) {
-  if (!group) {
-    // Placed before checkout existed: there is no delivery or payment to show,
-    // but the cell stays so the row's columns keep their places.
-    return (
-      <div className="min-w-0 text-sm">
-        <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-          Doprava a platba
-        </p>
-        <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-          Staršia objednávka — dohodnuté mimo e-shopu.
-        </p>
-      </div>
-    );
-  }
-
-  const where = deliveryPlace(group) ?? "Osobný odber";
-
-  const paid = group.paymentStatus === "paid";
-  const installation = group.deliveryMethod === INSTALLATION_METHOD;
-  const quote = quoteState(group);
-
-  return (
-    <div className="min-w-0 text-sm">
-      <p className="mb-2 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-        {installation ? "Montáž — cenová ponuka" : "Doprava a platba"}
-      </p>
-      <dl className="space-y-1" style={{ color: "var(--color-foreground-soft)" }}>
-        <SpecLine label="Spôsob" value={DELIVERY_LABEL[group.deliveryMethod] ?? group.deliveryMethod} />
-        <SpecLine label={installation ? "Adresa inštalácie" : "Kam"} value={where} />
-        {group.customerPhone && <SpecLine label="Telefón" value={group.customerPhone} />}
-        {quote && <SpecLine label="Stav" value={QUOTE_STATE_LABEL[quote]} />}
-        {quote === "sent" && (
-          <SpecLine label="Montáž" value={formatEur(group.deliveryCents / 100)} />
-        )}
-        {group.paymentMethod && (
-          <SpecLine label="Platba cez" value={PAYMENT_METHOD_LABEL[group.paymentMethod]} />
-        )}
-        {(!installation || quote !== "requested") && (
-          <SpecLine label="Platba" value={PAYMENT_STATUS_LABEL[group.paymentStatus]} />
-        )}
-        {group.packetaBarcode && <SpecLine label="Zásielka" value={group.packetaBarcode} />}
-      </dl>
-      {paid && (
-        <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
-          Zaplatené {formatEur(group.totalCents / 100)}
-        </p>
-      )}
-      {quote === "requested" && (
-        <p className="mt-2 text-xs font-bold" style={{ color: "var(--color-accent-text)" }}>
-          Pripraviť cenovú ponuku s montážou — zákazník zatiaľ nič neplatil
-        </p>
-      )}
-      {(quote === "requested" || quote === "sent") && (
-        <InstallationQuoteForm
-          groupId={group.id}
-          itemsEur={group.itemsCents / 100}
-          currentEur={quote === "sent" ? group.deliveryCents / 100 : null}
-        />
-      )}
-      {!paid && (group.paymentMethod === "transfer" || quote === "sent") && (
-        <ConfirmTransferButton groupId={group.id} />
-      )}
-      {group.packetaError && (
-        <p className="mt-2 text-xs leading-5 text-red-500">
-          Packeta: {group.packetaError}
-        </p>
-      )}
-    </div>
   );
 }
 
@@ -496,6 +349,51 @@ function IntegrationsPanel() {
           </li>
         ))}
       </ul>
+    </details>
+  );
+}
+
+async function ContactMessagesPanel() {
+  const messages = await listContactMessages(30).catch(() => null);
+  return (
+    <details
+      className="mb-8 rounded-3xl border p-5"
+      style={{ background: "var(--color-background)", borderColor: "var(--color-border)" }}
+    >
+      <summary className="cursor-pointer text-sm font-extrabold" style={{ color: "var(--color-foreground)" }}>
+        Správy z kontaktného formulára — {messages === null ? "nepodarilo sa načítať" : messages.length === 0 ? "žiadne" : `posledných ${messages.length}`}
+      </summary>
+      {messages && messages.length > 0 && (
+        <ul className="mt-4 space-y-3">
+          {messages.map((m) => (
+            <li
+              key={m.id}
+              className="rounded-2xl px-4 py-3 text-sm"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="font-bold" style={{ color: "var(--color-foreground)" }}>
+                  {m.subject}
+                </p>
+                <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+                  {new Date(m.createdAt).toLocaleString("sk-SK", {
+                    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+                  })}
+                </p>
+              </div>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--color-muted)" }}>
+                {m.name} ·{" "}
+                <a href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`} className="underline">
+                  {m.email}
+                </a>
+              </p>
+              <p className="mt-2 whitespace-pre-line" style={{ color: "var(--color-foreground-soft)" }}>
+                {m.message}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
     </details>
   );
 }
