@@ -28,7 +28,6 @@ import {
   buildsFor,
   autoBuild,
   groupHeightRange,
-  groupBandStarts,
   buildForFont,
   hasSeparateFace,
   faceColorOptionsFor,
@@ -44,7 +43,10 @@ import {
   normalizeConfig,
 } from "@/lib/options";
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
-import type { DragTarget } from "@/components/three/LetterScene";
+import type { DragTarget, ZoomView } from "@/components/three/LetterScene";
+
+/** The whole framed view — kept here too, so the page does not import the 3D chunk. */
+const FULL_VIEW: ZoomView = { x: 0, y: 0, s: 1 };
 
 // 3D preview needs WebGL — never render it on the server. Suspense shows a
 // skeleton until the chunk loads; the scene itself renders instantly on top
@@ -59,14 +61,13 @@ const LetterScene = dynamic(() => import("@/components/three/LetterScene"), {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Six steps, in the order the shop asked for:
+// Five steps, in the order the shop asked for:
 //
-//   1  Text        — what the sign says;
-//   2  Rozmer      — the height of the letters (the build fixes the thickness);
-//   3  Farby       — the face (čelo) and the body (telo) of the letter;
-//   4  Svietenie   — Svetelné spredu / Svetelné zozadu / Nesvetelné;
-//   5  Prevedenie  — Hliník / Plast / Plexi, and the build within it;
-//   6  Font        — the fonts that build is made in (hárok "fonty").
+//   1  Text        — what the sign says, and the font right under it;
+//   2  Rozmer      — the height of the letters, typed in (the build fixes the thickness);
+//   3  Svietenie   — Svetelné spredu / Svetelné zozadu / Nesvetelné;
+//   4  Prevedenie  — Hliník / Plast / Plexi, and the build within it;
+//   5  Farby       — the face (čelo) and the body (telo) of the letter.
 //
 // Everything a customer picks is a small tile — a colour is a dot, a font is
 // the first letter of their own text set in that font — and the full name
@@ -108,8 +109,39 @@ function Configurator() {
   // How dark the night preview is, 0–100 % — from dusk (the LEDs are on but
   // the wall is still lit) to a dark street where the sign is the only light.
   const [nightPct, setNightPct] = useState(DEFAULT_NIGHT_PCT);
-  // Preview-only zoom: 1 frames the whole sign, up to 4× brings a detail close.
-  const [zoom, setZoom] = useState(1);
+  // Preview-only zoom, by the mouse wheel towards the cursor: the part of the
+  // framed view shown (FULL_VIEW = the whole sign), down to a quarter of it.
+  const [zoom, setZoom] = useState<ZoomView>(FULL_VIEW);
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(zoom);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      const r = el.getBoundingClientRect();
+      const u = (e.clientX - r.left) / r.width;
+      const v = (e.clientY - r.top) / r.height;
+      setZoom((z) => {
+        const s = Math.min(1, Math.max(0.25, z.s * Math.exp(e.deltaY * 0.0015)));
+        // Already whole and still scrolling out: that is the page scrolling.
+        if (s === z.s) return z;
+        // The point under the cursor stays where it is.
+        const px = z.x + u * z.s;
+        const py = z.y + v * z.s;
+        return {
+          s,
+          x: Math.min(1 - s, Math.max(0, px - u * s)),
+          y: Math.min(1 - s, Math.max(0, py - v * s)),
+        };
+      });
+      // Only swallow the scroll while it zooms — at the whole view, scrolling
+      // out moves the page as usual.
+      if (!(e.deltaY > 0 && zoomRef.current.s >= 1)) e.preventDefault();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
   // Preview-only: which wall the sign is shown against, and the customer's own
   // photo of it. Neither is part of Config — the wall is where they imagine
   // the sign, not something we make — so neither reaches the cart or an order.
@@ -159,7 +191,6 @@ function Configurator() {
   // Height is the only dimension chosen; the build turns it into a thickness.
   const { minMm: minHeight, maxMm: maxHeight } = groupHeightRange(variant, currentMat.group, config.text);
   const depthMm = depthMmFor(config.material, config.height);
-  const heightChips = groupBandStarts(variant, currentMat.group, config.text);
 
   // The letter every font dot is drawn with: the first one the customer typed.
   const previewChar = Array.from(config.text.trim())[0] ?? "A";
@@ -368,7 +399,9 @@ function Configurator() {
   // the steps in the column beside it.
 
   return (
-    <div className="mx-auto mt-14 max-w-7xl">
+    // A little wider than the page's text column, so the preview and the steps
+    // beside it fit the screen together.
+    <div className="relative left-1/2 mt-14 w-[min(1560px,calc(100vw-2rem))] -translate-x-1/2">
       <div className="config-shell rounded-[32px] p-4 sm:p-6 md:p-7">
 
         {/* ── Panel header ───────────────────────────────────────────────── */}
@@ -457,6 +490,8 @@ function Configurator() {
           )}
 
           <div
+            ref={previewRef}
+            onDoubleClick={() => setZoom(FULL_VIEW)}
             className="relative h-105 w-full overflow-hidden rounded-[20px] transition-colors duration-500 lg:h-[clamp(18rem,calc(100vh_-_17rem),32rem)]"
             style={{
               background: isNight
@@ -499,42 +534,18 @@ function Configurator() {
               onOffsetChange={backgroundUrl ? setSignOffset : undefined}
             />
 
-            {/* Zoom — buttons rather than the mouse wheel, so scrolling the
-                page past the preview never zooms it by accident. */}
-            <div
-              className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full p-1 shadow-md"
-              style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
-            >
+            {/* Zoomed in with the wheel: one click (or a double-click on the
+                preview) brings the whole sign back. */}
+            {zoom.s < 0.99 && (
               <button
                 type="button"
-                onClick={() => setZoom((z) => Math.max(1, Math.round((z / 1.25) * 100) / 100))}
-                disabled={zoom <= 1}
-                aria-label="Oddialiť náhľad"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-black transition hover:bg-black/5 disabled:opacity-30"
-                style={{ color: "var(--color-foreground)" }}
+                onClick={() => setZoom(FULL_VIEW)}
+                className="absolute bottom-3 right-3 z-10 rounded-full px-3 py-1.5 text-[12px] font-bold shadow-md"
+                style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
               >
-                −
+                Celý nápis
               </button>
-              <button
-                type="button"
-                onClick={() => setZoom(1)}
-                aria-label="Zobraziť celý nápis"
-                className="min-w-12 rounded-full px-1.5 text-[12px] font-bold tabular-nums"
-                style={{ color: "var(--color-foreground-soft)" }}
-              >
-                {Math.round(zoom * 100)} %
-              </button>
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.min(4, Math.round(z * 1.25 * 100) / 100))}
-                disabled={zoom >= 4}
-                aria-label="Priblížiť náhľad"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-black transition hover:bg-black/5 disabled:opacity-30"
-                style={{ color: "var(--color-foreground)" }}
-              >
-                +
-              </button>
-            </div>
+            )}
           </div>
 
           {/* The wall the sign stands on: a paint colour, a surface, or the
@@ -607,9 +618,8 @@ function Configurator() {
             step={2}
             title="Rozmer"
           >
-            {/* The letter height is what is set; the whole nápis is what has
-                to fit the wall — both are shown side by side while the slider
-                moves. */}
+            {/* The letter height is typed in — the only way to set it; the whole
+                nápis, which has to fit the wall, is shown beside it. */}
             <div className="mb-3 grid grid-cols-2 gap-2">
               <HeightInput
                 value={config.height}
@@ -619,68 +629,14 @@ function Configurator() {
               />
               <SizeReadout label="Celý nápis" value={signSizeLabel ?? "…"} />
             </div>
-            <SliderBox
-              value={config.height}
-              min={minHeight}
-              max={maxHeight}
-              suffix=" mm"
-              chips={heightChips}
-              onChange={(v) => apply({ height: v })}
-              ariaLabel="Výška písmen"
-            />
             <Hint>
               Hrúbka písma <strong style={{ color: "var(--color-foreground)" }}>{depthMm} mm</strong> — určí sa podľa výšky.
             </Hint>
           </StepCard>
 
-          {/* ── 3 · Colours ── */}
+          {/* ── 3 · Variant ── */}
           <StepCard
             step={3}
-            title="Farby čela a tela"
-          >
-            <div className="flex items-start gap-3">
-              <FaceReturnSwatch face={currentFaceColor} edge={config.bodyColor} glow={faceGlows} />
-              <div className="min-w-0 flex-1 space-y-3">
-                {separateFace ? (
-                  <>
-                    <ColorRow
-                      label="Čelo"
-                      hint="predná plocha písmena"
-                      options={faceColors}
-                      value={currentFaceColor}
-                      onPick={(c) => { patch({ faceColor: c.value }); }}
-                    />
-                    <ColorRow
-                      label="Telo"
-                      hint="bok písmena"
-                      options={bodyColors}
-                      value={config.bodyColor}
-                      onPick={(c) => { patch({ bodyColor: c.value }); }}
-                    />
-                  </>
-                ) : (
-                  <ColorRow
-                    label="Farba čela"
-                    hint="hrany svietia bielo"
-                    options={bodyColors}
-                    value={config.bodyColor}
-                    onPick={(c) => { patch({ bodyColor: c.value }); }}
-                  />
-                )}
-              </div>
-            </div>
-            {(variant === "front" || !separateFace) && (
-              <Hint>
-                {separateFace
-                  ? "Pri svietení spredu svieti čelo vo svojej farbe."
-                  : "30 mm plexi: čelo svieti vo zvolenej farbe, hrany písmena svietia bielo."}
-              </Hint>
-            )}
-          </StepCard>
-
-          {/* ── 4 · Variant ── */}
-          <StepCard
-            step={4}
             title="Svietenie"
           >
             <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-2">
@@ -712,9 +668,9 @@ function Configurator() {
             )}
           </StepCard>
 
-          {/* ── 5 · Material ── */}
+          {/* ── 4 · Material ── */}
           <StepCard
-            step={5}
+            step={4}
             title="Prevedenie"
             aside={currentMat.displayName}
           >
@@ -742,6 +698,51 @@ function Configurator() {
               })}
             </div>
 
+          </StepCard>
+
+          {/* ── 5 · Colours — last, once the build has decided which exist ── */}
+          <StepCard
+            step={5}
+            title="Farby čela a tela"
+            corner={<FaceReturnSwatch face={currentFaceColor} edge={config.bodyColor} glow={faceGlows} />}
+          >
+            {/* Two rows of dots, čelo above telo, each on one line; the cube
+                showing the two together sits in the card's corner. */}
+            <div className="space-y-2.5">
+              {separateFace ? (
+                <>
+                  <ColorRow
+                    label="Čelo"
+                    hint="predná plocha písmena"
+                    options={faceColors}
+                    value={currentFaceColor}
+                    onPick={(c) => { patch({ faceColor: c.value }); }}
+                  />
+                  <ColorRow
+                    label="Telo"
+                    hint="bok písmena"
+                    options={bodyColors}
+                    value={config.bodyColor}
+                    onPick={(c) => { patch({ bodyColor: c.value }); }}
+                  />
+                </>
+              ) : (
+                <ColorRow
+                  label="Farba"
+                  hint="celé písmeno, hrany svietia bielo"
+                  options={bodyColors}
+                  value={config.bodyColor}
+                  onPick={(c) => { patch({ bodyColor: c.value }); }}
+                />
+              )}
+            </div>
+            {(variant === "front" || !separateFace) && (
+              <Hint>
+                {separateFace
+                  ? "Pri svietení spredu svieti čelo vo svojej farbe."
+                  : "30 mm plexi: čelo svieti vo zvolenej farbe, hrany písmena svietia bielo."}
+              </Hint>
+            )}
           </StepCard>
 
         </div>{/* settings column */}
@@ -939,11 +940,14 @@ function StepCard({
   step,
   title,
   aside,
+  corner,
   children,
 }: {
   step: number;
   title: string;
   aside?: string;
+  /** Something small drawn in the card's top-right corner (the colour cube). */
+  corner?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -961,6 +965,7 @@ function StepCard({
             {aside}
           </span>
         )}
+        {corner && <div className="-my-2 ml-auto">{corner}</div>}
       </div>
       <div className="mt-3.5">{children}</div>
     </section>
@@ -1088,6 +1093,7 @@ function OptionTile({
 /** A round colour swatch; its name comes up on hover. */
 function SwatchDot({
   color,
+  metallic,
   active,
   label,
   sub,
@@ -1099,6 +1105,8 @@ function SwatchDot({
   label: string;
   sub?: string;
   glow?: boolean;
+  /** Silver and gold: drawn with a sheen so they read as metal, not grey and ochre. */
+  metallic?: boolean;
   onClick: () => void;
 }) {
   const tipProps = useTip()(label, sub);
@@ -1109,9 +1117,11 @@ function SwatchDot({
       aria-checked={active}
       aria-label={label}
       onClick={onClick}
-      className="opt-dot h-8 w-8 shrink-0"
+      className="opt-dot h-[22px] w-[22px] shrink-0 sm:h-6 sm:w-6"
       style={{
-        background: color,
+        background: metallic
+          ? `linear-gradient(135deg, #ffffff 0%, ${color} 38%, color-mix(in srgb, ${color} 55%, #000) 70%, ${color} 100%)`
+          : color,
         // The ring keeps white and black readable on both themes.
         border: "1px solid rgba(0,0,0,.22)",
         boxShadow: active ? undefined : glow ? `0 0 12px ${color}aa` : undefined,
@@ -1137,16 +1147,16 @@ function ColorRow({
   const chosen = options.find((c) => sameColor(c.value, value));
   return (
     <div>
-      <p className="mb-2 text-[13px] leading-tight tracking-[0.01em]" style={{ color: "var(--color-foreground)" }}>
-        <strong>{label}</strong>
-        <span style={{ color: "var(--color-muted)" }}> · {hint}</span>
-        {chosen && <span className="font-semibold" style={{ color: "var(--color-foreground-soft)" }}> — {chosen.label}</span>}
+      <p className="mb-1.5 text-[13px] leading-tight" title={hint}>
+        <strong style={{ color: "var(--color-foreground)" }}>{label}</strong>
+        <span className="font-semibold" style={{ color: "var(--color-muted)" }}> — {chosen?.label ?? "vlastná"}</span>
       </p>
-      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+      <div role="radiogroup" aria-label={`${label} — ${hint}`} className="flex gap-1.5">
         {options.map((c) => (
           <SwatchDot
             key={c.id}
             color={c.value}
+            metallic={c.finish === "metallic"}
             active={sameColor(c.value, value)}
             label={c.label}
             onClick={() => onPick(c)}
@@ -1203,75 +1213,6 @@ function FontDots({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// Slider in its own inset box: big live value, range, and quick-pick chips at
-// the heights where the thickness steps up.
-function SliderBox({
-  value,
-  min,
-  max,
-  suffix,
-  chips,
-  onChange,
-  ariaLabel,
-}: {
-  value: number;
-  min: number;
-  max: number;
-  suffix: string;
-  chips: number[];
-  onChange: (value: number) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <div className="rounded-2xl p-3.5" style={{ background: "var(--color-surface)" }}>
-      <div className="flex justify-between text-[12px] font-semibold tracking-[0.01em]" style={{ color: "var(--color-muted)" }}>
-        <span>{min}{suffix}</span>
-        <span>{max}{suffix}</span>
-      </div>
-
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="range-clean mt-2 w-full"
-        aria-label={ariaLabel}
-      />
-
-      <div className="mt-3.5 flex flex-wrap gap-1.5">
-        {chips.map((chip) => {
-          const active = value === chip;
-          return (
-            <button
-              key={chip}
-              type="button"
-              onClick={() => onChange(chip)}
-              className="chip rounded-full px-3 py-1 text-[12px] font-bold tracking-[0.01em]"
-              style={
-                active
-                  ? {
-                      background: "var(--color-primary)",
-                      color: "var(--accent-foreground)",
-                      border: "1px solid var(--color-primary)",
-                    }
-                  : {
-                      background: "var(--color-background)",
-                      color: "var(--color-foreground)",
-                      border: "1px solid var(--color-border)",
-                    }
-              }
-            >
-              {chip}{suffix}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -1390,7 +1331,7 @@ function GroupIcon({ group }: { group: MaterialGroupId }) {
 function FaceReturnSwatch({ face, edge, glow }: { face: string; edge: string; glow: boolean }) {
   const id = useId().replace(/:/g, "");
   return (
-    <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true" className="mt-1 shrink-0 overflow-visible">
+    <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true" className="h-11 w-11 shrink-0 overflow-visible">
       <defs>
         <linearGradient id={`${id}-gloss`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity=".45" />

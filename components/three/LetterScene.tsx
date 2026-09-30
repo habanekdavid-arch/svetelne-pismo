@@ -286,15 +286,23 @@ function safeColorHex(color: THREE.Color): string {
   return `#${color.getHexString()}`;
 }
 
-// Turn a chosen finish into the PBR surface it physically is. Only the matt
-// lacquer differs from the default now — the brushed and mirrored metals were
-// taken out of the catalogue, so the code that rendered them went with them.
+// Turn a chosen finish into the PBR surface it physically is: a matt lacquer
+// loses its sheen, a metallic one (silver, gold) reflects in its own colour.
 function applyFinish(
   params: THREE.MeshPhysicalMaterialParameters,
   hex: string,
   roughness: number,
 ): void {
-  if (finishForColor(hex) === "matte") {
+  const finish = finishForColor(hex);
+  if (finish === "metallic") {
+    params.metalness = 1;
+    params.roughness = 0.26;
+    params.clearcoat = 0.4;
+    params.clearcoatRoughness = 0.1;
+    params.envMapIntensity = Math.max(params.envMapIntensity ?? 1, 1.6);
+    return;
+  }
+  if (finish === "matte") {
     params.roughness = Math.min(1, roughness * 1.9 + 0.2);
     params.clearcoat = 0;
   }
@@ -897,8 +905,8 @@ function SignPlacement({
 
 type LetterSceneProps = {
   text: string;
-  /** Preview-only: how far the view is zoomed in (1 = the whole sign in frame). */
-  zoom?: number;
+  /** Preview-only: the part of the frame shown, zoomed in with the mouse wheel. */
+  zoom?: ZoomView;
   /** Preview-only: the surface the sign is shown against. */
   wall?: Wall;
   /** Preview-only: object URL of the customer's own photo, if they picked one. */
@@ -978,6 +986,38 @@ function FramingRig({ distance }: { distance: number }) {
     if (Math.abs(next - current) < 1e-4) return;
     offset.setLength(next);
     camera.position.copy(target).add(offset);
+  });
+
+  return null;
+}
+
+// ── Wheel zoom ────────────────────────────────────────────────────────────────
+// Zooming is a crop of the framed view, not a camera move: the rectangle
+// (x, y from the top-left, s its size — all as fractions of the full frame) is
+// what fills the canvas. So the point under the cursor stays put as the wheel
+// turns, the orbit and framing above keep working exactly as before, and the
+// customer's photo zooms together with the sign.
+export type ZoomView = { x: number; y: number; s: number };
+export const FULL_VIEW: ZoomView = { x: 0, y: 0, s: 1 };
+
+function ZoomCrop({ view }: { view: ZoomView }) {
+  const { camera, size } = useThree();
+  const cur = useRef<ZoomView>({ ...view });
+
+  useFrame(() => {
+    const c = cur.current;
+    const k = 0.25;
+    c.x += (view.x - c.x) * k;
+    c.y += (view.y - c.y) * k;
+    c.s += (view.s - c.s) * k;
+    const cam = camera as THREE.PerspectiveCamera;
+    if (c.s > 0.999 && view.s >= 1) {
+      if (cam.view?.enabled) {
+        cam.clearViewOffset();
+      }
+      return;
+    }
+    cam.setViewOffset(size.width, size.height, c.x * size.width, c.y * size.height, c.s * size.width, c.s * size.height);
   });
 
   return null;
@@ -1083,7 +1123,7 @@ function SceneContent({
   onPhotoOffsetChange,
   dragTarget = "sign",
   onFailedGlyphs,
-  zoom = 1,
+  zoom = FULL_VIEW,
 }: LetterSceneProps) {
   const safeText  = text?.trim() || "Váš text";
   const isNight   = previewMode === "night";
@@ -1394,7 +1434,8 @@ function SceneContent({
           (the sign, or the photo behind it), the right one still turns the view
           exactly as it does on a painted wall. Same on touch — one finger
           moves, two fingers turn — so nothing is out of reach on a phone. */}
-      <FramingRig distance={viewDistance / Math.max(1, zoom)} />
+      <FramingRig distance={viewDistance} />
+      <ZoomCrop view={zoom} />
 
       <OrbitControls
         makeDefault

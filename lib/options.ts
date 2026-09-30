@@ -540,32 +540,22 @@ const PROFILE_COLORS: ColorOption[] = [
   { id: "green",  label: "Zelená",      value: "#20603d" },
   { id: "blue",   label: "Modrá",       value: "#20214f" },
   { id: "black",  label: "Čierna",      value: "#0a0a0a" },
-  { id: "silver", label: "Strieborná",  value: "#a5a5a5" },
+  { id: "silver", label: "Strieborná",  value: "#b9bcc0", finish: "metallic" },
+  { id: "gold",   label: "Zlatá",       value: "#d4a93c", finish: "metallic" },
 ];
 
-// The one finish that is not a colour of its own: the same white with the
-// gloss taken out of it, so it needs its own id (the hex alone cannot tell
-// them apart).
-//
-// The brushed and mirrored metal finishes from the profile board are NOT here.
-// They were asked to stay out of the configurator — "len normálne farby" — and
-// a finish that is out is out: no option, no swatch, and nothing behind it.
-const PROFILE_MATT: ColorOption = {
-  id: "white-mat", label: "Biela matná", value: "#eeeee7", finish: "matte",
-};
+// Silver and gold are metallic lacquers: they show on their swatch as a sheen
+// and in the preview as metal. The matt white is gone ("odstrániť matnú
+// bielu"); an order that still carries it keeps its hex on the order sheet.
 
 /** Cut (non-lit) letters: lacquered sheet, the same range. */
 export const letterColorOptions: ColorOption[] = PROFILE_COLORS;
 
-/** Lit letters: the same range, plus the matt white. */
-export const profileColorOptions: ColorOption[] = [
-  PROFILE_COLORS[0],
-  PROFILE_MATT,                  // matt white sits next to the gloss one
-  ...PROFILE_COLORS.slice(1),
-];
+/** Lit letters: the same range. */
+export const profileColorOptions: ColorOption[] = PROFILE_COLORS;
 
 // Light has to get through a front-lit face, so it is translucent acrylic —
-// and black or silver acrylic lets nothing through (hárok "farby": pri
+// and black, silver or gold acrylic lets nothing through (hárok "farby": pri
 // svetelnom spredu je čelo "presvitné").
 const TRANSLUCENT_IDS = new Set(["white", "yellow", "orange", "red", "green", "blue"]);
 const TRANSLUCENT_COLORS = PROFILE_COLORS.filter((c) => TRANSLUCENT_IDS.has(c.id));
@@ -742,12 +732,6 @@ export function groupHeightRange(variant: VariantId, group: MaterialGroupId, tex
     minMm: Math.min(...builds.map((b) => heightRange(b.id).minMm)),
     maxMm: Math.max(...builds.map((b) => heightRange(b.id).maxMm)),
   };
-}
-
-/** Where the thickness steps up across a group — the slider's shortcuts. */
-export function groupBandStarts(variant: VariantId, group: MaterialGroupId, text: string): number[] {
-  const starts = slidingBuilds(variant, group, text).flatMap((b) => bandStarts(b.id));
-  return [...new Set(starts)].sort((a, b) => a - b);
 }
 
 /** How a chosen colour behaves under light — used by the 3D preview. */
