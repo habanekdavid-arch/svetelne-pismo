@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Hand, ImagePlus, Move, RotateCw, Upload, X } from "lucide-react";
+import { ImagePlus, Move, Upload, X } from "lucide-react";
 import { useTip } from "@/components/ui/Tooltip";
 import {
   WALL_COLORS,
@@ -315,11 +315,9 @@ function PhotoHelp({ onClose, onUpload }: { onClose: () => void; onUpload: () =>
   }, [onClose]);
 
   const steps = [
-    { Icon: ImagePlus, title: "Odfoťte svoju stenu priamo spredu", text: "Postavte sa rovno oproti miestu, kde bude nápis, a držte mobil zvislo — plocha pre nápis musí byť na fotke čo najrovnejšia, nie zboku ani zospodu. Foťte za denného svetla." },
-    { Icon: Upload, title: "Nahrajte ju", text: "Fotka ostane len vo vašom prehliadači, nikam sa neodosiela." },
-    { Icon: Move, title: "Posuňte nápis na miesto", text: "Ťahajte ľavým tlačidlom myši (na mobile jedným prstom). Prepínačom „Nápis / Pozadie“ zvolíte, či posúvate nápis alebo fotku." },
-    { Icon: RotateCw, title: "Pootočte pohľad", text: "Pravým tlačidlom myši (na mobile dvoma prstami). „Na stred“ vráti všetko späť." },
-    { Icon: Hand, title: "Doladte nápis", text: "Text, výšku, farby aj svietenie meníte ďalej v krokoch vpravo — náhľad na fotke sa mení hneď. Pri svetelnom písme prepnite na Noc." },
+    { Icon: ImagePlus, title: "Odfoťte stenu", text: "Rovno spredu, mobil zvisle, za dňa." },
+    { Icon: Upload, title: "Nahrajte fotku", text: "Ostane len vo vašom prehliadači." },
+    { Icon: Move, title: "Posuňte nápis", text: "Myšou alebo prstom. Pravým tlačidlom (dvoma prstami) otočíte pohľad." },
   ];
 
   return (
@@ -331,42 +329,38 @@ function PhotoHelp({ onClose, onUpload }: { onClose: () => void; onUpload: () =>
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl p-6 shadow-2xl"
+        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl p-6 shadow-2xl"
         style={{ background: "var(--color-background)", color: "var(--color-foreground)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 id="photo-help-title" className="text-xl font-extrabold">
-              Vlastný návrh — nápis priamo na vašej stene
-            </h3>
-          </div>
+          <h3 id="photo-help-title" className="text-xl font-extrabold">
+            Nápis na vašej stene
+          </h3>
           <button type="button" onClick={onClose} aria-label="Zavrieť" className="rounded-full p-1.5 hover:bg-black/5">
             <X size={18} />
           </button>
         </div>
-
-        <p className="mt-2 text-[14px] leading-6" style={{ color: "var(--color-foreground-soft)" }}>
-          Najlepší spôsob, ako vidieť, ako bude nápis naozaj vyzerať: nahráte fotku svojej steny a nápis
-          sa na ňu vloží v skutočnej veľkosti — uvidíte, či sedí rozmer, farby aj svietenie.
+        <p className="mt-1 text-[14px]" style={{ color: "var(--color-muted)" }}>
+          Uvidíte nápis v skutočnej veľkosti priamo na svojej fasáde.
         </p>
 
-        <ol className="mt-5 space-y-3">
+        <ol className="mt-5 grid gap-3 sm:grid-cols-3">
           {steps.map(({ Icon, title, text }, i) => (
-            <li key={title} className="flex gap-3">
+            <li
+              key={title}
+              className="flex flex-col items-center rounded-2xl px-3 py-4 text-center"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
               <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-black"
-                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border-strong)" }}
+                className="flex h-12 w-12 items-center justify-center rounded-full"
+                style={{ background: "var(--accent)", color: "#000" }}
                 aria-hidden="true"
               >
-                {i + 1}
+                <Icon size={22} strokeWidth={2.2} />
               </span>
-              <div>
-                <p className="flex items-center gap-1.5 text-[14px] font-bold">
-                  <Icon size={15} strokeWidth={2.2} aria-hidden="true" /> {title}
-                </p>
-                <p className="text-[13px] leading-5" style={{ color: "var(--color-muted)" }}>{text}</p>
-              </div>
+              <p className="mt-3 text-[14px] font-extrabold">{i + 1}. {title}</p>
+              <p className="mt-1 text-[12.5px] leading-5" style={{ color: "var(--color-muted)" }}>{text}</p>
             </li>
           ))}
         </ol>

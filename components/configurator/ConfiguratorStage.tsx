@@ -95,7 +95,6 @@ function sameColor(a: string | undefined, b: string | undefined): boolean {
   return (a ?? "").toLowerCase() === (b ?? "").toLowerCase();
 }
 
-type StepNote = { step: number; text: string };
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -123,8 +122,6 @@ function Configurator() {
   const [photoOffset, setPhotoOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragTarget, setDragTarget] = useState<DragTarget>("sign");
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
-  // What a later step had to change in an earlier one, said where it happened.
-  const [note, setNote] = useState<StepNote | null>(null);
   const { setConfig: publishConfig } = useSharedConfig();
   const {
     add: addToCart, checkout, syncDraft,
@@ -228,7 +225,6 @@ function Configurator() {
     if (!pendingConfig) return;
     // A sign saved under the old price list is moved onto the new one.
     setConfig(normalizeConfig(pendingConfig.config));
-    setNote(null);
     consumePending();
     // Only when the customer asked for it ("Upraviť" in the cart). The same
     // hand-off also restores the half-configured sign after a refresh, and a
@@ -272,56 +268,31 @@ function Configurator() {
   }
 
   /**
-   * Applies a change made in `step`, and tells the customer in that step what
-   * else had to move for the sign to still be one we make.
+   * Applies a change; whatever else has to move for the sign to still be one
+   * we make moves with it (reconcile), and the steps show the new values.
    */
-  function apply(update: Partial<Config>, step: number) {
-    const next = reconcile(update);
-    const changed: string[] = [];
-    if (update.material === undefined && next.material !== config.material) {
-      changed.push(`materiál ${materialById(next.material).displayName}`);
-    }
-    if (update.font === undefined && next.font !== config.font) {
-      changed.push(`písmo ${fontById(next.font)?.name ?? next.font}`);
-    }
-    if (update.height === undefined && next.height !== config.height) {
-      changed.push(`výška ${next.height} mm`);
-    }
-    if (update.faceColor === undefined && hasSeparateFace(next.material)
-        && !sameColor(faceColorOf(next), faceColorOf(config))) {
-      changed.push(`čelo ${colorLabel(faceColorOf(next))}`);
-    }
-    if (update.bodyColor === undefined && !sameColor(next.bodyColor, config.bodyColor)) {
-      changed.push(`${hasSeparateFace(next.material) ? "telo" : "farba"} ${colorLabel(next.bodyColor)}`);
-    }
-    if (update.text === undefined && next.text !== config.text) {
-      changed.push(textCaseFor(next.material) === "upper" ? "text veľkými písmenami" : "text malými písmenami");
-    }
-    setNote(changed.length > 0
-      ? { step, text: `Upravili sme ${changed.join(", ")} — tak sa nápis v tomto prevedení vyrába.` }
-      : null);
-    patch(next);
+  function apply(update: Partial<Config>) {
+    patch(reconcile(update));
   }
 
   function chooseVariant(v: VariantId) {
     // A new variant starts from its natural view again: a halo at night.
     setManualMode(null);
-    apply(variantFields(v), 4);
+    apply(variantFields(v));
   }
 
   function chooseGroup(group: MaterialGroupId) {
-    apply({ material: pickBuild(variant, group, config.material) }, 5);
+    apply({ material: pickBuild(variant, group, config.material) });
   }
 
   function chooseFont(fontId: string) {
     if (currentMat.fonts.includes(fontId)) {
-      setNote(null);
       patch({ font: fontId });
       return;
     }
     // Not made in this build — move to one that is, in the same variant.
     const build = buildForFont(variant, config.material, fontId);
-    if (build) apply({ font: fontId, material: build }, 1);
+    if (build) apply({ font: fontId, material: build });
   }
 
   function handleTextKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -388,7 +359,6 @@ function Configurator() {
     };
   }, [backgroundUrl]);
 
-  const noteFor = (step: number) => (note?.step === step ? note.text : null);
 
   // ── Render ───────────────────────────────────────────────────────────────
   // One large rounded panel, split into a sticky 3D preview on the left and
@@ -560,7 +530,6 @@ function Configurator() {
             step={1}
             title="Text a font"
             aside={currentFont?.name}
-            note={noteFor(1)}
           >
             <textarea
               ref={textInputRef}
@@ -598,7 +567,6 @@ function Configurator() {
           <StepCard
             step={2}
             title="Rozmer"
-            note={noteFor(2)}
           >
             {/* The letter height is what is set; the whole nápis is what has
                 to fit the wall — both are shown side by side while the slider
@@ -608,7 +576,7 @@ function Configurator() {
                 value={config.height}
                 min={minHeight}
                 max={maxHeight}
-                onChange={(v) => { setNote(null); patch({ height: v }); }}
+                onChange={(v) => { patch({ height: v }); }}
               />
               <SizeReadout label="Celý nápis" value={signSizeLabel ?? "…"} />
             </div>
@@ -618,7 +586,7 @@ function Configurator() {
               max={maxHeight}
               suffix=" mm"
               chips={heightChips}
-              onChange={(v) => { setNote(null); patch({ height: v }); }}
+              onChange={(v) => { patch({ height: v }); }}
               ariaLabel="Výška písmen"
             />
             <Hint>
@@ -630,7 +598,6 @@ function Configurator() {
           <StepCard
             step={3}
             title="Farby čela a tela"
-            note={noteFor(3)}
           >
             <div className="flex items-start gap-3">
               <FaceReturnSwatch face={currentFaceColor} edge={config.bodyColor} glow={faceGlows} />
@@ -642,14 +609,14 @@ function Configurator() {
                       hint="predná plocha písmena"
                       options={faceColors}
                       value={currentFaceColor}
-                      onPick={(c) => { setNote(null); patch({ faceColor: c.value }); }}
+                      onPick={(c) => { patch({ faceColor: c.value }); }}
                     />
                     <ColorRow
                       label="Telo"
                       hint="bok písmena"
                       options={bodyColors}
                       value={config.bodyColor}
-                      onPick={(c) => { setNote(null); patch({ bodyColor: c.value }); }}
+                      onPick={(c) => { patch({ bodyColor: c.value }); }}
                     />
                   </>
                 ) : (
@@ -658,7 +625,7 @@ function Configurator() {
                     hint="hrany svietia bielo"
                     options={bodyColors}
                     value={config.bodyColor}
-                    onPick={(c) => { setNote(null); patch({ bodyColor: c.value }); }}
+                    onPick={(c) => { patch({ bodyColor: c.value }); }}
                   />
                 )}
               </div>
@@ -676,7 +643,6 @@ function Configurator() {
           <StepCard
             step={4}
             title="Svietenie"
-            note={noteFor(4)}
           >
             <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-2">
               {VARIANTS.map((v) => (
@@ -712,7 +678,6 @@ function Configurator() {
             step={5}
             title="Prevedenie"
             aside={currentMat.displayName}
-            note={noteFor(5)}
           >
             {/* Only what this variant is made in — Plexi is not shown at all
                 for a halo sign, rather than shown and switched off. */}
@@ -745,11 +710,12 @@ function Configurator() {
                   {buildsInGroup.map((b) => (
                     <BuildPill
                       key={b.id}
+                      id={b.id}
                       active={config.material === b.id}
                       label={b.shortName}
                       tip={b.displayName}
                       tipSub={b.subtitle}
-                      onClick={() => apply({ material: b.id }, 5)}
+                      onClick={() => apply({ material: b.id })}
                     />
                   ))}
                 </div>
@@ -953,13 +919,11 @@ function StepCard({
   step,
   title,
   aside,
-  note,
   children,
 }: {
   step: number;
   title: string;
   aside?: string;
-  note?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -979,14 +943,6 @@ function StepCard({
         )}
       </div>
       <div className="mt-3.5">{children}</div>
-      {note && (
-        <p
-          role="status"
-          className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 px-3.5 py-2.5 text-[12.5px] leading-5 text-orange-800"
-        >
-          {note}
-        </p>
-      )}
     </section>
   );
 }
@@ -1122,12 +1078,14 @@ function OptionTile({
 
 /** One build within a material group: "Veľké písmená", "Plné písmo"… */
 function BuildPill({
+  id,
   active,
   label,
   tip,
   tipSub,
   onClick,
 }: {
+  id: string;
   active: boolean;
   label: string;
   tip: string;
@@ -1142,9 +1100,10 @@ function BuildPill({
       aria-checked={active}
       aria-label={tip}
       onClick={onClick}
-      className="opt-tile !min-h-0 !flex-row !py-2.5"
+      className="opt-tile !min-h-0 !flex-row !gap-2.5 !py-2.5"
       {...tipProps}
     >
+      <BuildIcon id={id} />
       <span className="opt-label">{label}</span>
     </button>
   );
@@ -1375,7 +1334,7 @@ function VariantGlyph({
   const light = glowColor === "#ffffff" ? "#fff6d6" : glowColor;
 
   return (
-    <svg viewBox="0 0 64 64" width={36} height={36} aria-hidden="true">
+    <svg viewBox="0 0 64 64" width={46} height={46} aria-hidden="true">
       <defs>
         <filter id={tightId} x="-60%" y="-60%" width="220%" height="220%">
           <feGaussianBlur stdDeviation={1.6} result="b" />
@@ -1405,45 +1364,91 @@ function VariantGlyph({
   );
 }
 
-/** Hliník / Plast / Plexi, as simple sections through what each is. */
+/**
+ * Hliník / Plast / Plexi as a small extruded "A" in each material: a lacquered
+ * aluminium letter with its metal band, a 3D-printed one with its layer lines,
+ * and a clear acrylic one catching the light — the difference read at a
+ * glance, without words.
+ */
 function GroupIcon({ group }: { group: MaterialGroupId }) {
-  const common = {
-    width: 30,
-    height: 30,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.7,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true,
-  };
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const glyph = { x: 22, textAnchor: "middle" as const, fontSize: 36, fontWeight: 900, fontFamily: "Arial Black, Arial, sans-serif" };
+  const depth = [4, 3, 2, 1];
+
   if (group === "aluminium") {
-    // A channel letter's profile: an aluminium band round a face.
     return (
-      <svg {...common}>
-        <path d="M4 20V6.5L8 4h12v13.5L16 20H4Z" fill="currentColor" fillOpacity=".12" />
-        <path d="M4 6.5h12V20M16 6.5 20 4" />
-        <path d="M7.5 10h5M7.5 13.5h5" opacity=".55" />
+      <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
+        <defs>
+          <linearGradient id={`${uid}-m`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#f4f6f8" />
+            <stop offset=".45" stopColor="#9aa3ad" />
+            <stop offset=".6" stopColor="#d9dee3" />
+            <stop offset="1" stopColor="#6b737c" />
+          </linearGradient>
+        </defs>
+        {depth.map((d) => (
+          <text key={d} {...glyph} x={22 + d} y={38 + d} fill={`url(#${uid}-m)`} opacity={0.9}>A</text>
+        ))}
+        <text {...glyph} y={38} fill="#fafafa" stroke="#8a929b" strokeWidth={0.8}>A</text>
       </svg>
     );
   }
+
   if (group === "plastic") {
-    // 3D print: a body built up in layers.
     return (
-      <svg {...common}>
-        <rect x="4" y="5" width="16" height="15" rx="2.5" fill="currentColor" fillOpacity=".12" />
-        <path d="M4 9.5h16M4 13.5h16M4 17h16" opacity=".6" />
-        <path d="M10 2.5h4l-2 2.5-2-2.5Z" fill="currentColor" />
+      <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
+        <defs>
+          <pattern id={`${uid}-l`} width="4" height="2.2" patternUnits="userSpaceOnUse">
+            <rect width="4" height="2.2" fill="#3d3d44" />
+            <rect width="4" height="0.7" fill="#6a6a74" />
+          </pattern>
+        </defs>
+        {depth.map((d) => (
+          <text key={d} {...glyph} x={22 + d} y={38 + d} fill={`url(#${uid}-l)`}>A</text>
+        ))}
+        <text {...glyph} y={38} fill="#f4f1ea" stroke="#3d3d44" strokeWidth={0.8}>A</text>
       </svg>
     );
   }
-  // Plexi: a clear sheet catching light at its edge.
+
   return (
-    <svg {...common}>
-      <path d="M6 3.5h9l4 4v13H6z" fill="currentColor" fillOpacity=".08" />
-      <path d="M15 3.5v4h4" />
-      <path d="M9 16.5 15.5 10M9 12.5l3-3" opacity=".6" />
+    <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <linearGradient id={`${uid}-g`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#e8f6ff" stopOpacity=".95" />
+          <stop offset=".5" stopColor="#9fd4f2" stopOpacity=".55" />
+          <stop offset="1" stopColor="#5fb3e0" stopOpacity=".75" />
+        </linearGradient>
+        <linearGradient id={`${uid}-s`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity=".95" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {depth.map((d) => (
+        <text key={d} {...glyph} x={22 + d} y={38 + d} fill="#bfe3f7" opacity={0.5} stroke="#ffffff" strokeWidth={0.5}>A</text>
+      ))}
+      <text {...glyph} y={38} fill={`url(#${uid}-g)`} stroke="#3a9ad0" strokeWidth={0.9}>A</text>
+      <path d="M9 11 L20 6 L21 9 L10 14 Z" fill={`url(#${uid}-s)`} opacity={0.9} />
+    </svg>
+  );
+}
+
+/** What sets the builds of one group apart, drawn: letter case, or how the letter is made. */
+function BuildIcon({ id }: { id: string }) {
+  if (id === "alurol-upper" || id === "alurol-lower") {
+    return (
+      <span className="text-[17px] font-black leading-none tracking-tight" aria-hidden="true" style={{ fontFamily: "Arial Black, Arial, sans-serif" }}>
+        {id === "alurol-upper" ? "AB" : "ab"}
+      </span>
+    );
+  }
+  // 3D print: a body with a separate plexi face, or printed solid through.
+  const withFace = id === "print3d";
+  return (
+    <svg width={26} height={22} viewBox="0 0 26 22" aria-hidden="true">
+      <rect x="6" y="2" width="17" height="17" rx="2" fill="#3d3d44" />
+      <rect x="3" y="5" width="17" height="15" rx="2" fill={withFace ? "#e8f6ff" : "#3d3d44"} stroke={withFace ? "#3a9ad0" : "#1f1f24"} strokeWidth="1.2" />
+      {!withFace && <path d="M5 9h13M5 12h13M5 15h13" stroke="#6a6a74" strokeWidth="1" />}
     </svg>
   );
 }
