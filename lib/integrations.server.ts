@@ -62,7 +62,7 @@ export function integrations(): Integration[] {
       ok: mail,
       status: mail
         ? `Zapnuté — ${mailSetup().host} ako ${mailSetup().user}, odosiela ${MAIL_FROM}, objednávky chodia na ${SHOP_INBOX}${mailSetup().fallback ? ", záložný Gmail zapnutý" : ""}.`
-        : "Vypnuté — chýba heslo schránky info@4frommedia.sk (SMTP_PASSWORD, rovnaké ako na vytlacto3d). Objednávky a správy sú zatiaľ len v administrácii.",
+        : "Vypnuté — chýba heslo schránky office@4frommedia.sk (SMTP_PASSWORD). Objednávky a správy sú zatiaľ len v administrácii.",
       missing: mail ? missing("GMAIL_USER", "GMAIL_APP_PASSWORD") : missing("SMTP_PASSWORD"),
     },
     {

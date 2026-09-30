@@ -22,14 +22,20 @@ const DEFAULT_SMTP_HOST = "smtp.office365.com";
 /** The address the shop writes from when nothing else is set — the same as vytlacto3d's. */
 export const DEFAULT_FROM_EMAIL = "info@4frommedia.sk";
 
+/**
+ * The Microsoft 365 mailbox the shop logs in with. It is not the address the
+ * mail says it is from: the login is office@, and it sends as info@ (SendAs).
+ */
+export const DEFAULT_SMTP_LOGIN = "office@4frommedia.sk";
+
 const gmailUser = process.env.GMAIL_USER?.trim() || "";
 const gmailPass = process.env.GMAIL_APP_PASSWORD || "";
 const useLegacyGmail = !process.env.SMTP_USER?.trim() && Boolean(gmailUser);
 
 const host = process.env.SMTP_HOST?.trim() || (useLegacyGmail ? "smtp.gmail.com" : DEFAULT_SMTP_HOST);
-// The mailbox is info@4frommedia.sk unless told otherwise, so its password is
+// The login is office@4frommedia.sk unless told otherwise, so its password is
 // the only thing that has to be entered.
-const user = process.env.SMTP_USER?.trim() || (useLegacyGmail ? gmailUser : DEFAULT_FROM_EMAIL);
+const user = process.env.SMTP_USER?.trim() || (useLegacyGmail ? gmailUser : DEFAULT_SMTP_LOGIN);
 const pass = process.env.SMTP_PASSWORD || (useLegacyGmail ? gmailPass : "");
 // 587 = STARTTLS (Microsoft 365 and Gmail), 465 = implicit TLS.
 const port = Number(process.env.SMTP_PORT) || 587;

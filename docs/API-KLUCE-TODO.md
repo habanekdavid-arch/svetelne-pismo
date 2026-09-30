@@ -12,7 +12,7 @@ Po uložení treba spraviť **Redeploy** (Deployments → posledné nasadenie �
 
 | Čo | Kľúč vo Verceli | Odkiaľ |
 |---|---|---|
-| Heslo e-mailovej schránky | `SMTP_PASSWORD` | heslo k info@4frommedia.sk, rovnaké ako pri vytlacto3d |
+| Heslo e-mailovej schránky | `SMTP_PASSWORD` | heslo k schránke office@4frommedia.sk (prihlásenie), odosiela sa ako info@4frommedia.sk |
 | Platba kartou | `STRIPE_SECRET_KEY` | Stripe → Developers → API keys |
 | Potvrdenie platieb | `STRIPE_WEBHOOK_SECRET` | Stripe → Developers → Webhooks (návod v časti 2) |
 | Doména | `NEXT_PUBLIC_SITE_URL` = `https://rozsvietto.sk` | až keď bude doména nasmerovaná na Vercel |
@@ -65,10 +65,10 @@ Web posiela e-maily presne tak ako vytlacto3d: cez Microsoft 365 (`smtp.office36
 - správy z kontaktného formulára,
 - obnova hesla.
 
-Adresa schránky, server (`smtp.office365.com`, port `587`) aj meno odosielateľa `rozsvieťTO <info@4frommedia.sk>` sú v kóde nastavené predvolene. Doplniť treba **len heslo**. Vercel má hodnoty pri vytlacto3d označené ako „Sensitive“, takže sa nedajú skopírovať automaticky:
+Prihlasovacia schránka `office@4frommedia.sk`, server (`smtp.office365.com`, port `587`) aj meno odosielateľa `rozsvieťTO <info@4frommedia.sk>` sú v kóde nastavené predvolene. Doplniť treba **len heslo**. Vercel má hodnoty pri vytlacto3d označené ako „Sensitive“, takže sa nedajú skopírovať automaticky:
 
 - [ ] **`SMTP_PASSWORD`**
-  Heslo schránky info@4frommedia.sk, rovnaké ako pri vytlacto3d (pri Microsoft 365 s dvojfázovým overením heslo aplikácie).
+  Heslo schránky office@4frommedia.sk (pri Microsoft 365 s dvojfázovým overením heslo aplikácie).
 - [ ] **`GMAIL_USER`** a **`GMAIL_APP_PASSWORD`**
   Záložný Gmail, rovnaký ako pri vytlacto3d. Voliteľné, ale odporúčané.
 - `SMTP_USER`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `EMAIL_FROM`, `ADMIN_ORDER_EMAIL` **nezadávajte**, predvolené hodnoty sú správne. `EMAIL_FROM` z vytlacto3d nekopírujte, obsahuje meno VytlačTo3D.
