@@ -283,10 +283,10 @@ export const MATERIALS: MaterialOption[] = [
       attenuationDistance: 0.16,
       clearcoat: 1.0,
       clearcoatRoughness: 0.0,
-      // The polished edge is clear acrylic — glass-like, it lets almost
-      // all light through and picks up the surroundings.
-      sideTransmissionMul: 2.5,
-      sideRoughnessMul: 1.5,
+      // The edge is milky (opal) acrylic — matt white, it scatters the light
+      // instead of letting it straight through, so the edges glow white.
+      sideTransmissionMul: 0.35,
+      sideRoughness: 0.55,
       // Solid acrylic glows through its whole body, so its face is nearly as
       // bright as a channel letter's.
       emissiveFrontScale: 1.6,
@@ -311,8 +311,8 @@ export const MATERIALS: MaterialOption[] = [
     ],
     plainPrice: PLEXI_UV_PLAIN,
     pbr: {
-      // Cut acrylic sheet: the printed face is its own material; the polished
-      // edges and back are clear, glossy acrylic that catches the light.
+      // Cut clear acrylic sheet: the printed face is its own material; the
+      // polished edges and back are clear, glossy acrylic that catches the light.
       roughness: 0.0,
       metalness: 0,
       transmission: 0.6,
@@ -554,6 +554,23 @@ export const letterColorOptions: ColorOption[] = PROFILE_COLORS;
 /** Lit letters: the same range. */
 export const profileColorOptions: ColorOption[] = PROFILE_COLORS;
 
+/**
+ * The edge of a 30 mm plexi letter: milky (opal) acrylic, matt white — it
+ * scatters the light so the edges glow white. Not a choice.
+ */
+export const OPAL_WHITE: ColorOption = {
+  id: "opal", label: "Mliečna biela (opál)", value: "#f3f1ec", finish: "matte",
+};
+
+/**
+ * Plexi s UV tlačou is cut from clear acrylic (5 / 8 / 12 mm), so its telo is
+ * clear and not a choice — only the printed face has a colour.
+ */
+export const CLEAR_PLEXI: ColorOption = { id: "clear", label: "Číre plexi", value: "#eef2f3" };
+
+/** Every colour an order can carry — for names on the order sheet and finishes in the preview. */
+const KNOWN_COLORS: ColorOption[] = [...PROFILE_COLORS, OPAL_WHITE, CLEAR_PLEXI];
+
 // Light has to get through a front-lit face, so it is translucent acrylic —
 // and black, silver or gold acrylic lets nothing through (hárok "farby": pri
 // svetelnom spredu je čelo "presvitné").
@@ -622,6 +639,7 @@ export function bodyColorOptionsFor(
   if (!hasSeparateFace(materialId) && signType === "illuminated" && lightMode === "front") {
     return TRANSLUCENT_COLORS;
   }
+  if (materialId === "plexi-uv") return [CLEAR_PLEXI];
   return signType === "illuminated" ? profileColorOptions : letterColorOptions;
 }
 
@@ -639,7 +657,7 @@ export function faceColorOptionsFor(
 /** A colour's name, for the order sheet — "Biela", "Čierna"… */
 export function colorLabel(value: string): string {
   const v = value.toLowerCase();
-  return profileColorOptions.find((c) => c.value.toLowerCase() === v)?.label ?? value;
+  return KNOWN_COLORS.find((c) => c.value.toLowerCase() === v)?.label ?? value;
 }
 
 /** The colour the face actually is — the wall's, where there is no separate face. */
@@ -737,7 +755,7 @@ export function groupHeightRange(variant: VariantId, group: MaterialGroupId, tex
 /** How a chosen colour behaves under light — used by the 3D preview. */
 export function finishForColor(hex: string): ProfileFinish {
   const v = hex.toLowerCase();
-  return profileColorOptions.find((c) => c.value.toLowerCase() === v)?.finish ?? "gloss";
+  return KNOWN_COLORS.find((c) => c.value.toLowerCase() === v)?.finish ?? "gloss";
 }
 
 // ── Settling a sign onto the catalogue ───────────────────────────────────────

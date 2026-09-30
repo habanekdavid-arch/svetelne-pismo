@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Center, Environment, OrbitControls, useTexture } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { MATERIALS, fontOptions, finishForColor, faceKindFor, type FaceKind } from "@/lib/options";
+import { MATERIALS, OPAL_WHITE, fontOptions, finishForColor, faceKindFor, type FaceKind } from "@/lib/options";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   useTTFFont,
@@ -219,8 +219,8 @@ const WHITE_BASE_BLEND = 0.12;
 // how black and dark grey acrylic stay dark when lit from behind.
 const DARK_SHEET_PASS = 0.1;
 
-/** Clear cast acrylic — the edges of a 30 mm plexi letter. */
-const CLEAR_ACRYLIC = "#f2f4f5";
+/** Milky (opal) white acrylic — the edges of a 30 mm plexi letter. */
+const OPAL_ACRYLIC = OPAL_WHITE.value;
 /** How bright a lit 30 mm plexi letter's white edges glow. */
 const PLEXI_EDGE_EMISSIVE = 0.5;
 
@@ -322,7 +322,9 @@ function buildPhysicalMat(
 ): THREE.MeshPhysicalMaterial {
   const p = matOpt.pbr;
 
-  const roughness    = p.roughness * (isSide ? (p.sideRoughnessMul ?? 1) : 1);
+  const roughness    = isSide
+    ? (p.sideRoughness ?? p.roughness * (p.sideRoughnessMul ?? 1))
+    : p.roughness;
   const emissiveScale = isSide ? (p.emissiveSideScale ?? 1) : (p.emissiveFrontScale ?? 1);
   const scaledEmissive = emissiveIntensity * emissiveScale;
 
@@ -1171,13 +1173,13 @@ function SceneContent({
   // not warm white on red (which read as salmon). Everything else emits the
   // LED itself and lets its face (buildFaceMat) do the filtering.
   //
-  // 30 mm plexi is the exception: clear acrylic whose EDGES glow in the LED's
+  // 30 mm plexi is the exception: milky acrylic whose EDGES glow in the LED's
   // own white, with the chosen colour on its face only — the face lets the
   // light out through its colour, the sides let it out white.
   const plexiBlock = faceKind === "none";
   const materialGlow = glowColor;
   const returnColor = useMemo(
-    () => (plexiBlock ? new THREE.Color(CLEAR_ACRYLIC) : baseColor),
+    () => (plexiBlock ? new THREE.Color(OPAL_ACRYLIC) : baseColor),
     [plexiBlock, baseColor],
   );
   const faceGlow = useMemo(

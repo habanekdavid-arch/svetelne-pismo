@@ -430,7 +430,7 @@ function Configurator() {
             to its right scrolls past it. Nothing here clips its overflow,
             which is what lets `sticky` work at all. ── */}
         <div className="space-y-4">
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(22rem,1fr)]">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(22rem,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
         <div
           className="rounded-[26px] p-4 lg:sticky lg:top-20 lg:z-10"
           style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
@@ -571,10 +571,13 @@ function Configurator() {
         </div>
 
         {/* ── The five steps ───────────────────────────────────────────────
-            From lg up the column is pinned next to the preview and scrolls
-            inside itself, so going through every step never takes the sign
-            off screen. Below lg it is an ordinary block under the preview. ── */}
-        <div className="space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh_-_7rem)] lg:overflow-y-auto lg:pr-1.5">
+            On a wide screen (xl) the steps sit in two columns beside the
+            preview — text and size, then light, build and colours — so every
+            setting is in view at once, nothing to scroll. Between lg and xl
+            the column is pinned next to the preview and scrolls inside
+            itself; below lg it is an ordinary block under the preview. ── */}
+        <div className="space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh_-_7rem)] lg:overflow-y-auto lg:pr-1.5 xl:static xl:grid xl:max-h-none xl:grid-cols-2 xl:items-start xl:gap-3 xl:space-y-0 xl:overflow-visible xl:pr-0">
+        <div className="space-y-3">
 
           {/* ── 1 · Text and font — the font is picked right under what is
               typed, and every dot shows the customer's own first letter. ── */}
@@ -633,7 +636,9 @@ function Configurator() {
               Hrúbka písma <strong style={{ color: "var(--color-foreground)" }}>{depthMm} mm</strong> — určí sa podľa výšky.
             </Hint>
           </StepCard>
+        </div>
 
+        <div className="space-y-3">
           {/* ── 3 · Variant ── */}
           <StepCard
             step={3}
@@ -745,6 +750,7 @@ function Configurator() {
             )}
           </StepCard>
 
+        </div>
         </div>{/* settings column */}
         </div>{/* preview + settings */}
 
@@ -1094,6 +1100,7 @@ function OptionTile({
 function SwatchDot({
   color,
   metallic,
+  clear,
   active,
   label,
   sub,
@@ -1107,6 +1114,8 @@ function SwatchDot({
   glow?: boolean;
   /** Silver and gold: drawn with a sheen so they read as metal, not grey and ochre. */
   metallic?: boolean;
+  /** Clear acrylic: drawn as glass, not as a pale grey. */
+  clear?: boolean;
   onClick: () => void;
 }) {
   const tipProps = useTip()(label, sub);
@@ -1121,7 +1130,10 @@ function SwatchDot({
       style={{
         background: metallic
           ? `linear-gradient(135deg, #ffffff 0%, ${color} 38%, color-mix(in srgb, ${color} 55%, #000) 70%, ${color} 100%)`
-          : color,
+          : clear
+            // Clear acrylic: a glassy highlight over a see-through tint.
+            ? "linear-gradient(135deg, rgba(255,255,255,.95) 0%, rgba(214,232,238,.55) 45%, rgba(255,255,255,.9) 55%, rgba(190,214,222,.5) 100%)"
+            : color,
         // The ring keeps white and black readable on both themes.
         border: "1px solid rgba(0,0,0,.22)",
         boxShadow: active ? undefined : glow ? `0 0 12px ${color}aa` : undefined,
@@ -1157,6 +1169,7 @@ function ColorRow({
             key={c.id}
             color={c.value}
             metallic={c.finish === "metallic"}
+            clear={c.id === "clear"}
             active={sameColor(c.value, value)}
             label={c.label}
             onClick={() => onPick(c)}
@@ -1200,7 +1213,7 @@ function FontDots({
             aria-checked={active}
             aria-label={font.name}
             onClick={() => onPick(id)}
-            className="opt-dot h-11 w-11 text-[21px] leading-none"
+            className="opt-dot h-11 w-11 text-[21px] leading-none xl:h-9 xl:w-9 xl:text-[18px]"
             style={{
               fontFamily: font.name,
               background: active ? "var(--color-primary)" : "var(--color-surface)",
