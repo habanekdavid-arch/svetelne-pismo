@@ -10,7 +10,7 @@ import { PAYMENT_METHOD_LABEL, type PaymentMethodId } from "@/lib/payment-method
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange, onSessionChange } from "@/lib/session-client";
 import { formatEur } from "@/lib/vat";
-import { isInBratislava } from "@/lib/shipping";
+import { isInBratislava, isPickup, leadTimeNotice } from "@/lib/shipping";
 import { AddressFields, emptyAddress } from "@/components/checkout/AddressFields";
 import AuthGate, { type SessionUser } from "@/components/checkout/AuthGate";
 
@@ -339,9 +339,21 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         )}
 
         {carrier && !installation && (
-          <p className="mt-2 text-xs leading-5" style={{ color: "var(--color-muted)" }}>
-            {carrier.description}
-          </p>
+          <>
+            <p className="mt-2 text-xs leading-5" style={{ color: "var(--color-muted)" }}>
+              {carrier.description}
+            </p>
+            <div
+              className={`mt-2 rounded-2xl border px-3 py-2 text-xs leading-5 ${
+                isPickup(carrier.id)
+                  ? "border-orange-200 bg-orange-50 text-orange-800"
+                  : ""
+              }`}
+              style={isPickup(carrier.id) ? undefined : { borderColor: "var(--color-border)", color: "var(--color-muted)" }}
+            >
+              {leadTimeNotice(carrier.id)}
+            </div>
+          </>
         )}
         {carrier?.needsAddress && !installation && (
           <div className="mt-2 rounded-2xl p-3" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>

@@ -22,7 +22,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Ako dlho trvá výroba?",
-        a: "Štandardná výroba trvá 5–10 pracovných dní od potvrdenia objednávky a zaplatenia zálohy. Pri väčších zákazkách alebo špeciálnych materiáloch vás o termíne informujeme vopred.",
+        a: "Výroba nápisu môže trvať až 3 týždne od potvrdenia objednávky a zaplatenia — podľa veľkosti, materiálu a počtu zákaziek. Keď je nápis hotový, vopred vás kontaktujeme a dohodneme odovzdanie alebo odoslanie.",
       },
       {
         q: "Môžem objednávku zrušiť alebo zmeniť?",

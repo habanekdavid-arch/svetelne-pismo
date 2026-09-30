@@ -237,13 +237,32 @@ export function deliveryPlace(group: {
   return null;
 }
 
+/** How long a sign can take to make — said wherever the customer waits for it. */
+export const PRODUCTION_TIME = "Výroba nápisu môže trvať až 3 týždne.";
+
+/** Collected in person: nothing is handed over without telling the customer first. */
+export function isPickup(deliveryMethod: string): boolean {
+  return deliveryMethod === "pickup-prievidza" || deliveryMethod === "pickup-bratislava";
+}
+
+/**
+ * The heads-up shown before the order is placed and repeated after: how long
+ * making it can take, and that we get in touch before the hand-over.
+ */
+export function leadTimeNotice(deliveryMethod: string): string {
+  if (isPickup(deliveryMethod)) {
+    return `${PRODUCTION_TIME} Keď bude hotový, vopred vás budeme kontaktovať a dohodneme termín odovzdania.`;
+  }
+  return `${PRODUCTION_TIME} ${afterMadeText(deliveryMethod)}`;
+}
+
 /** What happens once the sign is made — the line after "we are making it". */
 export function afterMadeText(deliveryMethod: string): string {
   if (deliveryMethod === "pickup-prievidza") {
-    return `Keď bude hotový, zavoláme vám a môžete si ho vyzdvihnúť na adrese ${PICKUP_ADDRESS}.`;
+    return `Keď bude hotový, vopred vám zavoláme a dohodneme, kedy si ho môžete vyzdvihnúť na adrese ${PICKUP_ADDRESS}.`;
   }
   if (deliveryMethod === "pickup-bratislava") {
-    return "Keď bude hotový, zavoláme vám a dohodneme, kde a kedy vám ho v Bratislave odovzdáme.";
+    return "Keď bude hotový, vopred vám zavoláme a dohodneme, kde a kedy vám ho v Bratislave odovzdáme.";
   }
   if (deliveryMethod === "freight") {
     return "Keď bude hotový, ozveme sa vám a dohodneme dopravu.";
