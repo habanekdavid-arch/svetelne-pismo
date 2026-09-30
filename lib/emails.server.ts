@@ -9,7 +9,7 @@ import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods
 import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, materialById, variantLabel } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 import { formatEur } from "@/lib/vat";
-import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, leadTimeNotice, PRODUCTION_TIME } from "@/lib/shipping";
+import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, leadTimeNotice, PICKUP_ADDRESS, PRODUCTION_TIME } from "@/lib/shipping";
 
 // Every e-mail the shop sends, in one place and one look. Each function is
 // fire-and-forget from the caller's point of view: sendMail never throws, and
@@ -86,7 +86,9 @@ function totals(group: OrderGroup): string {
   const quote = quoteState(group);
   const extra = installation
     ? quote === "requested" ? ["Montáž", "v cenovej ponuke"] : ["Montáž", formatEur(group.deliveryCents / 100)]
-    : ["Doprava", group.deliveryCents > 0 ? formatEur(group.deliveryCents / 100) : "na dohodu"];
+    : ["Doprava", group.deliveryCents > 0
+        ? formatEur(group.deliveryCents / 100)
+        : group.deliveryMethod === "freight" ? "na dohodu" : "zadarmo"];
   return rows([
     ["Nápisy", formatEur(group.itemsCents / 100)],
     [extra[0], extra[1]],
@@ -118,10 +120,17 @@ function whereTo(group: OrderGroup): string | null {
   return esc([method, place].filter(Boolean).join(" — ")) || null;
 }
 
-// ── Customer ─────────────────────────────────────────────────────────────────
+// ── Every e-mail, built ──────────────────────────────────────────────────────
+// Each e-mail is a builder that returns the finished message and a sender that
+// posts it. The builders are also what the admin's e-mail preview renders
+// (app/admin/emaily), so what is previewed is exactly what is sent.
+
+export type BuiltMail = { to: string; subject: string; html: string; replyTo?: string };
+
+const n = (group: OrderGroup) => `Dobrý deň ${esc(group.customerName)},`;
 
 /** Right after the order is placed — whatever kind it is. */
-export async function mailOrderPlaced(group: OrderGroup, orders: Order[]): Promise<void> {
+export function buildOrderPlaced(group: OrderGroup, orders: Order[]): BuiltMail {
   const quote = quoteState(group);
   let intro: string;
   let extra = "";
@@ -131,19 +140,21 @@ export async function mailOrderPlaced(group: OrderGroup, orders: Order[]): Promi
     intro = "ďakujeme za objednávku. Pošlite prosím sumu na účet nižšie — výrobu začneme hneď, ako platba príde.";
     extra = bankBlock(group, orders);
   } else if (group.paymentMethod === "card") {
-    intro = "ďakujeme za objednávku. Ak platba kartou neprebehla, dokončiť ju môžete kedykoľvek cez tlačidlo nižšie.";
+    intro = group.paymentStatus === "paid"
+      ? "ďakujeme za objednávku aj platbu kartou."
+      : "ďakujeme za objednávku. Ak platba kartou neprebehla, dokončiť ju môžete kedykoľvek cez tlačidlo nižšie.";
   } else {
     intro = "ďakujeme za objednávku. Ozveme sa vám s potvrdením ceny, termínu a platobnými údajmi.";
   }
 
-  await sendMail({
+  return {
     to: group.customerEmail,
     subject: quote === "requested"
       ? `Objednávka ${orderNo(group)} čaká na cenovú ponuku`
       : `Potvrdenie objednávky ${orderNo(group)}`,
     html: layout(
       quote === "requested" ? "Objednávka čaká na cenovú ponuku" : "Objednávku sme prijali",
-      p(`Dobrý deň ${esc(group.customerName)}, ${intro}`) +
+      p(`${n(group)} ${intro}`) +
         signsTable(orders) +
         totals(group) +
         rows([
@@ -154,45 +165,114 @@ export async function mailOrderPlaced(group: OrderGroup, orders: Order[]): Promi
         extra +
         button(orderUrl(group), "Zobraziť objednávku"),
     ),
-  });
+  };
 }
 
 /** The shop's quote for an installation order is ready to pay. */
-export async function mailQuoteSent(group: OrderGroup, orders: Order[]): Promise<void> {
-  await sendMail({
+export function buildQuoteSent(group: OrderGroup, orders: Order[]): BuiltMail {
+  return {
     to: group.customerEmail,
     subject: `Cenová ponuka k objednávke ${orderNo(group)}`,
     html: layout(
       "Vaša cenová ponuka je pripravená",
-      p(`Dobrý deň ${esc(group.customerName)}, pripravili sme cenovú ponuku s montážou. Ak s ňou súhlasíte, uhraďte ju — výrobu začneme po prijatí platby a termín montáže dohodneme telefonicky.`) +
+      p(`${n(group)} pripravili sme cenovú ponuku s montážou. Ak s ňou súhlasíte, uhraďte ju — výrobu začneme po prijatí platby a termín montáže dohodneme telefonicky.`) +
         signsTable(orders) +
         totals(group) +
         bankBlock(group, orders) +
         button(orderUrl(group), "Zobraziť predfaktúru"),
     ),
-  });
+  };
 }
 
 /** Payment arrived — by card (Stripe webhook) or transfer (confirmed in the admin). */
-export async function mailPaymentReceived(group: OrderGroup): Promise<void> {
+export function buildPaymentReceived(group: OrderGroup): BuiltMail {
   const installation = group.deliveryMethod === INSTALLATION_METHOD;
-  await sendMail({
+  return {
     to: group.customerEmail,
     subject: `Platba prijatá — objednávka ${orderNo(group)}`,
     html: layout(
       "Platbu sme prijali",
-      p(`Dobrý deň ${esc(group.customerName)}, ďakujeme — platbu ${formatEur(group.totalCents / 100)} sme prijali a nápis ideme vyrábať.`) +
+      p(`${n(group)} ďakujeme — platbu ${formatEur(group.totalCents / 100)} sme prijali a nápis ideme vyrábať.`) +
         p(installation
-          ? "Termín montáže s vami dohodneme telefonicky."
+          ? `${PRODUCTION_TIME} Termín montáže s vami dohodneme telefonicky.`
           : `${PRODUCTION_TIME} ${afterMadeText(group.deliveryMethod)}`) +
         button(orderUrl(group), "Zobraziť objednávku"),
     ),
-  });
+  };
+}
+
+/** A card payment that did not go through (Stripe: async_payment_failed). */
+export function buildPaymentFailed(group: OrderGroup): BuiltMail {
+  return {
+    to: group.customerEmail,
+    subject: `Platba neprebehla — objednávka ${orderNo(group)}`,
+    html: layout(
+      "Platba neprebehla",
+      p(`${n(group)} platba ${formatEur(group.totalCents / 100)} za objednávku ${orderNo(group)} sa nepodarila a nič sme vám nestrhli. Objednávku máme uloženú — zaplatiť ju môžete znova kartou alebo prevodom.`) +
+        button(orderUrl(group), "Dokončiť platbu"),
+    ),
+  };
+}
+
+/** Every sign of the order is made — what happens next depends on the delivery. */
+export function buildOrderReady(group: OrderGroup, orders: Order[]): BuiltMail {
+  const installation = group.deliveryMethod === INSTALLATION_METHOD;
+  const next = installation
+    ? "Ozveme sa vám a dohodneme termín montáže."
+    : group.deliveryMethod === "pickup-prievidza"
+      ? `Zavoláme vám a dohodneme, kedy si ho môžete vyzdvihnúť na adrese ${esc(PICKUP_ADDRESS)}.`
+      : group.deliveryMethod === "pickup-bratislava"
+        ? "Zavoláme vám a dohodneme, kde a kedy vám ho v Bratislave odovzdáme."
+        : group.deliveryMethod === "freight"
+          ? "Ozveme sa vám a dohodneme dopravu."
+          : "Odovzdávame ho kuriérovi DPD — pred doručením vás bude kontaktovať.";
+  return {
+    to: group.customerEmail,
+    subject: `Váš nápis je hotový — objednávka ${orderNo(group)}`,
+    html: layout(
+      "Váš nápis je hotový",
+      p(`${n(group)} váš nápis sme dokončili. ${next}`) +
+        signsTable(orders) +
+        rows([[installation ? "Adresa inštalácie" : "Doručenie", whereTo(group)]]) +
+        button(orderUrl(group), "Zobraziť objednávku"),
+    ),
+  };
+}
+
+/** The order was cancelled in the admin. */
+export function buildOrderCancelled(group: OrderGroup, orders: Order[]): BuiltMail {
+  const paid = group.paymentStatus === "paid";
+  return {
+    to: group.customerEmail,
+    subject: `Objednávka ${orderNo(group)} bola zrušená`,
+    html: layout(
+      "Objednávka bola zrušená",
+      p(`${n(group)} vaša objednávka ${orderNo(group)} bola zrušená.`) +
+        signsTable(orders) +
+        p(paid
+          ? "Zaplatenú sumu vám vrátime rovnakým spôsobom, akým ste platili — o vrátení vám pošleme správu."
+          : "Nič ste neplatili, takže nie je čo vracať.") +
+        p(`Ak ide o omyl alebo máte otázku, napíšte nám na <a href="mailto:${CONTACT_EMAIL}" style="color:#b45309">${CONTACT_EMAIL}</a> alebo zavolajte na ${CONTACT_PHONE}.`),
+    ),
+  };
+}
+
+/** Money went back (Stripe: charge.refunded). */
+export function buildRefunded(group: OrderGroup): BuiltMail {
+  return {
+    to: group.customerEmail,
+    subject: `Platba vrátená — objednávka ${orderNo(group)}`,
+    html: layout(
+      "Platbu sme vrátili",
+      p(`${n(group)} platbu za objednávku ${orderNo(group)} sme vrátili na vašu kartu. Na účte sa zvyčajne objaví do 5–10 pracovných dní, podľa banky.`) +
+        button(orderUrl(group), "Zobraziť objednávku"),
+    ),
+  };
 }
 
 /** Forgotten password — the link is valid for a limited time. */
-export async function mailPasswordReset(to: string, link: string): Promise<boolean> {
-  return sendMail({
+export function buildPasswordReset(to: string, link: string): BuiltMail {
+  return {
     to,
     subject: "Obnovenie hesla — rozsvieťTO",
     html: layout(
@@ -201,16 +281,26 @@ export async function mailPasswordReset(to: string, link: string): Promise<boole
         button(link, "Nastaviť nové heslo") +
         p('<span style="font-size:12px;color:#78716c">Odkaz platí 1 hodinu.</span>'),
     ),
-  });
+  };
 }
 
-// ── The shop ─────────────────────────────────────────────────────────────────
+// ── To the shop ──────────────────────────────────────────────────────────────
 
-/** New order in — to the shop's inbox. */
-export async function mailShopNewOrder(group: OrderGroup, orders: Order[]): Promise<void> {
-  if (!SHOP_INBOX) return;
+function customerRows(group: OrderGroup): string {
   const quote = quoteState(group);
-  await sendMail({
+  return rows([
+    ["Zákazník", esc(group.customerName)],
+    ["E-mail", esc(group.customerEmail)],
+    ["Telefón", group.customerPhone ? esc(group.customerPhone) : null],
+    [quote ? "Adresa inštalácie" : "Doručenie", whereTo(group)],
+    ["Platba", group.paymentMethod ? PAYMENT_METHOD_LABEL[group.paymentMethod] : quote ? "po cenovej ponuke" : "dohodnúť"],
+  ]);
+}
+
+/** New order in. */
+export function buildShopNewOrder(group: OrderGroup, orders: Order[]): BuiltMail {
+  const quote = quoteState(group);
+  return {
     to: SHOP_INBOX,
     replyTo: group.customerEmail,
     subject: quote === "requested"
@@ -218,24 +308,40 @@ export async function mailShopNewOrder(group: OrderGroup, orders: Order[]): Prom
       : `Nová objednávka ${orderNo(group)} — ${formatEur(group.totalCents / 100)}`,
     html: layout(
       quote === "requested" ? "Nová objednávka s montážou" : "Nová objednávka",
-      rows([
-        ["Zákazník", esc(group.customerName)],
-        ["E-mail", esc(group.customerEmail)],
-        ["Telefón", group.customerPhone ? esc(group.customerPhone) : null],
-        [quote ? "Adresa inštalácie" : "Doručenie", whereTo(group)],
-        ["Platba", group.paymentMethod ? PAYMENT_METHOD_LABEL[group.paymentMethod] : quote ? "po cenovej ponuke" : "dohodnúť"],
-      ]) +
+      customerRows(group) +
         signsTable(orders) +
         totals(group) +
+        p(quote === "requested"
+          ? "Pripravte cenovú ponuku s montážou v administrácii."
+          : group.paymentMethod === "transfer"
+            ? "Čaká sa na prevod. Keď peniaze prídu, potvrďte platbu v administrácii."
+            : group.paymentMethod === "card"
+              ? "Platba kartou — keď prebehne, príde samostatný e-mail."
+              : "Zákazníkovi treba potvrdiť cenu a platbu.") +
         button(`${siteOrigin()}/admin`, "Otvoriť administráciu"),
     ),
-  });
+  };
+}
+
+/** The order is paid — start making it. */
+export function buildShopPaid(group: OrderGroup, orders: Order[]): BuiltMail {
+  return {
+    to: SHOP_INBOX,
+    replyTo: group.customerEmail,
+    subject: `Zaplatené: objednávka ${orderNo(group)} — ${formatEur(group.totalCents / 100)}`,
+    html: layout(
+      "Objednávka je zaplatená — do výroby",
+      p(`Platba ${formatEur(group.totalCents / 100)} ${group.paymentMethod === "card" ? "kartou cez Stripe" : "prevodom"} je prijatá. Zákazník dostal potvrdenie.`) +
+        customerRows(group) +
+        signsTable(orders) +
+        button(`${siteOrigin()}/admin`, "Otvoriť administráciu"),
+    ),
+  };
 }
 
 /** A message from the contact form. */
-export async function mailShopContact(msg: { name: string; email: string; subject: string; message: string }): Promise<void> {
-  if (!SHOP_INBOX) return;
-  await sendMail({
+export function buildShopContact(msg: { name: string; email: string; subject: string; message: string }): BuiltMail {
+  return {
     to: SHOP_INBOX,
     replyTo: msg.email,
     subject: `Kontaktný formulár: ${msg.subject}`,
@@ -244,5 +350,24 @@ export async function mailShopContact(msg: { name: string; email: string; subjec
       rows([["Od", `${esc(msg.name)} &lt;${esc(msg.email)}&gt;`], ["Predmet", esc(msg.subject)]]) +
         `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fafaf9;border-radius:12px;padding:12px 14px">${esc(msg.message)}</div>`,
     ),
-  });
+  };
 }
+
+// ── Senders ──────────────────────────────────────────────────────────────────
+
+async function send(mail: BuiltMail): Promise<boolean> {
+  if (!mail.to) return false;
+  return sendMail(mail);
+}
+
+export const mailOrderPlaced = async (g: OrderGroup, o: Order[]) => { await send(buildOrderPlaced(g, o)); };
+export const mailQuoteSent = async (g: OrderGroup, o: Order[]) => { await send(buildQuoteSent(g, o)); };
+export const mailPaymentReceived = async (g: OrderGroup) => { await send(buildPaymentReceived(g)); };
+export const mailPaymentFailed = async (g: OrderGroup) => { await send(buildPaymentFailed(g)); };
+export const mailOrderReady = async (g: OrderGroup, o: Order[]) => { await send(buildOrderReady(g, o)); };
+export const mailOrderCancelled = async (g: OrderGroup, o: Order[]) => { await send(buildOrderCancelled(g, o)); };
+export const mailRefunded = async (g: OrderGroup) => { await send(buildRefunded(g)); };
+export const mailPasswordReset = (to: string, link: string) => send(buildPasswordReset(to, link));
+export const mailShopNewOrder = async (g: OrderGroup, o: Order[]) => { await send(buildShopNewOrder(g, o)); };
+export const mailShopPaid = async (g: OrderGroup, o: Order[]) => { await send(buildShopPaid(g, o)); };
+export const mailShopContact = async (m: { name: string; email: string; subject: string; message: string }) => { await send(buildShopContact(m)); };

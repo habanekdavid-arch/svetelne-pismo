@@ -47,6 +47,14 @@ export default function SelfTestPanel({ defaultTo }: { defaultTo: string }) {
         Test funkcií — e-mail, databáza, Stripe, cena
       </summary>
 
+      <a
+        href="/admin/emaily"
+        className="mt-4 inline-block rounded-xl px-3 py-2 text-xs font-extrabold"
+        style={{ border: "2px solid var(--color-foreground)", color: "var(--color-foreground)" }}
+      >
+        Náhľad všetkých e-mailov →
+      </a>
+
       <label className="mt-4 block max-w-md">
         <span className="mb-1 block text-xs font-bold" style={{ color: "var(--color-muted)" }}>
           Kam poslať testovací e-mail
