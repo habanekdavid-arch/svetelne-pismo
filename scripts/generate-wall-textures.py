@@ -112,43 +112,40 @@ def brick():
     save("brick", rgb, height)
 
 
-# ── Wood (drevo): horizontal cladding boards, 140 mm, oiled oak ─────────────
+# ── Wood (drevo): uniform horizontal boards, 140 mm, running the full width ─
+# One even oak tone for every board, a quiet grain along them and a clean
+# shadow gap between boards — no end joints, no board-to-board colour jumps.
 def wood():
     r = rng(31)
     rows = 7
     h = N / rows
     yy, xx = np.mgrid[0:N, 0:N].astype(float)
-    row = np.floor(yy / h).astype(int)
     ly = np.mod(yy, h)
+    row = np.floor(yy / h).astype(int)
+    warp = fbm(32, 3.0, aniso=(10, 1)) - 0.5
+    streak = fbm(33, 1.2, aniso=(40, 1))
+    base = np.array([0.66, 0.49, 0.32])
+    dark = np.array([0.55, 0.39, 0.24])
     out = np.zeros((N, N, 3))
     height = np.zeros((N, N))
-    warp = fbm(32, 3.0, aniso=(10, 1)) - 0.5      # slow waviness of the grain along the board
-    streak = fbm(33, 1.2, aniso=(40, 1))          # long fine streaks along the board
-    pores = fbm(34, 0.2, aniso=(8, 1))
     for k in range(rows):
         m = row == k
-        period = (11 + 9 * r.random()) * MM       # distance between growth rings, as cut
         phase = r.random() * 100
-        u = (ly + warp * 90 + phase) / period
-        rings = 0.5 + 0.5 * np.sin(2 * np.pi * u)
-        rings = rings ** 3.0
-        light = np.array([0.70, 0.52, 0.34]) * (0.92 + 0.14 * r.random())
-        dark = np.array([0.50, 0.34, 0.20]) * (0.92 + 0.12 * r.random())
-        col = light * (1 - rings[..., None]) + dark * rings[..., None]
-        col *= (0.9 + 0.12 * streak + 0.04 * pores)[..., None]
+        u = (ly + warp * 40 + phase) / (16 * MM)
+        grain = (0.5 + 0.5 * np.sin(2 * np.pi * u)) ** 4
+        col = base * (1 - 0.35 * grain[..., None]) + dark * 0.35 * grain[..., None]
+        col = col * (0.95 + 0.07 * streak)[..., None]
         out[m] = col[m]
-        height[m] = (0.6 + 0.12 * rings + 0.15 * streak + 0.05 * pores)[m]
-    # end joints and gaps between boards
-    for k in range(rows):
-        for _ in range(2):
-            x = r.integers(0, N)
-            m = (row == k) & (np.abs(((xx - x + N / 2) % N) - N / 2) < 1.2 * MM)
-            out[m] *= 0.35
-            height[m] = 0.05
-    gap = (ly < 3 * MM) | (ly > h - 1.5 * MM)
-    out[gap] *= 0.25
+        height[m] = (0.7 + 0.08 * grain + 0.1 * streak)[m]
+    # Gap between boards: a thin dark shadow, and a soft rounded board edge.
+    edge = np.minimum(ly, h - ly)
+    gap = edge < 1.6 * MM
+    bevel = np.clip(edge / (5 * MM), 0, 1)
+    out *= (0.82 + 0.18 * bevel)[..., None]
+    height *= 0.6 + 0.4 * bevel
+    out[gap] = [0.16, 0.11, 0.07]
     height[gap] = 0.0
-    out = out * shade(height, 0.9)[..., None]
+    out = out * shade(height, 0.6)[..., None]
     save("wood", out, height)
 
 
