@@ -108,6 +108,8 @@ function Configurator() {
   // How dark the night preview is, 0–100 % — from dusk (the LEDs are on but
   // the wall is still lit) to a dark street where the sign is the only light.
   const [nightPct, setNightPct] = useState(DEFAULT_NIGHT_PCT);
+  // Preview-only zoom: 1 frames the whole sign, up to 4× brings a detail close.
+  const [zoom, setZoom] = useState(1);
   // Preview-only: which wall the sign is shown against, and the customer's own
   // photo of it. Neither is part of Config — the wall is where they imagine
   // the sign, not something we make — so neither reaches the cart or an order.
@@ -472,6 +474,7 @@ function Configurator() {
             )}
 
             <LetterScene
+              zoom={zoom}
               text={config.text}
               font={config.font}
               lightColor={litColor}
@@ -495,6 +498,43 @@ function Configurator() {
               // spot to put it on, and the drag would just take the orbit away.
               onOffsetChange={backgroundUrl ? setSignOffset : undefined}
             />
+
+            {/* Zoom — buttons rather than the mouse wheel, so scrolling the
+                page past the preview never zooms it by accident. */}
+            <div
+              className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full p-1 shadow-md"
+              style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
+            >
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(1, Math.round((z / 1.25) * 100) / 100))}
+                disabled={zoom <= 1}
+                aria-label="Oddialiť náhľad"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-black transition hover:bg-black/5 disabled:opacity-30"
+                style={{ color: "var(--color-foreground)" }}
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom(1)}
+                aria-label="Zobraziť celý nápis"
+                className="min-w-12 rounded-full px-1.5 text-[12px] font-bold tabular-nums"
+                style={{ color: "var(--color-foreground-soft)" }}
+              >
+                {Math.round(zoom * 100)} %
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(4, Math.round(z * 1.25 * 100) / 100))}
+                disabled={zoom >= 4}
+                aria-label="Priblížiť náhľad"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-black transition hover:bg-black/5 disabled:opacity-30"
+                style={{ color: "var(--color-foreground)" }}
+              >
+                +
+              </button>
+            </div>
           </div>
 
           {/* The wall the sign stands on: a paint colour, a surface, or the

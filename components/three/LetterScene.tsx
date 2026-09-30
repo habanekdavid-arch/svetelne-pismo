@@ -87,7 +87,9 @@ const CAMERA_POS: [number, number, number]    = [1.9, 0.78, 7.9];
 const CAMERA_TARGET: [number, number, number] = [0, 0.05, 0];
 const CAMERA_FOV = 30;
 const ORBIT_AZIMUTH = Math.PI / 4;   // ± horizontal drag range (45°)
-const VIEW_TILT = -0.04; // tiny forward pitch of the letter group (radians)
+// The letters sit flat against the wall — no forward pitch, which used to
+// lift their top edge off the surface.
+const VIEW_TILT = 0;
 // How far the camera sits from what it is looking at. Taken from the two
 // constants above rather than read off the live camera, so the framing the
 // photo backdrop is sized for does not change as the viewer drags the sign.
@@ -130,7 +132,9 @@ const FRAME_EASE          = 0.14;   // per frame — size changes glide instead 
 
 // How far off the wall the letters stand. Back-lit letters sit on spacers so
 // the light has room to spread behind them; everything else is close-mounted.
-const WALL_GAP_MM      = 10;
+// Front-lit and unlit letters are fixed flush to the wall; the half a
+// millimetre only keeps the two surfaces from flickering into each other.
+const WALL_GAP_MM      = 0.5;
 const WALL_GAP_HALO_MM = 30;
 
 const PHOTO_WALL_OFFSET = 0.0015;
@@ -893,6 +897,8 @@ function SignPlacement({
 
 type LetterSceneProps = {
   text: string;
+  /** Preview-only: how far the view is zoomed in (1 = the whole sign in frame). */
+  zoom?: number;
   /** Preview-only: the surface the sign is shown against. */
   wall?: Wall;
   /** Preview-only: object URL of the customer's own photo, if they picked one. */
@@ -1077,6 +1083,7 @@ function SceneContent({
   onPhotoOffsetChange,
   dragTarget = "sign",
   onFailedGlyphs,
+  zoom = 1,
 }: LetterSceneProps) {
   const safeText  = text?.trim() || "Váš text";
   const isNight   = previewMode === "night";
@@ -1387,7 +1394,7 @@ function SceneContent({
           (the sign, or the photo behind it), the right one still turns the view
           exactly as it does on a painted wall. Same on touch — one finger
           moves, two fingers turn — so nothing is out of reach on a phone. */}
-      <FramingRig distance={viewDistance} />
+      <FramingRig distance={viewDistance / Math.max(1, zoom)} />
 
       <OrbitControls
         makeDefault
