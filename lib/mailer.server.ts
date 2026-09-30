@@ -175,15 +175,16 @@ export async function sendTestMail(mail: Mail): Promise<{ ok: boolean; detail: s
     const e = err as { code?: string; response?: string; message?: string };
     const reason = `${e.code ?? "chyba"}: ${e.response ?? e.message ?? String(err)}`.slice(0, 400);
     const backup = fallbackTransport();
-    if (!backup) return { ok: false, detail: `${host} odmietol: ${reason}` };
+    const who = `prihlásenie ako ${user}, heslo ${pass.length} znakov`;
+    if (!backup) return { ok: false, detail: `${host} odmietol (${who}): ${reason}` };
     try {
       await backup.sendMail({ ...message, from: `rozsvieťTO <${gmailUser}>` });
-      return { ok: true, detail: `${host} odmietol (${reason}) — odoslané záložným Gmailom ${gmailUser}.` };
+      return { ok: true, detail: `${host} odmietol (${who}: ${reason}) — odoslané záložným Gmailom ${gmailUser}.` };
     } catch (err2) {
       const e2 = err2 as { code?: string; response?: string; message?: string };
       return {
         ok: false,
-        detail: `${host} odmietol (${reason}); aj Gmail zlyhal: ${e2.code ?? ""} ${e2.response ?? e2.message ?? ""}`.slice(0, 600),
+        detail: `${host} odmietol (${who}: ${reason}); aj Gmail zlyhal: ${e2.code ?? ""} ${e2.response ?? e2.message ?? ""}`.slice(0, 600),
       };
     }
   }
