@@ -23,7 +23,6 @@ import {
   DEFAULT_MATERIAL,
   fontById,
   materialById,
-  groupById,
   variantById,
   variantOf,
   variantFields,
@@ -210,16 +209,6 @@ function Configurator() {
     syncDraft(draftConfig, draftSize);
   }, [touched, draftConfig, draftSize, syncDraft]);
 
-  // Live one-line recap shown under the 3D preview.
-  const summary = [
-    currentFont?.name,
-    `${config.height} mm`,
-    `hrúbka ${depthMm} mm`,
-    variantById(variant).name,
-    currentMat.displayName,
-    ...(signSizeLabel ? [`celkovo ${signSizeLabel}`] : []),
-  ].filter(Boolean) as string[];
-
   // ── Actions ──────────────────────────────────────────────────────────────
 
   function patch(update: Partial<Config>) {
@@ -333,7 +322,7 @@ function Configurator() {
     }
     // Not made in this build — move to one that is, in the same variant.
     const build = buildForFont(variant, config.material, fontId);
-    if (build) apply({ font: fontId, material: build }, 6);
+    if (build) apply({ font: fontId, material: build }, 1);
   }
 
   function handleTextKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -404,7 +393,7 @@ function Configurator() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   // One large rounded panel, split into a sticky 3D preview on the left and
-  // the five steps in the column beside it.
+  // the steps in the column beside it.
 
   return (
     <div className="mx-auto mt-14 max-w-7xl">
@@ -413,7 +402,7 @@ function Configurator() {
         {/* ── Panel header ───────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <EyebrowPill>6 krokov</EyebrowPill>
+            <EyebrowPill>5 krokov</EyebrowPill>
             <h2
               className="section-heading mt-3 text-2xl md:text-3xl"
               style={{ color: "var(--color-foreground)" }}
@@ -424,26 +413,10 @@ function Configurator() {
               className="mt-2 max-w-lg text-[14px] leading-6 tracking-[0.005em]"
               style={{ color: "var(--color-muted)" }}
             >
-              Text, rozmer, farby, svietenie, prevedenie a font — náhľad aj cena sa menia okamžite.
-              Názov každej voľby uvidíte, keď na ňu prejdete myšou.
+              Náhľad aj cena sa menia okamžite. Celý názov voľby uvidíte po prejdení myšou.
             </p>
           </div>
 
-          <span
-            className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold"
-            style={{
-              background: "var(--color-background)",
-              border: "1px solid var(--color-border)",
-              color: "var(--color-muted)",
-            }}
-          >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: "var(--accent)" }}
-              aria-hidden="true"
-            />
-            Cena aktuálna
-          </span>
         </div>
 
         {/* ── Preview beside the settings ───────────────────────────────────
@@ -473,7 +446,7 @@ function Configurator() {
                 <button
                   key={mode}
                   onClick={() => setManualMode(mode)}
-                  className="rounded-full px-3 py-1.5 text-[12px] font-bold tracking-[0.01em] transition-all"
+                  className="rounded-full px-4 py-2 text-[13px] font-bold tracking-[0.01em] transition-all"
                   style={
                     previewMode === mode
                       ? { background: "var(--color-foreground)", color: "var(--color-background)" }
@@ -554,24 +527,9 @@ function Configurator() {
             />
           </div>
 
-          {/* Live recap on the left, the wall the sign stands on at the right. */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap">
-          <div className="flex min-w-0 flex-wrap gap-1.5">
-            {summary.map((item) => (
-              <span
-                key={item}
-                className="whitespace-nowrap rounded-full px-2.5 py-1 text-[11.5px] font-semibold tracking-[0.01em]"
-                style={{
-                  background: "var(--color-surface)",
-                  color: "var(--color-foreground-soft)",
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-
+          {/* The wall the sign stands on. What is chosen is written in the
+              steps beside the preview, so it is not repeated here. */}
+          <div className="mt-3 flex justify-end">
           <WallPicker
             wall={wall}
             onWall={chooseWall}
@@ -597,10 +555,12 @@ function Configurator() {
             off screen. Below lg it is an ordinary block under the preview. ── */}
         <div className="space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh_-_7rem)] lg:overflow-y-auto lg:pr-1.5">
 
-          {/* ── 1 · Text ── */}
+          {/* ── 1 · Text and font — the font is picked right under what is
+              typed, and every dot shows the customer's own first letter. ── */}
           <StepCard
             step={1}
-            title="Text"
+            title="Text a font"
+            aside={currentFont?.name}
             note={noteFor(1)}
           >
             <textarea
@@ -620,10 +580,20 @@ function Configurator() {
               placeholder="Napíšte váš text…"
               aria-label="Text na nápis"
             />
+            <div className="mt-3">
+              <FontDots
+                char={previewChar}
+                value={config.font}
+                availableIn={currentMat.fonts}
+                materialName={currentMat.displayName}
+                canSwitchTo={(id) => buildForFont(variant, config.material, id)}
+                onPick={chooseFont}
+              />
+            </div>
             <Hint>
-              Enter pridá druhý riadok (najviac {MAX_LINES}).
-              {textCase === "upper" && " Alurol – veľké písmená sa vyrába len veľkými písmenami."}
-              {textCase === "lower" && " Alurol – malé písmená sa vyrába len malými písmenami."}
+              Enter = druhý riadok.
+              {textCase === "upper" && " Toto prevedenie sa vyrába len veľkými písmenami."}
+              {textCase === "lower" && " Toto prevedenie sa vyrába len malými písmenami."}
             </Hint>
           </StepCard>
 
@@ -631,10 +601,15 @@ function Configurator() {
           <StepCard
             step={2}
             title="Rozmer"
-            aside={`${config.height} mm`}
             note={noteFor(2)}
           >
-            <Label flush>Výška písmen</Label>
+            {/* The letter height is what is set; the whole nápis is what has
+                to fit the wall — both are shown side by side while the slider
+                moves. */}
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <SizeReadout label="Výška písmen" value={`${config.height} mm`} strong />
+              <SizeReadout label="Celý nápis" value={signSizeLabel ?? "…"} />
+            </div>
             <SliderBox
               value={config.height}
               min={minHeight}
@@ -644,23 +619,8 @@ function Configurator() {
               onChange={(v) => { setNote(null); patch({ height: v }); }}
               ariaLabel="Výška písmen"
             />
-            {/* Thickness is not a control: every build is made in a fixed
-                thickness per height band, so it is shown as what it is — the
-                consequence of the height. */}
-            <div
-              className="mt-3 flex items-baseline justify-between gap-3 rounded-2xl px-4 py-2.5"
-              style={{ background: "var(--color-surface)" }}
-            >
-              <span className="text-[13px] font-bold tracking-[0.01em]" style={{ color: "var(--color-muted)" }}>
-                Hrúbka písma
-              </span>
-              <span className="text-[15px] font-black" style={{ color: "var(--color-foreground)" }}>
-                {depthMm} mm
-              </span>
-            </div>
             <Hint>
-              {currentMat.displayName}: výška {minHeight} – {maxHeight} mm, hrúbka sa určí podľa výšky.
-              {signSizeLabel && <> Celý nápis {signSizeLabel}, účtovaná plocha písmen {formatArea(breakdown.areaM2)}.</>}
+              Hrúbka písma <strong style={{ color: "var(--color-foreground)" }}>{depthMm} mm</strong> — určí sa podľa výšky.
             </Hint>
           </StepCard>
 
@@ -668,9 +628,6 @@ function Configurator() {
           <StepCard
             step={3}
             title="Farby čela a tela"
-            aside={separateFace
-              ? `${colorLabel(currentFaceColor)} / ${colorLabel(config.bodyColor)}`
-              : colorLabel(config.bodyColor)}
             note={noteFor(3)}
           >
             <div className="flex items-start gap-3">
@@ -704,22 +661,19 @@ function Configurator() {
                 )}
               </div>
             </div>
-            <Hint>
-              {!separateFace
-                ? "30 mm plexi je jeden kus presvitného akrylátu — svieti celé v tejto farbe."
-                : variant === "front"
-                  ? "Pri svietení spredu je čelo z presvitného plexi a svieti vo svojej farbe."
-                  : variant === "back"
-                    ? "Pri svietení zozadu je čelo nepriesvitné — svetlo ide dozadu na stenu."
-                    : "Čelo aj telo môžu mať ľubovoľnú farbu."}
-            </Hint>
+            {(variant === "front" || !separateFace) && (
+              <Hint>
+                {separateFace
+                  ? "Pri svietení spredu svieti čelo vo svojej farbe."
+                  : "30 mm plexi je jeden kus — svieti celé v tejto farbe."}
+              </Hint>
+            )}
           </StepCard>
 
           {/* ── 4 · Variant ── */}
           <StepCard
             step={4}
             title="Svietenie"
-            aside={variantById(variant).name}
             note={noteFor(4)}
           >
             <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-2">
@@ -814,31 +768,6 @@ function Configurator() {
               </>
             )}
 
-            <p
-              className="mt-3 rounded-2xl px-4 py-3 text-[13px] leading-6 tracking-[0.005em]"
-              style={{ background: "var(--color-surface)", color: "var(--color-foreground-soft)" }}
-            >
-              <strong style={{ color: "var(--color-foreground)" }}>{groupById(currentMat.group).name} · {currentMat.shortName}.</strong>{" "}
-              {currentMat.subtitle}
-            </p>
-          </StepCard>
-
-          {/* ── 6 · Font ── */}
-          <StepCard
-            step={6}
-            title="Font"
-            aside={currentFont?.name}
-            note={noteFor(6)}
-          >
-            <FontDots
-              char={previewChar}
-              value={config.font}
-              availableIn={currentMat.fonts}
-              materialName={currentMat.displayName}
-              canSwitchTo={(id) => buildForFont(variant, config.material, id)}
-              onPick={chooseFont}
-            />
-            <Hint>Písma, ktoré sa v prevedení {currentMat.displayName} nevyrábajú, sú stlmené — po ich výbere prepneme prevedenie.</Hint>
           </StepCard>
 
         </div>{/* settings column */}
@@ -864,17 +793,19 @@ function Configurator() {
               </div>
             </div>
 
-            <div
-              className="rounded-2xl px-4 py-3 text-sm font-extrabold"
-              style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
-            >
-              Aktuálna cena
-            </div>
           </div>
 
-          {/* VAT split */}
+          {/* VAT split and technical details — folded away: everything in
+              them is chosen in the steps above, this is the paperwork. */}
+          <details className="price-details mt-4">
+            <summary
+              className="cursor-pointer select-none rounded-2xl px-4 py-3 text-[13px] font-bold"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+            >
+              Rozpis ceny a technické detaily
+            </summary>
           <div
-            className="mt-5 rounded-well p-4"
+            className="mt-3 rounded-well p-4"
             style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
           >
             <div className="mb-3 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
@@ -929,6 +860,7 @@ function Configurator() {
               )}
             </div>
           </div>
+          </details>
 
           {/* Actions — two modes. Normally: put this sign in the cart, start
               another one, or go and order. While a sign from the cart is open
@@ -943,15 +875,15 @@ function Configurator() {
                   style={{
                     background: "var(--color-background)",
                     color: "var(--color-foreground)",
-                    border: "1px solid var(--color-border)",
+                    border: "2px solid var(--color-foreground)",
                   }}
                 >
                   Zrušiť úpravu
                 </button>
                 <button
                   onClick={() => applyEdit(config, signSize)}
-                  className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
-                  style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+                  className="btn-press w-full rounded-2xl px-12 py-4 text-base font-black tracking-wide shadow-[0_10px_24px_-10px_rgba(255,174,0,.9)] sm:w-auto"
+                  style={{ background: "var(--accent)", color: "var(--accent-foreground)", border: "2px solid var(--accent)" }}
                 >
                   Uložiť do košíka
                 </button>
@@ -964,7 +896,7 @@ function Configurator() {
                   style={{
                     background: "var(--color-background)",
                     color: "var(--color-foreground)",
-                    border: "1px solid var(--color-border)",
+                    border: "2px solid var(--color-foreground)",
                   }}
                 >
                   <Plus size={15} strokeWidth={2.5} />
@@ -977,7 +909,7 @@ function Configurator() {
                   style={{
                     background: "var(--color-background)",
                     color: "var(--color-foreground)",
-                    border: "1px solid var(--color-border)",
+                    border: "2px solid var(--color-foreground)",
                   }}
                 >
                   Pridať do košíka
@@ -988,8 +920,8 @@ function Configurator() {
                     two signs does not lose one of them by ordering the other. */}
                 <button
                   onClick={() => checkout(config, signSize)}
-                  className="btn-press w-full rounded-2xl px-12 py-4 text-sm font-black tracking-wide sm:w-auto"
-                  style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+                  className="btn-press w-full rounded-2xl px-12 py-4 text-base font-black tracking-wide shadow-[0_10px_24px_-10px_rgba(255,174,0,.9)] sm:w-auto"
+                  style={{ background: "var(--accent)", color: "var(--accent-foreground)", border: "2px solid var(--accent)" }}
                 >
                   Objednať
                 </button>
@@ -1071,6 +1003,25 @@ function StepCard({
         </p>
       )}
     </section>
+  );
+}
+
+function SizeReadout({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div
+      className="rounded-2xl px-3.5 py-2.5"
+      style={{
+        background: strong ? "color-mix(in srgb, var(--accent) 12%, var(--color-background))" : "var(--color-surface)",
+        border: `1.5px solid ${strong ? "var(--accent)" : "var(--color-border)"}`,
+      }}
+    >
+      <p className="text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-muted)" }}>
+        {label}
+      </p>
+      <p className="mt-0.5 text-[18px] font-black leading-tight tabular-nums" style={{ color: "var(--color-foreground)" }}>
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -1316,14 +1267,9 @@ function SliderBox({
 }) {
   return (
     <div className="rounded-2xl p-3.5" style={{ background: "var(--color-surface)" }}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xl font-black leading-none" style={{ color: "var(--color-foreground)" }}>
-          {value}
-          <span className="text-[13px] font-bold">{suffix}</span>
-        </span>
-        <span className="text-[12px] font-semibold tracking-[0.01em]" style={{ color: "var(--color-muted)" }}>
-          {min}{suffix} – {max}{suffix}
-        </span>
+      <div className="flex justify-between text-[12px] font-semibold tracking-[0.01em]" style={{ color: "var(--color-muted)" }}>
+        <span>{min}{suffix}</span>
+        <span>{max}{suffix}</span>
       </div>
 
       <input
@@ -1333,7 +1279,7 @@ function SliderBox({
         step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="range-clean mt-3.5 w-full"
+        className="range-clean mt-2 w-full"
         aria-label={ariaLabel}
       />
 

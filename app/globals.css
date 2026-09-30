@@ -670,35 +670,58 @@ html.dark .badge-ok { color: #4ade80; }
 /* A choice drawn as an icon: an icon or preview on top, a short label under
    it. Lifts on hover like the field cards; the chosen one wears the accent. */
 .opt-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 78px;
+  min-height: 80px;
   padding: 10px 6px 9px;
   border-radius: 18px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-background);
   color: var(--color-foreground);
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
 }
 .opt-tile:hover:not(:disabled) {
   transform: translateY(-2px);
-  border-color: var(--color-border-strong);
+  border-color: var(--color-foreground);
+  box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.35);
 }
+/* The chosen one is unmistakable: amber fill, a thick amber edge and a tick
+   in the corner — not just a thin outline. */
 .opt-tile[aria-checked="true"],
 .opt-tile[aria-pressed="true"] {
-  border-color: var(--color-primary);
-  box-shadow: 0 6px 18px -9px rgba(255, 174, 0, 0.85), inset 0 0 0 1px var(--color-primary);
+  border: 2px solid var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-background));
+  box-shadow: 0 8px 20px -10px rgba(255, 174, 0, 0.9);
+}
+.opt-tile[aria-checked="true"]::after,
+.opt-tile[aria-pressed="true"]::after {
+  content: "✓";
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  color: #000;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 18px;
+  text-align: center;
 }
 .opt-tile:disabled {
-  opacity: 0.38;
+  opacity: 0.35;
   cursor: not-allowed;
+  border-style: dashed;
 }
 .opt-label {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 800;
   line-height: 1.15;
   letter-spacing: 0.015em;
   text-align: center;
