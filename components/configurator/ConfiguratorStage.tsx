@@ -43,6 +43,7 @@ import {
   normalizeConfig,
 } from "@/lib/options";
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
+import { onSessionChange } from "@/lib/session-client";
 import type { DragTarget, ZoomView } from "@/components/three/LetterScene";
 
 /** The whole framed view — kept here too, so the page does not import the 3D chunk. */
@@ -160,6 +161,21 @@ function Configurator() {
   } = useCart();
 
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // The price is shown to signed-in customers only; before that it is a
+  // blurred placeholder with a sign-in button. null = still asking.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const check = () =>
+      fetch("/api/auth/me", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => { if (!cancelled) setSignedIn(!!d?.user); })
+        .catch(() => { if (!cancelled) setSignedIn(false); });
+    check();
+    const off = onSessionChange(check);
+    return () => { cancelled = true; off(); };
+  }, []);
 
   const [config, setConfig] = useState<Config>({
     // Plain black "Váš text" on load — a blank, legible canvas, visible the
@@ -756,23 +772,57 @@ function Configurator() {
               <div className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
                 Orientačná cena s DPH
               </div>
-              <div
-                className="mt-1 text-4xl font-extrabold tracking-tight"
-                style={{ color: "var(--color-foreground)" }}
-              >
-                {formatEur(price)}
-              </div>
-              <div className="mt-1 text-xs" style={{ color: "var(--color-muted-light)" }}>
-                {atMinimum
-                  ? `Minimálna cena za nápis je ${MIN_PRICE_GROSS} € s DPH.`
-                  : "Záväznú cenu dostanete po overení parametrov."}
-              </div>
+              {signedIn ? (
+                <>
+                  <div
+                    className="mt-1 text-4xl font-extrabold tracking-tight"
+                    style={{ color: "var(--color-foreground)" }}
+                  >
+                    {formatEur(price)}
+                  </div>
+                  <div className="mt-1 text-xs" style={{ color: "var(--color-muted-light)" }}>
+                    {atMinimum
+                      ? `Minimálna cena za nápis je ${MIN_PRICE_GROSS} € s DPH.`
+                      : "Záväznú cenu dostanete po overení parametrov."}
+                  </div>
+                </>
+              ) : (
+                // Not the real price under the blur — a placeholder, so it
+                // cannot be read out of the page either.
+                <div className="mt-1 flex flex-wrap items-center gap-4">
+                  <div
+                    aria-hidden="true"
+                    className="select-none text-4xl font-extrabold tracking-tight blur-[9px]"
+                    style={{ color: "var(--color-foreground)" }}
+                  >
+                    888,88 €
+                  </div>
+                  {signedIn === false && (
+                    <div>
+                      <a
+                        href="/prihlasenie?spat=%2F%23konfigurator"
+                        className="inline-block rounded-full px-4 py-2 text-sm font-extrabold"
+                        style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+                      >
+                        Prihlásiť sa a zobraziť cenu
+                      </a>
+                      <p className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>
+                        Nemáte účet?{" "}
+                        <a href="/registracia?spat=%2F%23konfigurator" className="font-semibold underline">
+                          Zaregistrujte sa
+                        </a>{" "}— zaberie to minútu.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
           </div>
 
           {/* VAT split and technical details — folded away: everything in
               them is chosen in the steps above, this is the paperwork. */}
+          {signedIn && (
           <details className="price-details mt-4">
             <summary
               className="cursor-pointer select-none rounded-2xl px-4 py-3 text-[13px] font-bold"
@@ -834,6 +884,7 @@ function Configurator() {
             </div>
           </div>
           </details>
+          )}
 
           {/* Actions — two modes. Normally: put this sign in the cart, start
               another one, or go and order. While a sign from the cart is open

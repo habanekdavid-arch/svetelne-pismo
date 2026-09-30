@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createUserSessionToken, USER_SESSION_COOKIE } from "@/lib/user-auth";
+import { isVerified } from "@/lib/email-verification.server";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches lib/user-auth.ts
 
@@ -24,7 +25,8 @@ export async function POST(req: Request) {
   }
 
   const token = await createUserSessionToken({ userId: user.id, email: user.email, name: user.name });
-  const res = NextResponse.json({ user: { name: user.name, email: user.email } });
+  const verified = await isVerified(user.id).catch(() => true);
+  const res = NextResponse.json({ user: { name: user.name, email: user.email, verified } });
   res.cookies.set(USER_SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Lock } from "lucide-react";
 
-export type SessionUser = { name: string; email: string };
+/** `verified` is false for a new account whose e-mail is not confirmed yet. */
+export type SessionUser = { name: string; email: string; verified?: boolean };
 
 // ── Inline sign-in / sign-up gate ────────────────────────────────────────────
 // Posts straight to our own Prisma-backed auth API (lib/user-auth.ts) — no

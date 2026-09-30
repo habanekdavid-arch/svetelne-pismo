@@ -213,7 +213,15 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
               },
         ),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        if (err?.error === "email_not_verified") {
+          setUser((u) => (u ? { ...u, verified: false } : u));
+          setSubmitError("Najprv overte svoj e-mail — kliknite na odkaz, ktorý sme vám poslali.");
+          return;
+        }
+        throw new Error(String(res.status));
+      }
       const placed = await res.json();
 
       if (!installation && !tracked.current) {
@@ -297,7 +305,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           : "Objednať a zaplatiť kartou";
 
   const blocked =
-    submitting || !terms || !quote || !user;
+    submitting || !terms || !quote || !user || user.verified === false;
 
   const count = items.length;
   const countLabel = `${count} ${count === 1 ? "nápis" : count < 5 ? "nápisy" : "nápisov"}`;
@@ -525,6 +533,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         </label>
 
         {submitError && <Err>{submitError}</Err>}
+        {user && user.verified === false && <VerifyInline email={user.email} />}
         {!user && user !== undefined && (
           <p className="text-center text-xs" style={{ color: "var(--color-muted)" }}>
             Na dokončenie objednávky sa prihláste alebo zaregistrujte vyššie.
@@ -550,6 +559,28 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
 }
 
 // ── Pieces ────────────────────────────────────────────────────────────────────
+
+/** A new account orders once its e-mail is confirmed — with a way to get the link again. */
+function VerifyInline({ email }: { email: string }) {
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+      Na objednanie treba overiť e-mail. Odkaz sme poslali na <strong>{email}</strong>.{" "}
+      <button
+        type="button"
+        disabled={state === "sending" || state === "sent"}
+        onClick={async () => {
+          setState("sending");
+          const r = await fetch("/api/auth/verify", { method: "POST" }).catch(() => null);
+          setState(r?.ok ? "sent" : "failed");
+        }}
+        className="font-bold underline disabled:no-underline"
+      >
+        {state === "sending" ? "Posielam…" : state === "sent" ? "Odoslané ✓" : state === "failed" ? "Nepodarilo sa, skúsiť znova" : "Poslať znova"}
+      </button>
+    </div>
+  );
+}
 
 function isComplete(a: DeliveryAddress): boolean {
   return Boolean(a.street.trim() && a.houseNumber.trim() && a.city.trim() && a.zip.trim());

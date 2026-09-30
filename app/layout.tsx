@@ -9,6 +9,8 @@ import TagManager from "@/components/layout/TagManager";
 import { CartProvider } from "@/lib/cart-context";
 import CartSidebar from "@/components/cart/CartSidebar";
 import FourFromFloatingButton from "@/components/layout/FourFromFloatingButton";
+import VerifyEmailNotice from "@/components/auth/VerifyEmailNotice";
+import { Suspense } from "react";
 
 const centuryGothic = localFont({
   src: [
@@ -60,6 +62,13 @@ export default function RootLayout({
             drawer both read the same state. */}
         <CartProvider>
           <Header />
+          {/* "Overte svoj e-mail" for a new account, and how clicking the link
+              went. Suspense: it reads the query string. */}
+          <Suspense fallback={null}>
+            <div className="px-5">
+              <VerifyEmailNotice />
+            </div>
+          </Suspense>
           {/* A plain div, not <main>: every page already renders its own
               <main>, and nesting them is invalid HTML. */}
           <div className="flex-1">{children}</div>
