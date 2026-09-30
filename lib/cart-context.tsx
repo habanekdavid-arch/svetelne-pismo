@@ -12,7 +12,7 @@ import {
 import type { Config } from "@/lib/types";
 import { calculatePrice } from "@/lib/pricing";
 import type { SignSize } from "@/lib/useSignSize";
-import { clampLightColor, depthMmFor, faceColorOf } from "@/lib/options";
+import { depthMmFor, faceColorOf, normalizeConfig, variantById, variantOf } from "@/lib/options";
 
 // Cart of configured signs. Each entry is one complete Config — the same shape
 // the configurator publishes and /api/orders already accepts — plus the price
@@ -111,7 +111,6 @@ function sameConfig(a: Config, b: Config): boolean {
     a.lightColor === b.lightColor &&
     a.bodyColor === b.bodyColor &&
     faceColorOf(a) === faceColorOf(b) &&
-    a.placement === b.placement &&
     a.height === b.height
   );
 }
@@ -150,15 +149,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               (i): i is CartItem =>
                 !!i && typeof i === "object" && "config" in i && "id" in i,
             )
-            // A line saved before a light colour was taken off the list keeps
-            // its sign, on the nearest colour still made.
-            .map((i) => ({
-              ...i,
-              config: {
-                ...i.config,
-                lightColor: clampLightColor(String(i.config.lightColor ?? "")),
-              },
-            }));
+            // A line saved under the old price list (a placement, edge
+            // lighting, a retired font or light colour) keeps its sign, moved
+            // onto the nearest thing still made — lib/options.ts normalizeConfig.
+            .map((i) => ({ ...i, config: normalizeConfig(i.config) }));
         }
       }
     } catch {
@@ -346,8 +340,7 @@ export function describeConfig(config: Config): string {
   const parts = [
     `${config.height} mm`,
     `hrúbka ${depthMmFor(config.material, config.height)} mm`,
-    config.signType === "illuminated" ? "svetelné" : "nesvetelné",
-    config.placement === "exterior" ? "exteriér" : "interiér",
+    variantById(variantOf(config)).name.toLocaleLowerCase("sk-SK"),
   ];
   return parts.join(" · ");
 }

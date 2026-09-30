@@ -169,7 +169,7 @@ Svetlo sa privádza z boku profilu a v materiáli sa čiastočne odráža smerom
 
 ## V konfigurátore
 
-Nastavte materiál **30 mm plexi** a svietenie **hranami** — presne túto ukážku potom uvidíte pri svojom nastavení.
+Svietenie hranami už v konfigurátore neponúkame. Najbližšie k nemu je variant **Svetelné spredu** v materiáli **Plexi (30 mm)** — ak chcete obrysový efekt ako na fotke, napíšte nám a pripravíme ponuku.
     `.trim(),
   },
   {

@@ -1,15 +1,17 @@
 export type SignType = "illuminated" | "plain";
 
-/** Where the sign hangs — the price list offers different builds for each. */
-export type Placement = "exterior" | "interior";
+/** Where a lit sign's light comes out: through the face, or onto the wall behind. */
+export type LightModeId = "front" | "back";
 
-/** Sheet "strom": svietenie spredu / zozadu / hranami. */
-export type LightModeId = "front" | "back" | "edge";
+/**
+ * Krok 4 cenníka (hárok "struktura"): Svetelné spredu / Svetelné zozadu /
+ * Nesvetelné. In a Config it is stored as signType + lightMode, the shape
+ * every saved cart line and order already has (lib/options.ts variantOf).
+ */
+export type VariantId = "front" | "back" | "plain";
 
-// Where the glow visually reads as coming from — drives both the 3D emissive
-// mix (LetterScene.tsx FACE_EMISSIVE) and the flat glyph preview tiles
-// (ConfiguratorStage.tsx LightModeGlyphPreview).
-export type LightModeDirection = "front" | "back" | "edge";
+/** Krok 5 cenníka: Hliník / Plast / Plexi — each made in one or two builds. */
+export type MaterialGroupId = "aluminium" | "plastic" | "plexi";
 
 export type MaterialPbr = {
   roughness: number;
@@ -40,8 +42,6 @@ export type MaterialPbr = {
   envIntensity?: number;
 };
 
-export type MaterialUseTag = "interiér" | "exteriér" | "oboje";
-
 /** A height range and the thickness that build is made in at that height. */
 export type HeightBand = {
   minMm: number;
@@ -56,17 +56,22 @@ export type PriceTier = {
 };
 
 // Catalog entries are named by customer-facing benefit, not by the underlying
-// technical material — displayName/subtitle/useTag are what the UI renders;
-// id/pbr are internal only and must never be shown to the user.
+// technical material — displayName/subtitle are what the UI renders; id/pbr
+// are internal only and must never be shown to the user.
 export type MaterialOption = {
   id: string;
+  /** Hliník / Plast / Plexi — the choice the customer makes in krok 5. */
+  group: MaterialGroupId;
+  /** Which variants this build is offered in (hárok "struktura"). */
+  variants: VariantId[];
   displayName: string;
+  /** The build within its group, in a word or two: "Veľké písmená", "Plné písmo"… */
+  shortName: string;
   subtitle: string;
   /** Short label above the name in the Materiály section. */
   tagline: string;
   /** What the material is, how it behaves and where it belongs. */
   bullets: string[];
-  useTag: MaterialUseTag;
   /** Fonts this build is made in — FontOption ids, from the price list. */
   fonts: string[];
   /** Height ranges and the thickness each one is built in. */
@@ -96,7 +101,21 @@ export type LightModeDef = {
   id: LightModeId;
   name: string;
   description: string;
-  direction: LightModeDirection;
+};
+
+export type VariantDef = {
+  id: VariantId;
+  /** As the price list writes it: "Svetelné spredu". */
+  name: string;
+  /** On the icon, where there is room for one word. */
+  shortName: string;
+  description: string;
+};
+
+export type MaterialGroupDef = {
+  id: MaterialGroupId;
+  name: string;
+  description: string;
 };
 
 export type Config = {
@@ -104,7 +123,12 @@ export type Config = {
   font: string;           // FontOption.id
   material: string;       // MaterialOption.id — the build
   signType: SignType;
-  placement: Placement;
+  /**
+   * Only read when the sign is lit. Signs saved before the new price list may
+   * still say "edge" (svietenie hranami, no longer made) and carry a
+   * `placement` — lib/options.ts normalizeConfig moves both onto the new
+   * scheme when such a sign is loaded again.
+   */
   lightMode: LightModeId;
   lightColor: string;
   /**

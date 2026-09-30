@@ -68,3 +68,90 @@ export async function sendQuote(groupId: string, installationEur: number) {
   }
   revalidatePath("/admin");
 }
+
+// ── Self-tests ────────────────────────────────────────────────────────────────
+// The buttons under "Test funkcií" in the admin: each one exercises a live
+// service the way the shop uses it and says, in plain words, whether it works
+// and why not. Nothing here changes an order or charges anyone.
+
+export type SelfTestKind = "mail" | "db" | "stripe" | "quote";
+export type SelfTestResult = { ok: boolean; message: string; ms: number };
+
+export async function runSelfTest(kind: SelfTestKind, to?: string): Promise<SelfTestResult> {
+  const session = await getAdminIdentity();
+  if (!session) {
+    throw new Error("Nemáte oprávnenie na túto akciu.");
+  }
+  const started = Date.now();
+  const done = (ok: boolean, message: string): SelfTestResult => ({ ok, message, ms: Date.now() - started });
+
+  try {
+    if (kind === "mail") {
+      const { sendTestMail, SHOP_INBOX } = await import("@/lib/mailer.server");
+      const target = (to ?? "").trim() || SHOP_INBOX;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) return done(false, "Zadajte platnú e-mailovú adresu.");
+      const when = new Date().toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" });
+      const result = await sendTestMail({
+        to: target,
+        subject: "Testovací e-mail — rozsvieťTO",
+        html: `<p>Toto je testovací e-mail z administrácie rozsvieťTO (${when}).</p>
+<p>Ak ste ho dostali, odosielanie e-mailov funguje — potvrdenia objednávok, platieb aj obnova hesla chodia rovnakou cestou.</p>
+<p>Odoslal: ${session.email}</p>`,
+      });
+      return done(result.ok, result.ok ? `Na ${target}: ${result.detail}` : result.detail);
+    }
+
+    if (kind === "db") {
+      if (!process.env.DATABASE_URL?.trim()) return done(false, "Chýba DATABASE_URL.");
+      const { getDb } = await import("@/lib/db");
+      const sql = await getDb();
+      const rows = (await sql`SELECT
+          (SELECT count(*) FROM orders)::int AS orders,
+          (SELECT count(*) FROM order_groups)::int AS groups`) as { orders: number; groups: number }[];
+      const r = rows[0];
+      return done(true, `Databáza odpovedá — ${r?.groups ?? 0} objednávok, ${r?.orders ?? 0} nápisov.`);
+    }
+
+    if (kind === "stripe") {
+      const { stripe, webhookSecret } = await import("@/lib/stripe");
+      const client = stripe();
+      if (!client) return done(false, "Chýba STRIPE_SECRET_KEY — platba kartou sa v košíku neponúka.");
+      const balance = await client.balance.retrieve();
+      const live = balance.livemode;
+      const hook = webhookSecret()
+        ? "webhook secret je nastavený"
+        : "CHÝBA STRIPE_WEBHOOK_SECRET — platby by sa neoznačili ako zaplatené";
+      return done(Boolean(webhookSecret()), `Kľúč funguje (${live ? "ostrý režim" : "testovací režim"}), ${hook}.`);
+    }
+
+    if (kind === "quote") {
+      const { quoteBasket } = await import("@/lib/quote.server");
+      const { formatEur } = await import("@/lib/vat");
+      const quote = await quoteBasket([
+        {
+          text: "TEST",
+          font: "montserrat-extrabold",
+          material: "alurol-upper",
+          signType: "illuminated",
+          lightMode: "front",
+          lightColor: "#ffcf9a",
+          bodyColor: "#0a0a0a",
+          faceColor: "#f1f0ea",
+          height: 400,
+          rotation: 0,
+        },
+      ]);
+      const item = quote.items[0];
+      return done(
+        Boolean(item && item.price > 0),
+        item
+          ? `Nápis „TEST“, alurol 400 mm, svetelné spredu: ${formatEur(item.price)} s DPH, ${Math.round(item.widthMm)} × ${Math.round(item.heightMm)} mm. Doprava: ${quote.deliveryMethods.map((m) => m.name).join(", ")}.`
+          : "Cenu sa nepodarilo vypočítať.",
+      );
+    }
+
+    return done(false, "Neznámy test.");
+  } catch (err) {
+    return done(false, `Chyba: ${err instanceof Error ? err.message : String(err)}`.slice(0, 500));
+  }
+}

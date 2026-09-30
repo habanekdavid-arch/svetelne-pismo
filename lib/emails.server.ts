@@ -6,7 +6,7 @@ import { bankAccount, variableSymbol } from "@/lib/bank";
 import type { Order, OrderGroup } from "@/lib/orders";
 import { quoteState } from "@/lib/orders";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, LIGHT_MODES, materialById } from "@/lib/options";
+import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, materialById, variantLabel } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 import { formatEur } from "@/lib/vat";
 import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, leadTimeNotice, PRODUCTION_TIME } from "@/lib/shipping";
@@ -65,10 +65,9 @@ function rows(pairs: [string, string | null | undefined][]): string {
 function signsTable(orders: Order[]): string {
   const lines = orders.map((o) => {
     const c = o.config;
-    const lit = c.signType === "illuminated";
-    const mode = lit ? (LIGHT_MODES.find((l) => l.id === c.lightMode)?.name ?? "svetelné") : "nesvetelné";
+    const mode = variantLabel(c).toLocaleLowerCase("sk-SK");
     const colours = hasSeparateFace(c.material)
-      ? `čelo ${colorLabel(faceColorOf(c))}, hrana ${colorLabel(c.bodyColor)}`
+      ? `čelo ${colorLabel(faceColorOf(c))}, stena ${colorLabel(c.bodyColor)}`
       : `farba ${colorLabel(c.bodyColor)}`;
     const spec = `${materialById(c.material).displayName} · ${c.height} mm · hrúbka ${depthMmFor(c.material, c.height)} mm · ${mode} · ${colours}`;
     return `<tr>

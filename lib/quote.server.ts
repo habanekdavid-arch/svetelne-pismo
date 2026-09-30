@@ -15,13 +15,15 @@ import {
   MATERIALS,
   fontOptions,
   materialById,
-  materialsFor,
   fontsFor,
   clampHeight,
   applyTextCase,
   hasSeparateFace,
   clampFaceColor,
+  clampBodyColor,
   clampLightColor,
+  isOffered,
+  variantOf,
   DEFAULT_LIGHT_COLOR,
 } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
@@ -67,15 +69,18 @@ export function sanitizeConfig(raw: unknown): Config | null {
 
   if (typeof c.text !== "string" || !c.text.trim()) return null;
   if (c.signType !== "illuminated" && c.signType !== "plain") return null;
-  if (c.placement !== "exterior" && c.placement !== "interior") return null;
+  // A lit sign is lit from the front or from behind — nothing else is made
+  // (svietenie hranami left with the old price list).
+  const lightMode = c.lightMode ?? "front";
+  if (lightMode !== "front" && lightMode !== "back") return null;
 
-  // The build has to be one this sign type and placement is actually offered
-  // in, and the font one that build is made in — the same two tables the
-  // configurator filters its options with (sheet "strom" / "parametre").
+  // The build has to be one this variant is actually made in, and the font
+  // one that build is made in — the same two tables the configurator filters
+  // its options with (hárky "struktura" a "fonty"). A `placement` from an
+  // older browser is simply not read: the new price list does not ask.
   const material = MATERIALS.find((m) => m.id === c.material);
   if (!material) return null;
-  const offered = materialsFor(c.signType, c.placement, c.lightMode ?? "front");
-  if (!offered.some((m) => m.id === material.id)) return null;
+  if (!isOffered(variantOf({ signType: c.signType, lightMode }), material.id)) return null;
 
   const font = fontOptions.find((f) => f.id === c.font);
   if (!font || !fontsFor(material.id).some((f) => f.id === font.id)) return null;
@@ -91,19 +96,25 @@ export function sanitizeConfig(raw: unknown): Config | null {
     font: font.id,
     material: material.id,
     signType: c.signType,
-    placement: c.placement,
-    lightMode: c.lightMode ?? "front",
+    lightMode,
     // Only one of the two whites — an old cart line may still carry a
     // coloured LED that is no longer made.
     lightColor: clampLightColor(typeof c.lightColor === "string" ? c.lightColor : DEFAULT_LIGHT_COLOR),
-    bodyColor: typeof c.bodyColor === "string" ? c.bodyColor.slice(0, 32) : "#ffffff",
+    // Checked against hárok "farby" like the face: 30 mm plexi, all one
+    // piece of acrylic, only comes in colours light gets through.
+    bodyColor: clampBodyColor(
+      material.id,
+      c.signType,
+      lightMode,
+      typeof c.bodyColor === "string" ? c.bodyColor.slice(0, 32) : "#ffffff",
+    ),
     // Checked, not trusted: a front-lit face has to be a colour light gets
     // through, and 30 mm plexi has no separate face at all.
     faceColor: hasSeparateFace(material.id)
       ? clampFaceColor(
           material.id,
           c.signType,
-          c.lightMode ?? "front",
+          lightMode,
           typeof c.faceColor === "string" ? c.faceColor.slice(0, 32)
             : typeof c.bodyColor === "string" ? c.bodyColor.slice(0, 32) : "#ffffff",
         )

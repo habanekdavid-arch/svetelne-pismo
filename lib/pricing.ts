@@ -3,7 +3,7 @@ import { materialById, depthMmFor } from "@/lib/options";
 import type { SignSize } from "@/lib/useSignSize";
 import { netToGross } from "@/lib/vat";
 
-// Pricing straight off the price list (e-shop_rozsvietto_cennik.xlsx, sheet
+// Pricing straight off the price list (e-shop_rozsvietto_cennik_nova_schema.xlsx, sheet
 // "ceny"). A sign is sold by the AREA it covers — the rectangle the whole
 // inscription occupies on the wall — at a unit price that steps down at 3 m²
 // and again at 5 m². The one exception is solid 3D print, which is sold by the

@@ -14,7 +14,7 @@ import {
   type OrderGroup,
   type OrderStatus,
 } from "@/lib/orders";
-import { fontOptions, MATERIALS, LIGHT_MODES, depthMmFor, hasSeparateFace, faceColorOf, colorLabel } from "@/lib/options";
+import { fontOptions, MATERIALS, depthMmFor, hasSeparateFace, faceColorOf, colorLabel, variantLabel } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
 import ConfirmTransferButton from "@/components/admin/ConfirmTransferButton";
@@ -24,6 +24,8 @@ import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods
 import { deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
 import StatusBadge from "@/components/orders/StatusBadge";
 import LogoutButton from "@/components/admin/LogoutButton";
+import SelfTestPanel from "@/components/admin/SelfTestPanel";
+import { SHOP_INBOX } from "@/lib/mailer.server";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 
 export const metadata: Metadata = {
@@ -132,6 +134,10 @@ export default async function AdminPage({
             (docs/API-KLUCE-TODO.md), read live from the environment. */}
         <IntegrationsPanel />
 
+        {/* Buttons that exercise each live service — a test e-mail, the
+            database, Stripe and the server's own price calculation. */}
+        <SelfTestPanel defaultTo={SHOP_INBOX} />
+
         {/* Stat tiles — counts per status + total revenue; click to filter */}
         <div className="mb-10 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {tiles.map((t) => {
@@ -190,9 +196,6 @@ export default async function AdminPage({
             {orders.map((o) => {
               const font     = fontOptions.find((f) => f.id === o.config.font);
               const material = MATERIALS.find((m) => m.id === o.config.material);
-              const lighting = o.config.signType === "illuminated"
-                ? LIGHT_MODES.find((l) => l.id === o.config.lightMode)
-                : null;
 
               return (
                 <article
@@ -214,7 +217,7 @@ export default async function AdminPage({
                         <span
                           className="h-4 w-4 shrink-0 rounded-full"
                           style={{ background: faceColorOf(o.config), border: `3px solid ${o.config.bodyColor}` }}
-                          title="čelo a hrana"
+                          title="čelo a stena"
                           aria-hidden="true"
                         />
                         <p className="truncate text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
@@ -222,7 +225,7 @@ export default async function AdminPage({
                         </p>
                       </div>
                       <p className="mt-2 text-sm" style={{ color: "var(--color-muted)" }}>
-                        {o.config.signType === "plain" ? "Nesvetelné písmo" : (lighting?.name ?? "Svetelné písmo")}
+                        {variantLabel(o.config)}
                       </p>
                     </div>
 
@@ -239,15 +242,15 @@ export default async function AdminPage({
                           label="Hrúbka"
                           value={`${depthMmFor(o.config.material, o.config.height)} mm`}
                         />
-                        {/* Dielňa potrebuje obe farby menom — čelo a hrana sa
+                        {/* Dielňa potrebuje obe farby menom — čelo a stena sa
                             objednávajú a lakujú zvlášť. */}
                         {hasSeparateFace(o.config.material) ? (
                           <>
                             <SpecLine label="Čelo" value={colorLabel(faceColorOf(o.config))} />
-                            <SpecLine label="Hrana" value={colorLabel(o.config.bodyColor)} />
+                            <SpecLine label="Stena" value={colorLabel(o.config.bodyColor)} />
                           </>
                         ) : (
-                          <SpecLine label={o.config.signType === "illuminated" && o.config.lightMode === "edge" ? "Čelo" : "Farba"} value={colorLabel(o.config.bodyColor)} />
+                          <SpecLine label="Farba" value={colorLabel(o.config.bodyColor)} />
                         )}
                       </dl>
                     </div>

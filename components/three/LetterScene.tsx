@@ -26,7 +26,7 @@ import { mmToUnits } from "@/components/three/scale";
 const ENV_HDR_PATH        = "/hdri/studio.hdr";
 // Ambient, not glow. Lifted so the BODY COLOUR of the letter reads in every
 // mode: the customer picks a colour from a swatch and has to see that colour
-// on the sign, whether it is lit from the front, the back or the edges. It
+// on the sign, whether it is lit from the front or from behind. It
 // does not touch how bright the LEDs are — that is the emissive below.
 const ENV_INTENSITY            = 0.92;  // day — neutral studio HDRI
 const ENV_INTENSITY_DEEP_NIGHT = 0.06;  // night at 100 % — the sign is the light
@@ -55,11 +55,16 @@ const THREED_REPEAT   = 8;   // ribbed_corduroy — 8× simulates fine FDM layer
 // drive it. Threshold tuned so only emissive faces bloom.
 const BLOOM_LUMINANCE_THRESHOLD = 0.85;
 const BLOOM_LUMINANCE_SMOOTHING = 0.4;
-const BLOOM_RADIUS              = 0.75;
+// Bloom is drawn in screen space, so whatever it spreads lands on the wall
+// round the letter. A front-lit letter shines forward, out of its face, and
+// throws no light onto the wall behind it — its flare is kept tight to the
+// face (small radius) so it reads as a bright face, not as a glow on the
+// wall. Only a halo letter lights the wall, and there the spread is the point.
+const BLOOM_RADIUS_FRONT        = 0.38;
+const BLOOM_RADIUS_HALO         = 0.75;
 // Softened across the board — bloom is what turns a bright face into a white
 // blob, so each mode gets only as much flare as it needs to read as light.
-const BLOOM_INTENSITY_BASE      = 0.34; // front — the lit face
-const BLOOM_INTENSITY_EDGE      = 0.28; // edges — a thin bright rim, easy to overdo
+const BLOOM_INTENSITY_BASE      = 0.3;  // front — the lit face, kept to the face
 const BLOOM_INTENSITY_HALO      = 0.3;  // back — the glow texture already IS the soft light; more bloom only fogs the face
 // A saturated LED is darker than a white one at the same drive, so with a
 // fixed threshold it never reached the bloom at all and a red sign looked
@@ -133,24 +138,24 @@ const PHOTO_WALL_OFFSET = 0.0015;
 const PHOTO_COVER = 2.2;
 
 // Emissive scale per light mode, per face group (front cap / side wall / back
-// cap). The three modes are the ones the price list sells: spredu, zozadu,
-// hranami.
+// cap). The two modes are the ones the price list sells: svetelné spredu and
+// svetelné zozadu.
 //
 // All three were toned down: a lit sign at night is bright, but on a screen a
 // face driven to the top of the range clips to a flat slab of colour with the
 // letterform boiled out of it. Keeping the face under that ceiling is what
 // leaves the shape — and the seam between face and return — readable.
 const FACE_EMISSIVE: Record<LightModeId, { front: number; side: number; back: number }> = {
-  // Front-lit: the face carries the light, the returns barely pick any up.
-  front: { front: 0.52, side: 0.04, back: 0.02 },
+  // Front-lit: the face carries the light and nothing else does. The returns
+  // are opaque painted metal or plastic, and the back is against the wall —
+  // any light there would read as a glow thrown onto the wall, which a
+  // front-lit letter does not have. The face is a touch brighter than it was,
+  // to make up for the aura it no longer gets round it (HaloGlow below).
+  front: { front: 0.85, side: 0.0, back: 0.0 },
   // Back-lit: nothing the camera can see emits. The face and the returns stay
   // the material's own colour — a back-lit letter reads as a dark silhouette —
   // and the light lives entirely on the wall behind it (see HaloGlow below).
   back:  { front: 0.00, side: 0.04, back: 0.58 },
-  // Edge-lit: the light leaves through the cut edge of the acrylic, so the
-  // side wall is the bright part and the face only catches what travels
-  // through the sheet.
-  edge:  { front: 0.10, side: 0.62, back: 0.07 },
 };
 // Eased off twice now (3.2 / 1.55 → 2.3 / 1.3 → here): past a point the glow
 // stops being light ON a letter and becomes a white shape instead, and on a
@@ -183,20 +188,12 @@ const SATURATED_EMISSIVE_CUT    = 0.42;
 const HALO_GLOW_GAIN        = 1.3;
 // How far the light spreads past the letter's edge, in real millimetres:
 // back-lit letters stand ~30 mm off the wall, and the pool they throw fades
-// out within about three times that. The soft aura round a front- or edge-lit
-// letter is scatter from its face and reaches less far still.
+// out within about three times that.
 const HALO_REACH_MM         = 95;
-const AURA_REACH_MM         = 55;
-// The same glow, much weaker, around a front- or edge-lit sign.
-//
-// Why it exists: a saturated LED cannot be both bright enough to bloom and
-// still recognisably its own colour — drive a blue face hard enough to flare
-// and tone mapping turns it white, back it off enough to stay blue and it
-// stops looking lit at all. So the "it is switched on" read comes from a soft
-// aura around the letter instead of from the face's own brightness, and the
-// face is free to just be blue.
-const HALO_GLOW_GAIN_FRONT  = 0.52;
-const HALO_GLOW_GAIN_EDGE   = 0.44;
+// A front-lit letter used to get the same glow, weaker, as an aura round it.
+// It is gone: light that leaves through the face goes forward, and a soft
+// patch of light on the wall behind the letter is exactly what a front-lit
+// sign does NOT have — it read as the letter casting a shadow of light.
 // How far the glow's own colour is pulled toward white before the gain is
 // applied. Without it a saturated LED colour can never clip to white, and the
 // halo stays flatly amber across its whole spread. With it the core clips —
@@ -209,18 +206,15 @@ const HALO_GLOW_WALL_OFFSET = 0.004; // in front of the wall, to avoid z-fightin
 // white when illuminated (0 = full bodyColor, 1 = fully white).
 //
 // It used to be 0.45, which was the single biggest reason a colour looked
-// different depending on the light mode: edge-lit signs are made in 30 mm
-// plexi, so picking red there gave a washed pink while the same red on an
-// unlit sign was red. Kept small — lit acrylic really does lighten — but not
-// nearly enough to lose which colour was chosen.
+// different depending on the light mode: picking red on 30 mm plexi gave a
+// washed pink while the same red on an unlit sign was red. Kept small — lit
+// acrylic really does lighten — but not nearly enough to lose which colour
+// was chosen.
 const WHITE_BASE_BLEND = 0.12;
 
 // Below this peak channel (linear) a coloured sheet starts to hold light back —
 // how black and dark grey acrylic stay dark when lit from behind.
 const DARK_SHEET_PASS = 0.1;
-
-/** Clear cast acrylic — the sides of an edge-lit plexi letter. */
-const CLEAR_ACRYLIC = "#f2f4f5";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -245,9 +239,12 @@ type LightSettings = {
  * it did.
  */
 function saturationHeadroom(color: THREE.Color): number {
-  const hsl = { h: 0, s: 0, l: 0 };
-  color.getHSL(hsl);
-  return 1 - SATURATED_EMISSIVE_CUT * hsl.s;
+  // Chroma (brightest channel minus darkest), not HSL saturation: HSL calls
+  // warm white — #ffcf9a — fully saturated, which dimmed a warm-white face
+  // as much as a red one and left it looking like beige paint instead of
+  // light. Chroma rates it for what it is, a pale tint.
+  const chroma = Math.max(color.r, color.g, color.b) - Math.min(color.r, color.g, color.b);
+  return 1 - SATURATED_EMISSIVE_CUT * Math.min(1, chroma);
 }
 
 function getLightingSettings(
@@ -398,11 +395,9 @@ function emittedColor(
   faceKind: FaceKind,
   lightMode: LightModeId,
 ): THREE.Color {
-  // 30 mm plexi (faceKind "none"). Front-lit it is coloured acrylic all the
-  // way through, so its light leaves in the plexi's own colour. Edge-lit the
-  // edges glow in the LED's own white or warm white and only the face is
-  // coloured — the light itself never changes colour.
-  if (faceKind === "none") return lightMode === "edge" ? led : filteredThroughFace(led, face);
+  // 30 mm plexi (faceKind "none") is coloured acrylic all the way through, so
+  // its light leaves in the plexi's own colour.
+  if (faceKind === "none") return filteredThroughFace(led, face);
   return faceKind === "acrylic" && lightMode === "front" ? filteredThroughFace(led, face) : led;
 }
 
@@ -1008,9 +1003,9 @@ export default function LetterScene(props: LetterSceneProps) {
   const bloomActive = signType === "illuminated" && previewMode === "night";
   const nightLevel = Math.min(1, Math.max(0, props.nightLevel ?? DEFAULT_NIGHT_LEVEL));
   const bloomIntensity =
-    (lightMode === "back" ? BLOOM_INTENSITY_HALO
-     : lightMode === "edge" ? BLOOM_INTENSITY_EDGE
-     : BLOOM_INTENSITY_BASE) * (1 + BLOOM_INTENSITY_SAT_GAIN * glowSat) * (0.4 + 0.8 * nightLevel);
+    (lightMode === "back" ? BLOOM_INTENSITY_HALO : BLOOM_INTENSITY_BASE)
+    * (1 + BLOOM_INTENSITY_SAT_GAIN * glowSat) * (0.4 + 0.8 * nightLevel);
+  const bloomRadius = lightMode === "back" ? BLOOM_RADIUS_HALO : BLOOM_RADIUS_FRONT;
   // At dusk the wall itself is still bright enough to bloom, which bleached
   // the whole picture; the threshold rises as the night lightens.
   const bloomThreshold =
@@ -1047,7 +1042,7 @@ export default function LetterScene(props: LetterSceneProps) {
             luminanceThreshold={bloomThreshold}
             luminanceSmoothing={BLOOM_LUMINANCE_SMOOTHING}
             intensity={bloomActive ? bloomIntensity : 0}
-            radius={BLOOM_RADIUS}
+            radius={bloomRadius}
           />
         </EffectComposer>
       </Canvas>
@@ -1121,19 +1116,8 @@ function SceneContent({
   // not warm white on red (which read as salmon). Everything else emits the
   // LED itself and lets its face (buildFaceMat) do the filtering.
   const materialGlow = faceKind === "none" ? shineColor : glowColor;
-  // Edge-lit plexi: clear acrylic round the sides, glowing in the LED's
-  // white, with the chosen colour on the face only.
-  const edgeLitPlexi = faceKind === "none" && isIlluminated && lightMode === "edge";
-  const returnColor = useMemo(
-    () => (edgeLitPlexi ? new THREE.Color(CLEAR_ACRYLIC) : baseColor),
-    [edgeLitPlexi, baseColor],
-  );
-  // …and the little light that reaches its face comes out through the face's
-  // colour, so a red face stays red at night instead of washing to tan.
-  const faceGlow = useMemo(
-    () => (edgeLitPlexi ? filteredThroughFace(glowColor, faceColor) : materialGlow),
-    [edgeLitPlexi, glowColor, faceColor, materialGlow],
-  );
+  const returnColor = baseColor;
+  const faceGlow = materialGlow;
 
   // Size is REAL now. The letters are scaled in LetterGeometryHost so their
   // capital is exactly as tall as ordered, measured in the same millimetres
@@ -1234,15 +1218,11 @@ function SceneContent({
   }, [surface.dayTint, surface.nightTint, dark]);
   const photoTint = `#${new THREE.Color("#ffffff").lerp(new THREE.Color(PHOTO_DEEP_NIGHT_TINT), dark).getHexString()}`;
 
-  // Only the back-lit build throws light onto the wall; an edge-lit letter
-  // sends it sideways, away from the wall, and a front-lit one forward.
+  // Only the back-lit build throws light onto the wall; a front-lit one sends
+  // it forward, out of its face, and leaves the wall behind it dark.
   // The darker the street, the more the same light stands out on the wall.
-  const glowGain =
-    (lightMode === "back" ? HALO_GLOW_GAIN
-     : lightMode === "edge" ? HALO_GLOW_GAIN_EDGE
-     : HALO_GLOW_GAIN_FRONT) * (0.8 + 0.4 * dark);
-  // Every lit mode at night now carries some glow, not just back-lit.
-  const wallGlowOn = isIlluminated && isNight;
+  const glowGain = HALO_GLOW_GAIN * (0.8 + 0.4 * dark);
+  const wallGlowOn = isIlluminated && isNight && lightMode === "back";
 
   return (
     <>
@@ -1263,7 +1243,10 @@ function SceneContent({
         // of a lit sign has — so it is kept to a gentle fill that still shows
         // the colour of the letters.
         intensity={mix(LIGHT_DAY.key, LIGHT_DEEP_NIGHT.key)}
-        castShadow
+        // A lit sign at night stands in the dark: nothing throws a hard
+        // silhouette of its letters onto the wall, so the key light casts no
+        // shadow then. By day it does, as the sun would.
+        castShadow={!(isIlluminated && isNight)}
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
         // Biases are distances, so they follow the scale of what is on screen
@@ -1331,7 +1314,7 @@ function SceneContent({
             color={shineColor}
             gain={glowGain}
             heightMm={debouncedHeight}
-            reachMm={lightMode === "back" ? HALO_REACH_MM : AURA_REACH_MM}
+            reachMm={HALO_REACH_MM}
             y={0.08}
             z={wallZ + HALO_GLOW_WALL_OFFSET}
           />
