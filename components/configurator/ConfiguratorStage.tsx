@@ -1234,86 +1234,87 @@ function SliderBox({
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 /**
- * The three variants as simple symbols on a dark tile — not a rendering of
- * a letter: a panel shining forward, a panel with light behind it, and a
- * panel that is not lit.
+ * The three variants as simple line symbols, in the icon colour with the
+ * light in amber: a panel shining forward, a panel with light behind it, and
+ * a panel that is not lit.
  */
 function VariantGlyph({ variant }: { variant: VariantId }) {
-  const light = "#ffd98a";
+  const light = "#f5a300";
   const rays = [0, 45, 90, 135, 180, 225, 270, 315];
   return (
-    <svg viewBox="0 0 48 48" width={46} height={46} aria-hidden="true">
-      <rect x="1" y="1" width="46" height="46" rx="12" fill="#16161b" />
+    <svg viewBox="0 0 32 32" width={34} height={34} aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
       {variant === "front" && (
         <>
           {rays.map((a) => (
-            <line
-              key={a}
-              x1="24" y1="24" x2="24" y2="8"
-              transform={`rotate(${a} 24 24)`}
-              stroke={light}
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeDasharray="0 11 5 20"
-            />
+            <line key={a} x1="16" y1="16" x2="16" y2="2" transform={`rotate(${a} 16 16)`}
+              stroke={light} strokeWidth="1.8" strokeDasharray="0 9.5 4 20" />
           ))}
-          <rect x="16" y="16" width="16" height="16" rx="3" fill="#fff6d6" />
+          <rect x="10.5" y="10.5" width="11" height="11" rx="2" fill={light} stroke="currentColor" strokeWidth="1.8" />
         </>
       )}
       {variant === "back" && (
         <>
-          <rect x="11" y="11" width="26" height="26" rx="7" fill="none" stroke={light} strokeWidth="2.2" />
-          <rect x="16" y="16" width="16" height="16" rx="3" fill="#3a3a42" stroke="#55555e" strokeWidth="1.2" />
+          <rect x="5" y="5" width="22" height="22" rx="6" stroke={light} strokeWidth="1.8" />
+          <rect x="10.5" y="10.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
         </>
       )}
       {variant === "plain" && (
-        <rect x="16" y="16" width="16" height="16" rx="3" fill="none" stroke="#b9b9c2" strokeWidth="2.2" />
+        <rect x="10.5" y="10.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
       )}
     </svg>
   );
 }
 
 /**
- * Hliník / Plast / Plexi as simple symbols on the same dark tile the
- * lighting icons use: an aluminium profile, a filament spool, a pane of glass.
+ * Hliník / Plast / Plexi as clean line icons of the material itself — an
+ * aluminium profile, a filament spool, a pane of acrylic glass — drawn in one
+ * colour like every other icon on the site.
  */
 function GroupIcon({ group }: { group: MaterialGroupId }) {
-  const line = {
+  const common = {
+    width: 34,
+    height: 34,
+    viewBox: "0 0 32 32",
     fill: "none",
-    strokeWidth: 2,
+    stroke: "currentColor",
+    strokeWidth: 1.8,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
+    "aria-hidden": true,
   };
+
+  if (group === "aluminium") {
+    // A square aluminium tube: its open end and the length running back.
+    return (
+      <svg {...common}>
+        <path d="M4 11 L10 8 L28 8 L22 11 Z" />
+        <path d="M22 11 L28 8 L28 20 L22 23" />
+        <rect x="4" y="11" width="18" height="12" rx="1" />
+        <rect x="8" y="14" width="10" height="6" rx=".5" />
+      </svg>
+    );
+  }
+
+  if (group === "plastic") {
+    // A spool of 3D-printing filament with a strand running off it.
+    return (
+      <svg {...common}>
+        <circle cx="15" cy="16" r="11" />
+        <circle cx="15" cy="16" r="7.5" />
+        <circle cx="15" cy="16" r="3" />
+        <path d="M24 9 C 27 7, 30 9, 30 13" />
+      </svg>
+    );
+  }
+
+  // A pane of acrylic glass, its thickness showing at the edge, with the
+  // diagonal glints glass has.
   return (
-    <svg viewBox="0 0 48 48" width={46} height={46} aria-hidden="true">
-      <rect x="1" y="1" width="46" height="46" rx="12" fill="#16161b" />
-      {group === "aluminium" && (
-        // A square aluminium tube: its open end and the length running back.
-        <g {...line} stroke="#d5dbe1">
-          <path d="M12 20 L18 16 L36 16 L30 20" />
-          <path d="M30 20 L36 16 L36 28 L30 32" />
-          <rect x="12" y="20" width="18" height="12" rx="1.2" />
-          <rect x="16" y="23.5" width="10" height="5" rx=".6" stroke="#8d949c" />
-        </g>
-      )}
-      {group === "plastic" && (
-        // A spool of 3D-printing filament with a strand running off it.
-        <g {...line}>
-          <circle cx="23" cy="25" r="11" stroke="#d5dbe1" />
-          <circle cx="23" cy="25" r="7" stroke="#ffb347" strokeWidth="3.2" />
-          <circle cx="23" cy="25" r="2.6" stroke="#d5dbe1" />
-          <path d="M31 16 C 34 13, 38 15, 38 19" stroke="#ffb347" />
-        </g>
-      )}
-      {group === "plexi" && (
-        // A pane of clear acrylic, its edge showing, with two glints.
-        <g {...line}>
-          <path d="M14 11 L31 14 L31 37 L14 34 Z" stroke="#9fd8f5" />
-          <path d="M31 14 L35 12 L35 35 L31 37" stroke="#9fd8f5" />
-          <path d="M18 22 L24 16.8" stroke="#ffffff" />
-          <path d="M18 27.5 L27 19.7" stroke="#ffffff" />
-        </g>
-      )}
+    <svg {...common}>
+      <path d="M6 5 L23 8 L23 28 L6 25 Z" />
+      <path d="M23 8 L27 6 L27 26 L23 28" />
+      <path d="M10 15 L16 9.8" />
+      <path d="M10 20 L19 12.2" />
     </svg>
   );
 }
