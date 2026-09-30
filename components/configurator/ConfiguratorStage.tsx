@@ -43,7 +43,7 @@ import {
   normalizeConfig,
 } from "@/lib/options";
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
-import { onSessionChange } from "@/lib/session-client";
+import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
 import type { DragTarget, ZoomView } from "@/components/three/LetterScene";
 
 /** The whole framed view — kept here too, so the page does not import the 3D chunk. */
@@ -162,20 +162,12 @@ function Configurator() {
 
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // The price is shown to signed-in customers only; before that it is a
-  // blurred placeholder with a sign-in button. null = still asking.
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    const check = () =>
-      fetch("/api/auth/me", { cache: "no-store" })
-        .then((r) => r.json())
-        .then((d) => { if (!cancelled) setSignedIn(!!d?.user); })
-        .catch(() => { if (!cancelled) setSignedIn(false); });
-    check();
-    const off = onSessionChange(check);
-    return () => { cancelled = true; off(); };
-  }, []);
+  // The price is shown only to a signed-in customer whose e-mail is
+  // confirmed (lib/price-access.ts); before that a blurred placeholder and
+  // the next step — sign in, or confirm the e-mail.
+  const priceAccess = usePriceAccess();
+  const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const signedIn = priceAccess === "ok";
 
   const [config, setConfig] = useState<Config>({
     // Plain black "Váš text" on load — a blank, legible canvas, visible the
@@ -795,9 +787,31 @@ function Configurator() {
                     className="select-none text-4xl font-extrabold tracking-tight blur-[9px]"
                     style={{ color: "var(--color-foreground)" }}
                   >
-                    888,88 €
+                    {PRICE_PLACEHOLDER}
                   </div>
-                  {signedIn === false && (
+                  {priceAccess === "unverified" && (
+                    <div className="max-w-md">
+                      <p className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
+                        Cenu uvidíte po overení e-mailu.
+                      </p>
+                      <p className="mt-0.5 text-xs" style={{ color: "var(--color-muted)" }}>
+                        Kliknite na odkaz v e-maile, ktorý sme vám poslali po registrácii.{" "}
+                        <button
+                          type="button"
+                          disabled={resend === "sending" || resend === "sent"}
+                          onClick={async () => {
+                            setResend("sending");
+                            const r = await fetch("/api/auth/verify", { method: "POST" }).catch(() => null);
+                            setResend(r?.ok ? "sent" : "failed");
+                          }}
+                          className="font-semibold underline disabled:no-underline"
+                        >
+                          {resend === "sending" ? "Posielam…" : resend === "sent" ? "Odoslané ✓" : resend === "failed" ? "Nepodarilo sa, skúsiť znova" : "Poslať e-mail znova"}
+                        </button>
+                      </p>
+                    </div>
+                  )}
+                  {priceAccess === "anon" && (
                     <div>
                       <a
                         href="/prihlasenie?spat=%2F%23konfigurator"

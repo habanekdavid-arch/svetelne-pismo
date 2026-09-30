@@ -10,6 +10,7 @@ import { PAYMENT_METHOD_LABEL, type PaymentMethodId } from "@/lib/payment-method
 import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange, onSessionChange } from "@/lib/session-client";
 import { formatEur } from "@/lib/vat";
+import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
 import { isInBratislava, isPickup, leadTimeNotice } from "@/lib/shipping";
 import { AddressFields, emptyAddress } from "@/components/checkout/AddressFields";
 import AuthGate, { type SessionUser } from "@/components/checkout/AuthGate";
@@ -70,6 +71,8 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
   // ── Who is ordering ──────────────────────────────────────────────────────
   // undefined = still checking, null = signed out.
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
+  // Prices only for a signed-in customer with a confirmed e-mail.
+  const canSeePrice = usePriceAccess() === "ok" || (!!user && user.verified !== false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -475,7 +478,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
       <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: "var(--color-surface)" }}>
         <div className="flex justify-between" style={{ color: "var(--color-muted)" }}>
           <span>Výroba ({countLabel})</span>
-          <span className="font-semibold">{formatEur(itemsPrice)}</span>
+          <span className="font-semibold">{canSeePrice ? formatEur(itemsPrice) : <Blurred />}</span>
         </div>
         <div className="flex justify-between" style={{ color: "var(--color-muted)" }}>
           <span>{installation ? "Montáž" : "Doprava"}</span>
@@ -488,7 +491,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
         >
           <span>{installation || carrier?.price === null ? "Za nápisy s DPH" : "Celkom s DPH"}</span>
-          <span>{formatEur(total)}</span>
+          <span>{canSeePrice ? formatEur(total) : <Blurred />}</span>
         </div>
       </div>
 
@@ -559,6 +562,10 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
 }
 
 // ── Pieces ────────────────────────────────────────────────────────────────────
+
+function Blurred() {
+  return <span aria-label="Cena po prihlásení" className="inline-block select-none blur-[5px]">{PRICE_PLACEHOLDER}</span>;
+}
 
 /** A new account orders once its e-mail is confirmed — with a way to get the link again. */
 function VerifyInline({ email }: { email: string }) {

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart, describeConfig } from "@/lib/cart-context";
 import { MATERIALS, fontOptions, faceColorOf } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
+import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
 import CheckoutPanel, { type PlacedNotice } from "@/components/cart/CheckoutPanel";
 
 // Cart drawer, built to the shape of vytlacto3d's: a dimmed backdrop, a panel
@@ -31,6 +32,7 @@ function CartGlyph({ size = 18 }: { size?: number }) {
 
 export default function CartSidebar() {
   const { items, total, isOpen, close, remove, beginEdit, editingId } = useCart();
+  const canSeePrice = usePriceAccess() === "ok";
   // "Thank you" for an order that stayed on this page — kept until the drawer
   // is closed, since the cart it came from is already empty.
   const [placed, setPlaced] = useState<PlacedNotice | null>(null);
@@ -190,7 +192,7 @@ export default function CartSidebar() {
                           </div>
 
                           <div className="shrink-0 text-right text-xs font-bold" style={{ color: "var(--color-foreground)" }}>
-                            {formatEur(linePrice(idx, item.price))}
+                            <Price show={canSeePrice} value={linePrice(idx, item.price)} />
                           </div>
 
                           <button
@@ -235,7 +237,7 @@ export default function CartSidebar() {
               {items.length > 0 && (
                 <div className="flex items-center justify-between px-5 py-4 text-sm" style={{ borderTop: "1px solid var(--color-border)" }}>
                   <span style={{ color: "var(--color-muted)" }}>Výroba celkom (s DPH)</span>
-                  <span className="font-extrabold" style={{ color: "var(--color-foreground)" }}>{formatEur(shownTotal)}</span>
+                  <span className="font-extrabold" style={{ color: "var(--color-foreground)" }}><Price show={canSeePrice} value={shownTotal} /></span>
                 </div>
               )}
             </div>
@@ -282,5 +284,15 @@ export default function CartSidebar() {
         </div>
       </aside>
     </>
+  );
+}
+
+/** A price, or — before sign-in and a confirmed e-mail — a blurred stand-in. */
+function Price({ show, value }: { show: boolean; value: number }) {
+  if (show) return <>{formatEur(value)}</>;
+  return (
+    <span aria-label="Cena po prihlásení" className="inline-block select-none blur-[5px]">
+      {PRICE_PLACEHOLDER}
+    </span>
   );
 }
