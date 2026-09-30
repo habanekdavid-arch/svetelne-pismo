@@ -653,7 +653,12 @@ function Configurator() {
                   tipSub={v.description}
                   onClick={() => chooseVariant(v.id)}
                 >
-                  <VariantGlyph variant={v.id} />
+                  <VariantGlyph
+                    variant={v.id}
+                    char={previewChar}
+                    fontFamily={currentFont?.name}
+                    glowColor={litColor}
+                  />
                 </OptionTile>
               ))}
             </div>
@@ -1234,32 +1239,62 @@ function SliderBox({
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 /**
- * The three variants as simple line symbols, in the icon colour with the
- * light in amber: a panel shining forward, a panel with light behind it, and
- * a panel that is not lit.
+ * What a variant looks like, drawn on the customer's own first letter in the
+ * chosen font: lit through its face, glowing onto the wall behind it, or not
+ * lit at all.
  */
-function VariantGlyph({ variant }: { variant: VariantId }) {
-  const light = "#f5a300";
-  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
+function VariantGlyph({
+  variant,
+  char,
+  fontFamily,
+  glowColor,
+}: {
+  variant: VariantId;
+  char: string;
+  fontFamily?: string;
+  glowColor: string;
+}) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const tightId = `vgt-${uid}`;
+  const haloId = `vgh-${uid}`;
+  const glyph = {
+    x: 32,
+    y: 45,
+    textAnchor: "middle" as const,
+    fontSize: 40,
+    fontWeight: 900,
+    style: fontFamily ? { fontFamily } : undefined,
+  };
+  // Warm white reads as cream on a light tile; the lit face is drawn in the
+  // brand amber-white so it is visibly "on".
+  const light = glowColor === "#ffffff" ? "#fff6d6" : glowColor;
+
   return (
-    <svg viewBox="0 0 32 32" width={34} height={34} aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 64 64" width={46} height={46} aria-hidden="true">
+      <defs>
+        <filter id={tightId} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation={1.6} result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id={haloId} x="-120%" y="-120%" width="340%" height="340%">
+          <feGaussianBlur stdDeviation={6.5} />
+        </filter>
+      </defs>
+      <rect x="2" y="2" width="60" height="60" rx="14" fill="#16161b" opacity={variant === "plain" ? 0 : 1} />
       {variant === "front" && (
-        <>
-          {rays.map((a) => (
-            <line key={a} x1="16" y1="16" x2="16" y2="2" transform={`rotate(${a} 16 16)`}
-              stroke={light} strokeWidth="1.8" strokeDasharray="0 9.5 4 20" />
-          ))}
-          <rect x="10.5" y="10.5" width="11" height="11" rx="2" fill={light} stroke="currentColor" strokeWidth="1.8" />
-        </>
+        <text {...glyph} fill={light} stroke="#2a2a30" strokeWidth={1} filter={`url(#${tightId})`}>{char}</text>
       )}
       {variant === "back" && (
         <>
-          <rect x="5" y="5" width="22" height="22" rx="6" stroke={light} strokeWidth="1.8" />
-          <rect x="10.5" y="10.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+          <text {...glyph} fill={light} filter={`url(#${haloId})`} opacity={0.95}>{char}</text>
+          <text {...glyph} fill="#26262c">{char}</text>
         </>
       )}
       {variant === "plain" && (
-        <rect x="10.5" y="10.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+        <text {...glyph} fill="currentColor">{char}</text>
       )}
     </svg>
   );
