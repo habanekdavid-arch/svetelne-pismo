@@ -1301,70 +1301,55 @@ function VariantGlyph({
 }
 
 /**
- * Hliník / Plast / Plexi as the material itself: a brushed aluminium profile,
- * a spool of 3D-printing filament, and a clear pane of acrylic glass.
+ * Hliník / Plast / Plexi as clean line icons of the material itself — an
+ * aluminium profile, a filament spool, a pane of acrylic glass — drawn in one
+ * colour like every other icon on the site.
  */
 function GroupIcon({ group }: { group: MaterialGroupId }) {
-  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const common = {
+    width: 34,
+    height: 34,
+    viewBox: "0 0 32 32",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
 
   if (group === "aluminium") {
-    // A square aluminium tube seen at an angle: brushed top, shaded side,
-    // the open end showing its wall.
+    // A square aluminium tube: its open end and the length running back.
     return (
-      <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
-        <defs>
-          <linearGradient id={`${uid}-top`} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#c9ced4" />
-            <stop offset=".35" stopColor="#f7f9fb" />
-            <stop offset=".55" stopColor="#aeb5bd" />
-            <stop offset="1" stopColor="#e4e8ec" />
-          </linearGradient>
-          <linearGradient id={`${uid}-side`} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#8d949c" />
-            <stop offset=".5" stopColor="#b9c0c7" />
-            <stop offset="1" stopColor="#7c838b" />
-          </linearGradient>
-        </defs>
-        <path d="M6 18 L30 8 L44 14 L20 24 Z" fill={`url(#${uid}-top)`} stroke="#6b737c" strokeWidth=".8" strokeLinejoin="round" />
-        <path d="M20 24 L44 14 L44 28 L20 38 Z" fill={`url(#${uid}-side)`} stroke="#6b737c" strokeWidth=".8" strokeLinejoin="round" />
-        <path d="M6 18 L20 24 L20 38 L6 32 Z" fill="#dfe3e7" stroke="#6b737c" strokeWidth=".8" strokeLinejoin="round" />
-        <path d="M9 21.5 L17 25 L17 34 L9 30.5 Z" fill="#5d646c" />
-        <path d="M11 17 L31 9" stroke="#ffffff" strokeWidth="1.2" opacity=".8" strokeLinecap="round" />
+      <svg {...common}>
+        <path d="M4 11 L10 8 L28 8 L22 11 Z" />
+        <path d="M22 11 L28 8 L28 20 L22 23" />
+        <rect x="4" y="11" width="18" height="12" rx="1" />
+        <rect x="8" y="14" width="10" height="6" rx=".5" />
       </svg>
     );
   }
 
   if (group === "plastic") {
-    // A filament spool: two flanges, the wound filament between them, and a
-    // strand running off it.
+    // A spool of 3D-printing filament with a strand running off it.
     return (
-      <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
-        <ellipse cx="24" cy="24" rx="17" ry="17" fill="#2f2f36" />
-        <circle cx="24" cy="24" r="13.5" fill="#f28c28" />
-        {[12.2, 10.6, 9].map((r) => (
-          <circle key={r} cx="24" cy="24" r={r} fill="none" stroke="#c96a12" strokeWidth=".9" />
-        ))}
-        <circle cx="24" cy="24" r="6.5" fill="#2f2f36" />
-        <circle cx="24" cy="24" r="3" fill="#f4f1ea" />
-        <path d="M36 15 C 41 12, 44 16, 45 20" fill="none" stroke="#f28c28" strokeWidth="1.8" strokeLinecap="round" />
+      <svg {...common}>
+        <circle cx="15" cy="16" r="11" />
+        <circle cx="15" cy="16" r="7.5" />
+        <circle cx="15" cy="16" r="3" />
+        <path d="M24 9 C 27 7, 30 9, 30 13" />
       </svg>
     );
   }
 
-  // A pane of clear acrylic standing at an angle, with the glints glass has.
+  // A pane of acrylic glass, its thickness showing at the edge, with the
+  // diagonal glints glass has.
   return (
-    <svg width={46} height={46} viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id={`${uid}-g`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#e9f7ff" stopOpacity=".95" />
-          <stop offset=".55" stopColor="#a8dcf5" stopOpacity=".6" />
-          <stop offset="1" stopColor="#6fbde6" stopOpacity=".85" />
-        </linearGradient>
-      </defs>
-      <path d="M12 6 L38 11 L38 42 L12 37 Z" fill={`url(#${uid}-g)`} stroke="#3a9ad0" strokeWidth="1.1" strokeLinejoin="round" />
-      <path d="M38 11 L41 9 L41 40 L38 42 Z" fill="#cbeaf9" stroke="#3a9ad0" strokeWidth=".8" strokeLinejoin="round" />
-      <path d="M17 13 L25 14.6 L17 26 Z" fill="#ffffff" opacity=".75" />
-      <path d="M28 30 L34 31.2 L30 36.5 Z" fill="#ffffff" opacity=".55" />
+    <svg {...common}>
+      <path d="M6 5 L23 8 L23 28 L6 25 Z" />
+      <path d="M23 8 L27 6 L27 26 L23 28" />
+      <path d="M10 15 L16 9.8" />
+      <path d="M10 20 L19 12.2" />
     </svg>
   );
 }
