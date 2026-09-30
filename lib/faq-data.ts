@@ -53,7 +53,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Môžem si vybrať vlastnú farbu nápisu?",
-        a: "Áno. Telo nápisu si vyberiete z ôsmich farieb priamo v konfigurátore, pri svetelnom písme aj v matnej bielej. Farbu svietenia vyberáte tam isto — teplá biela, intenzívna biela a červená, zelená alebo modrá; pri svietení zozadu ponúkame len obe biele.",
+        a: "Áno. Čelo aj telo nápisu si vyberiete z ôsmich farieb priamo v konfigurátore, pri svetelnom písme aj v matnej bielej. Svieti sa vždy bielym LED svetlom — pri svietení spredu svieti nápis vo farbe čela, pri svietení zozadu dopadá na stenu biele svetlo.",
       },
     ],
   },
