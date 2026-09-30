@@ -6,7 +6,7 @@ import { ArrowDown, Plus } from "lucide-react";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import { TooltipProvider, useTip } from "@/components/ui/Tooltip";
 import WallPicker from "@/components/configurator/WallPicker";
-import { DEFAULT_WALL, MAX_BACKGROUND_BYTES, type WallGrain } from "@/lib/walls";
+import { DEFAULT_WALL, MAX_BACKGROUND_BYTES, type Wall } from "@/lib/walls";
 import { MAX_LINES } from "@/lib/sign-text";
 import type { ColorOption, Config, MaterialGroupId, VariantId } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
@@ -115,7 +115,7 @@ function Configurator() {
   // Preview-only: which wall the sign is shown against, and the customer's own
   // photo of it. Neither is part of Config — the wall is where they imagine
   // the sign, not something we make — so neither reaches the cart or an order.
-  const [wall, setWall] = useState<WallGrain>(DEFAULT_WALL);
+  const [wall, setWall] = useState<Wall>(DEFAULT_WALL);
   const [background, setBackground] = useState<{ url: string; name: string } | null>(null);
   // Where the sign sits on the customer's photo, and how far the photo itself
   // has been pushed behind it. Preview-only, like the wall.
@@ -376,8 +376,8 @@ function Configurator() {
     });
   }
 
-  function chooseWall(id: WallGrain) {
-    setWall(id);
+  function chooseWall(next: Wall) {
+    setWall(next);
     clearBackground();
   }
 
@@ -526,9 +526,9 @@ function Configurator() {
             />
           </div>
 
-          {/* The wall the sign stands on. What is chosen is written in the
-              steps beside the preview, so it is not repeated here. */}
-          <div className="mt-3 flex justify-end">
+          {/* The wall the sign stands on: a paint colour, a surface, or the
+              customer's own photo. */}
+          <div className="mt-3">
           <WallPicker
             wall={wall}
             onWall={chooseWall}

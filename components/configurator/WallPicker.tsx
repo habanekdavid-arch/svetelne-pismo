@@ -1,20 +1,31 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Plus, X } from "lucide-react";
-import { WALL_SURFACES, type WallGrain } from "@/lib/walls";
-import { drawWallThumbnail } from "@/components/three/wallTexture";
+import { useRef, useState } from "react";
+import { Upload, X } from "lucide-react";
+import { useTip } from "@/components/ui/Tooltip";
+import {
+  WALL_COLORS,
+  WALL_SURFACES,
+  wallTextureUrl,
+  type Wall,
+  type WallSurfaceId,
+} from "@/lib/walls";
 import type { DragTarget } from "@/components/three/LetterScene";
 
-// The surface the sign is previewed against, sitting on the right of the recap
-// chips under the preview: four painted walls plus the customer's own photo.
-// Each is a square swatch showing the very surface it switches to — the same
-// painted tile the 3D wall uses, so the choice is made by looking rather than
-// by reading four words. Picking a wall clears the photo and the other way
-// round: it is one choice, not two that could contradict each other.
+// The wall under the preview, chosen in three tabs:
+//   · Farba          — plaster painted in one of a few façade colours;
+//   · Povrch         — omietka, tehla, drevo or kov, each a real texture;
+//   · Vlastný návrh  — the customer's own photo, as before.
+// Picking a wall clears the photo and the other way round: it is one choice,
+// not two that could contradict each other.
 
-/** Swatch size in CSS pixels; the canvas is drawn at 2× for sharpness. */
-const SWATCH_PX = 40;
+type Tab = "color" | "surface" | "photo";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "color",   label: "Farba" },
+  { id: "surface", label: "Povrch" },
+  { id: "photo",   label: "Vlastný návrh" },
+];
 
 export default function WallPicker({
   wall,
@@ -29,8 +40,8 @@ export default function WallPicker({
   onRecenter,
   error,
 }: {
-  wall: WallGrain;
-  onWall: (id: WallGrain) => void;
+  wall: Wall;
+  onWall: (next: Wall) => void;
   photoName: string | null;
   /** Object URL of that photo, so its swatch can show it. */
   photoUrl?: string | null;
@@ -45,56 +56,115 @@ export default function WallPicker({
   error: string | null;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [tab, setTab] = useState<Tab>(photoName ? "photo" : "color");
+  const tip = useTip();
 
   return (
-    <div className="flex flex-col items-start gap-1.5 sm:items-end">
-      {/* No caption: each swatch shows the surface it switches to and names it
-          on hover, which is what buys the room to keep this on one line with
-          the parameters. */}
-      <div className="flex items-center gap-1.5">
-        {WALL_SURFACES.map((s) => (
-          <Swatch
-            key={s.id}
-            label={s.label}
-            title={s.hint}
-            active={!photoName && wall === s.id}
-            onClick={() => onWall(s.id)}
-          >
-            <WallThumb grain={s.id} />
-          </Swatch>
-        ))}
-
-        {/* The customer's own wall. Empty it is just a plus — there is nothing
-            to show yet — and once a photo is in, the swatch becomes that photo,
-            with its file name on hover like every other swatch has its name. */}
-        <Swatch
-          label={photoName ?? "Vlastné pozadie"}
-          title={photoName ? "Vlastné pozadie" : "Nahrajte fotku svojej steny a nápis sa zobrazí na nej"}
-          active={!!photoName}
-          dashed={!photoName}
-          onClick={() => (photoName ? onClearPhoto() : fileRef.current?.click())}
-        >
-          {photoName && photoUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-              <span
-                className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full"
-                style={{ background: "rgba(0,0,0,0.55)", color: "#fff" }}
-                aria-hidden="true"
+    <div className="rounded-2xl p-3" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-[12px] font-bold uppercase tracking-[0.07em]" style={{ color: "var(--color-muted)" }}>
+          Pozadie
+        </span>
+        <div role="tablist" aria-label="Pozadie" className="flex rounded-full p-1" style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}>
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(t.id)}
+                className="rounded-full px-3.5 py-1.5 text-[13px] font-bold tracking-[0.01em] transition"
+                style={
+                  active
+                    ? { background: "var(--color-foreground)", color: "var(--color-background)" }
+                    : { color: "var(--color-foreground-soft)" }
+                }
               >
-                <X size={9} strokeWidth={3} />
-              </span>
-            </>
-          ) : (
-            <span
-              className="flex h-full w-full items-center justify-center"
-              style={{ color: "var(--color-muted)" }}
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {tab === "color" &&
+          WALL_COLORS.map((c) => {
+            const active = !photoName && wall.surface === "plaster" && wall.color === c.value;
+            return (
+              <Tile
+                key={c.id}
+                active={active}
+                label={`Omietka — ${c.label}`}
+                onClick={() => onWall({ surface: "plaster", color: c.value })}
+                tipProps={tip(c.label, "omietka v tejto farbe")}
+              >
+                <span
+                  className="block h-full w-full"
+                  style={{
+                    backgroundColor: c.value,
+                    backgroundImage: `url(${wallTextureUrl("plaster", "color")})`,
+                    backgroundSize: "260%",
+                    backgroundBlendMode: "multiply",
+                  }}
+                />
+              </Tile>
+            );
+          })}
+
+        {tab === "surface" &&
+          WALL_SURFACES.map((s) => {
+            const active = !photoName && wall.surface === s.id;
+            return (
+              <Tile
+                key={s.id}
+                active={active}
+                label={s.label}
+                caption={s.label}
+                onClick={() => onWall({ surface: s.id as WallSurfaceId, color: wall.color })}
+                tipProps={tip(s.label, s.hint)}
+              >
+                <span
+                  className="block h-full w-full"
+                  style={{
+                    backgroundColor: s.paintable ? wall.color : undefined,
+                    backgroundImage: `url(${wallTextureUrl(s.id, "color")})`,
+                    backgroundSize: s.id === "brick" ? "160%" : "220%",
+                    backgroundBlendMode: s.paintable ? "multiply" : undefined,
+                  }}
+                />
+              </Tile>
+            );
+          })}
+
+        {tab === "photo" && (
+          <>
+            {photoName && photoUrl ? (
+              <Tile active label={photoName} onClick={onClearPhoto} tipProps={tip(photoName, "kliknutím odstránite")}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                <span
+                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full"
+                  style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}
+                  aria-hidden="true"
+                >
+                  <X size={11} strokeWidth={3} />
+                </span>
+              </Tile>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition hover:-translate-y-px"
+              style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "2px dashed var(--color-border-strong)" }}
             >
-              <Plus size={18} strokeWidth={2.25} />
-            </span>
-          )}
-        </Swatch>
+              <Upload size={15} strokeWidth={2.25} />
+              {photoName ? "Nahrať inú fotku" : "Nahrať fotku vašej steny"}
+            </button>
+          </>
+        )}
 
         <input
           ref={fileRef}
@@ -112,14 +182,12 @@ export default function WallPicker({
 
       {/* With a photo behind it, two things can be moved: the sign, to where it
           will really hang, and the photo, to bring the right part of the wall
-          into the shot. These chips say which one a drag takes — turning the
-          view stays on the right button, where it is everywhere else. */}
-      {photoName && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-semibold" style={{ color: "var(--color-muted)" }}>
+          into the shot. */}
+      {tab === "photo" && photoName && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-[12px] font-semibold" style={{ color: "var(--color-muted)" }}>
             Ťahaním posúvam
           </span>
-
           {([
             { id: "sign"       as DragTarget, label: "Nápis" },
             { id: "background" as DragTarget, label: "Pozadie" },
@@ -131,43 +199,41 @@ export default function WallPicker({
                 type="button"
                 aria-pressed={active}
                 onClick={() => onDragTarget?.(t.id)}
-                className="rounded-full px-2.5 py-1 text-[10px] font-semibold transition hover:-translate-y-px"
+                className="rounded-full px-3 py-1 text-[12px] font-bold transition hover:-translate-y-px"
                 style={{
-                  background: active ? "color-mix(in srgb, var(--accent) 15%, transparent)" : "var(--color-surface)",
-                  color: active ? "var(--color-accent-text)" : "var(--color-muted)",
-                  border: `1px solid ${active ? "var(--accent)" : "var(--color-border)"}`,
+                  background: active ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "var(--color-background)",
+                  color: "var(--color-foreground)",
+                  border: `1.5px solid ${active ? "var(--accent)" : "var(--color-border-strong)"}`,
                 }}
               >
                 {t.label}
               </button>
             );
           })}
-
           {moved && onRecenter && (
             <button
               type="button"
               onClick={onRecenter}
-              className="rounded-full px-2 py-0.5 text-[10px] font-bold transition hover:-translate-y-px"
-              style={{
-                background: "var(--color-surface)",
-                color: "var(--color-foreground)",
-                border: "1px solid var(--color-border)",
-              }}
+              className="rounded-full px-3 py-1 text-[12px] font-bold transition hover:-translate-y-px"
+              style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "1.5px solid var(--color-border-strong)" }}
             >
               Na stred
             </button>
           )}
+          <span className="basis-full text-[11.5px]" style={{ color: "var(--color-muted)" }}>
+            Ľavé tlačidlo posúva, pravé otáča pohľad (na dotyk: jeden prst posúva, dva otáčajú).
+          </span>
         </div>
       )}
 
-      {photoName && (
-        <span className="text-[10px]" style={{ color: "var(--color-muted-light)" }}>
-          Ľavé tlačidlo posúva, pravé otáča pohľad (na dotyk: jeden prst posúva, dva otáčajú).
-        </span>
+      {tab === "photo" && !photoName && (
+        <p className="mt-2 text-[12px]" style={{ color: "var(--color-muted)" }}>
+          Fotka ostane len vo vašom prehliadači — nikam sa neodosiela.
+        </p>
       )}
 
       {error && (
-        <p className="text-[10px]" style={{ color: "#dc2626" }}>
+        <p className="mt-2 text-[12px]" style={{ color: "#dc2626" }}>
           {error}
         </p>
       )}
@@ -175,71 +241,45 @@ export default function WallPicker({
   );
 }
 
-// One square swatch: the surface itself, its name on hover. The name is a
-// tooltip rather than a caption so five of them still fit on one line beside
-// the parameters.
-function Swatch({
-  label,
-  title,
+/** One square swatch, optionally with its name under it. */
+function Tile({
   active,
-  dashed = false,
+  label,
+  caption,
   onClick,
+  tipProps,
   children,
 }: {
-  label: string;
-  title: string;
   active: boolean;
-  dashed?: boolean;
+  label: string;
+  caption?: string;
   onClick: () => void;
+  tipProps: ReturnType<ReturnType<typeof useTip>>;
   children: React.ReactNode;
 }) {
   return (
-    <span className="group relative inline-flex">
-      <button
-        type="button"
-        onClick={onClick}
-        title={title}
-        aria-label={label}
-        aria-pressed={active}
-        className="relative overflow-hidden rounded-xl transition duration-200 hover:-translate-y-px"
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      className="flex flex-col items-center gap-1 transition hover:-translate-y-px"
+      {...tipProps}
+    >
+      <span
+        className="relative block h-12 w-12 overflow-hidden rounded-xl"
         style={{
-          height: SWATCH_PX,
-          width: SWATCH_PX,
-          background: "var(--color-surface)",
-          border: dashed ? "1px dashed var(--color-border-strong)" : "1px solid var(--color-border)",
-          boxShadow: active
-            ? "0 0 0 2px var(--color-background), 0 0 0 4px var(--accent)"
-            : undefined,
+          border: "1px solid var(--color-border-strong)",
+          boxShadow: active ? "0 0 0 2px var(--color-background), 0 0 0 4px var(--accent)" : undefined,
         }}
       >
         {children}
-      </button>
-
-      <span
-        className="pointer-events-none absolute -top-6 left-1/2 z-20 max-w-40 -translate-x-1/2 truncate rounded-md px-1.5 py-0.5 text-[10px] font-semibold opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-        style={{ background: "var(--color-foreground)", color: "var(--color-background)" }}
-      >
-        {label}
       </span>
-    </span>
-  );
-}
-
-// The painted surface, drawn straight from the tile the 3D wall uses.
-function WallThumb({ grain }: { grain: WallGrain }) {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (ref.current) drawWallThumbnail(ref.current, grain);
-  }, [grain]);
-
-  return (
-    <canvas
-      ref={ref}
-      width={SWATCH_PX * 2}
-      height={SWATCH_PX * 2}
-      className="h-full w-full"
-      aria-hidden="true"
-    />
+      {caption && (
+        <span className="text-[12px] font-bold" style={{ color: "var(--color-foreground)" }}>
+          {caption}
+        </span>
+      )}
+    </button>
   );
 }

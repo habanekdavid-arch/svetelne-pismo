@@ -15,7 +15,7 @@ import {
   MATERIAL_GROUP,
 } from "@/components/three/letterGeometry";
 import type { SignType, LightModeId, MaterialOption } from "@/lib/types";
-import { WALL_SURFACES, DEFAULT_WALL, type WallGrain } from "@/lib/walls";
+import { DEFAULT_WALL, wallSurface, wallTint as tintOf, type Wall } from "@/lib/walls";
 import { useWallTexture, usePhotoTexture } from "@/components/three/wallTexture";
 import { mmToUnits } from "@/components/three/scale";
 
@@ -107,7 +107,6 @@ const NOMINAL_VIEW_DISTANCE = Math.hypot(
 // the size of the plane costs nothing in sharpness.
 const WALL_WIDTH  = 400;
 const WALL_HEIGHT = 240;
-const WALL_BUMP_SCALE = 0.012; // grain catches the key light; higher looks like gravel
 
 // A photo backdrop hangs just in front of the wall. It is sized to what the
 // camera can actually SEE at the wall, not to the whole backdrop plane — the
@@ -895,7 +894,7 @@ function SignPlacement({
 type LetterSceneProps = {
   text: string;
   /** Preview-only: the surface the sign is shown against. */
-  wall?: WallGrain;
+  wall?: Wall;
   /** Preview-only: object URL of the customer's own photo, if they picked one. */
   backgroundUrl?: string | null;
   font: string;
@@ -1210,8 +1209,9 @@ function SceneContent({
     [placing],
   );
 
-  const surface = WALL_SURFACES.find((w) => w.id === wall) ?? WALL_SURFACES[0];
+  const surface = wallSurface(wall.surface);
   const wallTexture = useWallTexture(surface.id, WALL_WIDTH, WALL_HEIGHT);
+  const dayTint = tintOf(wall);
   const photo = usePhotoTexture(backgroundUrl ?? null);
 
   // `background-size: cover`, in world units: fill the framed view, overflow
@@ -1232,10 +1232,10 @@ function SceneContent({
   // The wall darkens toward night: its daylight colour, mixed toward its night
   // tint taken down further for a truly dark street.
   const wallTint = useMemo(() => {
-    const day = new THREE.Color(surface.dayTint);
-    const deep = new THREE.Color(surface.nightTint).multiplyScalar(WALL_DEEP_NIGHT_SCALE);
+    const day = new THREE.Color(dayTint);
+    const deep = day.clone().multiplyScalar(0.8 * WALL_DEEP_NIGHT_SCALE);
     return `#${day.lerp(deep, dark).getHexString()}`;
-  }, [surface.dayTint, surface.nightTint, dark]);
+  }, [dayTint, dark]);
   const photoTint = `#${new THREE.Color("#ffffff").lerp(new THREE.Color(PHOTO_DEEP_NIGHT_TINT), dark).getHexString()}`;
 
   // Only the back-lit build throws light onto the wall; a front-lit one sends
@@ -1285,12 +1285,15 @@ function SceneContent({
       <mesh position={[0, 0, wallZ]} receiveShadow>
         <planeGeometry args={[WALL_WIDTH, WALL_HEIGHT]} />
         <meshStandardMaterial
-          map={wallTexture ?? undefined}
-          bumpMap={wallTexture ?? undefined}
-          bumpScale={WALL_BUMP_SCALE}
+          // Remounted when the texture set changes: a material that gains a
+          // map after it was first compiled needs a new shader program.
+          key={wallTexture ? wallTexture.map.uuid : "plain"}
+          map={wallTexture?.map}
+          bumpMap={wallTexture?.bump}
+          bumpScale={surface.bump}
           color={photo ? photo.tint : wallTint}
-          roughness={1}
-          metalness={0}
+          roughness={photo ? 1 : surface.roughness}
+          metalness={photo ? 0 : surface.metalness}
         />
       </mesh>
 
