@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { stripe, webhookSecret } from "@/lib/stripe";
 import { getOrderGroup, markGroupPaid, setGroupPaymentStatus } from "@/lib/orders";
 import { afterPaid } from "@/lib/fulfilment.server";
+import { mailPaymentFailed, mailRefunded } from "@/lib/emails.server";
 
 // Stripe's own report of what happened to a payment.
 //
@@ -59,6 +60,12 @@ export async function POST(req: Request) {
           // Never walk back an order that is already paid.
           if (group && group.paymentStatus !== "paid") {
             await setGroupPaymentStatus(groupId, "failed");
+            // A payment that was tried and failed is worth telling the
+            // customer about; a checkout page simply left open until it
+            // expired is not.
+            if (event.type === "checkout.session.async_payment_failed") {
+              await mailPaymentFailed(group);
+            }
           }
         }
         break;
@@ -68,7 +75,13 @@ export async function POST(req: Request) {
         const groupId = typeof charge.metadata?.orderGroupId === "string"
           ? charge.metadata.orderGroupId
           : null;
-        if (groupId) await setGroupPaymentStatus(groupId, "refunded");
+        if (groupId) {
+          const group = await getOrderGroup(groupId);
+          if (group && group.paymentStatus !== "refunded") {
+            await setGroupPaymentStatus(groupId, "refunded");
+            await mailRefunded(group);
+          }
+        }
         break;
       }
       default:

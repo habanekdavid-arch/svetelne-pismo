@@ -12,7 +12,7 @@ import {
   type OrderStatus,
 } from "@/lib/orders";
 import { afterPaid } from "@/lib/fulfilment.server";
-import { mailQuoteSent } from "@/lib/emails.server";
+import { mailOrderCancelled, mailOrderReady, mailQuoteSent } from "@/lib/emails.server";
 import { bankAccount } from "@/lib/bank";
 
 // Re-checks the admin session inside the action itself — a Server Action is
@@ -23,7 +23,16 @@ export async function setOrderStatus(orderId: number, status: OrderStatus) {
   if (!session) {
     throw new Error("Nemáte oprávnenie na túto akciu.");
   }
-  await updateOrderStatus(orderId, status);
+  const { groupId, previous } = await updateOrderStatus(orderId, status);
+  // The customer hears about it once the WHOLE order has got there — a basket
+  // of three signs is finished when the third one is, not three times.
+  if (groupId && previous !== status && (status === "done" || status === "cancelled")) {
+    const [group, orders] = await Promise.all([getOrderGroup(groupId), listOrdersForGroup(groupId)]);
+    if (group && orders.length > 0 && orders.every((o) => o.status === status)) {
+      if (status === "done") await mailOrderReady(group, orders);
+      else await mailOrderCancelled(group, orders);
+    }
+  }
   revalidatePath("/admin");
 }
 

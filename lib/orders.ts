@@ -101,9 +101,22 @@ export async function listAllOrders(): Promise<Order[]> {
   return rows.map(mapRow);
 }
 
-export async function updateOrderStatus(id: number, status: OrderStatus): Promise<void> {
+/**
+ * Sets one sign's status. Returns the checkout it belongs to (null for signs
+ * placed before checkouts existed) and what it was before, so the caller can
+ * tell a real change from a repeat click.
+ */
+export async function updateOrderStatus(
+  id: number,
+  status: OrderStatus,
+): Promise<{ groupId: string | null; previous: OrderStatus | null }> {
   const sql = await getDb();
+  const before = (await sql`SELECT status, group_id FROM orders WHERE id = ${id}`) as { status: string; group_id: string | null }[];
   await sql`UPDATE orders SET status = ${status} WHERE id = ${id}`;
+  return {
+    groupId: before[0]?.group_id ?? null,
+    previous: (before[0]?.status as OrderStatus | undefined) ?? null,
+  };
 }
 
 // ── Order groups ─────────────────────────────────────────────────────────────

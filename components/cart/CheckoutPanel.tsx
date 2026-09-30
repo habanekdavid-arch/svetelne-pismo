@@ -258,7 +258,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
       // where the pre-invoice will appear.
       if ((installation || placed?.payment === "transfer") && placed?.groupId) {
         clearCart();
-        router.push(`/objednavka/${placed.groupId}${installation ? "" : "?stav=prevod"}`);
+        router.push(`/dakujeme/${placed.groupId}`);
         close();
         return;
       }

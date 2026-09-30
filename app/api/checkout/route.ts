@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     client_reference_id: group.id,
     metadata: { orderGroupId: group.id },
     payment_intent_data: { metadata: { orderGroupId: group.id } },
-    success_url: `${origin}/objednavka/${group.id}?stav=zaplatene`,
+    success_url: `${origin}/dakujeme/${group.id}`,
     cancel_url: `${origin}/objednavka/${group.id}?stav=zrusene`,
     locale: "sk",
   });
