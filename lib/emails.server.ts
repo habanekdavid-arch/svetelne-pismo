@@ -67,7 +67,7 @@ function signsTable(orders: Order[]): string {
     const c = o.config;
     const mode = variantLabel(c).toLocaleLowerCase("sk-SK");
     const colours = hasSeparateFace(c.material)
-      ? `čelo ${colorLabel(faceColorOf(c))}, stena ${colorLabel(c.bodyColor)}`
+      ? `čelo ${colorLabel(faceColorOf(c))}, telo ${colorLabel(c.bodyColor)}`
       : `farba ${colorLabel(c.bodyColor)}`;
     const spec = `${materialById(c.material).displayName} · ${c.height} mm · hrúbka ${depthMmFor(c.material, c.height)} mm · ${mode} · ${colours}`;
     return `<tr>

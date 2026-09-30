@@ -217,7 +217,7 @@ export default async function AdminPage({
                         <span
                           className="h-4 w-4 shrink-0 rounded-full"
                           style={{ background: faceColorOf(o.config), border: `3px solid ${o.config.bodyColor}` }}
-                          title="čelo a stena"
+                          title="čelo a telo"
                           aria-hidden="true"
                         />
                         <p className="truncate text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
@@ -247,7 +247,7 @@ export default async function AdminPage({
                         {hasSeparateFace(o.config.material) ? (
                           <>
                             <SpecLine label="Čelo" value={colorLabel(faceColorOf(o.config))} />
-                            <SpecLine label="Stena" value={colorLabel(o.config.bodyColor)} />
+                            <SpecLine label="Telo" value={colorLabel(o.config.bodyColor)} />
                           </>
                         ) : (
                           <SpecLine label="Farba" value={colorLabel(o.config.bodyColor)} />

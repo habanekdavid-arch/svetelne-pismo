@@ -65,13 +65,14 @@ const LetterScene = dynamic(() => import("@/components/three/LetterScene"), {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// The five steps of the price list, in its order (hárok "struktura"):
+// Six steps, in the order the shop asked for:
 //
-//   1  Text      — what the sign says, and the font it is in;
-//   2  Rozmer    — the height of the letters (the build fixes the thickness);
-//   3  Farby     — the face (čelo) and the wall (stena) of the letter;
-//   4  Variant   — Svetelné spredu / Svetelné zozadu / Nesvetelné;
-//   5  Materiál  — Hliník / Plast / Plexi, and the build within it.
+//   1  Text        — what the sign says;
+//   2  Rozmer      — the height of the letters (the build fixes the thickness);
+//   3  Farby       — the face (čelo) and the body (telo) of the letter;
+//   4  Svietenie   — Svetelné spredu / Svetelné zozadu / Nesvetelné;
+//   5  Prevedenie  — Hliník / Plast / Plexi, and the build within it;
+//   6  Font        — the fonts that build is made in (hárok "fonty").
 //
 // Everything a customer picks is a small tile — a colour is a dot, a font is
 // the first letter of their own text set in that font — and the full name
@@ -303,7 +304,7 @@ function Configurator() {
       changed.push(`čelo ${colorLabel(faceColorOf(next))}`);
     }
     if (update.bodyColor === undefined && !sameColor(next.bodyColor, config.bodyColor)) {
-      changed.push(`${hasSeparateFace(next.material) ? "stena" : "farba"} ${colorLabel(next.bodyColor)}`);
+      changed.push(`${hasSeparateFace(next.material) ? "telo" : "farba"} ${colorLabel(next.bodyColor)}`);
     }
     if (update.text === undefined && next.text !== config.text) {
       changed.push(textCaseFor(next.material) === "upper" ? "text veľkými písmenami" : "text malými písmenami");
@@ -332,7 +333,7 @@ function Configurator() {
     }
     // Not made in this build — move to one that is, in the same variant.
     const build = buildForFont(variant, config.material, fontId);
-    if (build) apply({ font: fontId, material: build }, 1);
+    if (build) apply({ font: fontId, material: build }, 6);
   }
 
   function handleTextKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -412,7 +413,7 @@ function Configurator() {
         {/* ── Panel header ───────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <EyebrowPill>5 krokov</EyebrowPill>
+            <EyebrowPill>6 krokov</EyebrowPill>
             <h2
               className="section-heading mt-3 text-2xl md:text-3xl"
               style={{ color: "var(--color-foreground)" }}
@@ -423,7 +424,7 @@ function Configurator() {
               className="mt-2 max-w-lg text-[14px] leading-6 tracking-[0.005em]"
               style={{ color: "var(--color-muted)" }}
             >
-              Text, rozmer, farby, variant a materiál — náhľad aj cena sa menia okamžite.
+              Text, rozmer, farby, svietenie, prevedenie a font — náhľad aj cena sa menia okamžite.
               Názov každej voľby uvidíte, keď na ňu prejdete myšou.
             </p>
           </div>
@@ -596,11 +597,10 @@ function Configurator() {
             off screen. Below lg it is an ordinary block under the preview. ── */}
         <div className="space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh_-_7rem)] lg:overflow-y-auto lg:pr-1.5">
 
-          {/* ── 1 · Text and font ── */}
+          {/* ── 1 · Text ── */}
           <StepCard
             step={1}
             title="Text"
-            aside={currentFont?.name}
             note={noteFor(1)}
           >
             <textarea
@@ -625,16 +625,6 @@ function Configurator() {
               {textCase === "upper" && " Alurol – veľké písmená sa vyrába len veľkými písmenami."}
               {textCase === "lower" && " Alurol – malé písmená sa vyrába len malými písmenami."}
             </Hint>
-
-            <Label>Font</Label>
-            <FontDots
-              char={previewChar}
-              value={config.font}
-              availableIn={currentMat.fonts}
-              materialName={currentMat.displayName}
-              canSwitchTo={(id) => buildForFont(variant, config.material, id)}
-              onPick={chooseFont}
-            />
           </StepCard>
 
           {/* ── 2 · Size ── */}
@@ -677,7 +667,7 @@ function Configurator() {
           {/* ── 3 · Colours ── */}
           <StepCard
             step={3}
-            title="Farby čela a steny"
+            title="Farby čela a tela"
             aside={separateFace
               ? `${colorLabel(currentFaceColor)} / ${colorLabel(config.bodyColor)}`
               : colorLabel(config.bodyColor)}
@@ -696,7 +686,7 @@ function Configurator() {
                       onPick={(c) => { setNote(null); patch({ faceColor: c.value }); }}
                     />
                     <ColorRow
-                      label="Stena"
+                      label="Telo"
                       hint="bok písmena"
                       options={bodyColors}
                       value={config.bodyColor}
@@ -706,7 +696,7 @@ function Configurator() {
                 ) : (
                   <ColorRow
                     label="Farba písmena"
-                    hint="čelo aj stena"
+                    hint="čelo aj telo"
                     options={bodyColors}
                     value={config.bodyColor}
                     onPick={(c) => { setNote(null); patch({ bodyColor: c.value }); }}
@@ -721,18 +711,18 @@ function Configurator() {
                   ? "Pri svietení spredu je čelo z presvitného plexi a svieti vo svojej farbe."
                   : variant === "back"
                     ? "Pri svietení zozadu je čelo nepriesvitné — svetlo ide dozadu na stenu."
-                    : "Čelo aj stena môžu mať ľubovoľnú farbu."}
+                    : "Čelo aj telo môžu mať ľubovoľnú farbu."}
             </Hint>
           </StepCard>
 
           {/* ── 4 · Variant ── */}
           <StepCard
             step={4}
-            title="Variant"
+            title="Svietenie"
             aside={variantById(variant).name}
             note={noteFor(4)}
           >
-            <div role="radiogroup" aria-label="Variant" className="grid grid-cols-3 gap-2">
+            <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-2">
               {VARIANTS.map((v) => (
                 <OptionTile
                   key={v.id}
@@ -780,11 +770,11 @@ function Configurator() {
           {/* ── 5 · Material ── */}
           <StepCard
             step={5}
-            title="Materiál"
+            title="Prevedenie"
             aside={currentMat.displayName}
             note={noteFor(5)}
           >
-            <div role="radiogroup" aria-label="Materiál" className="grid grid-cols-3 gap-2">
+            <div role="radiogroup" aria-label="Prevedenie" className="grid grid-cols-3 gap-2">
               {MATERIAL_GROUPS.map((g) => {
                 const builds = buildsFor(variant, g.id);
                 const made = builds.length > 0;
@@ -808,8 +798,8 @@ function Configurator() {
 
             {buildsInGroup.length > 1 && (
               <>
-                <Label>Prevedenie</Label>
-                <div role="radiogroup" aria-label="Prevedenie" className="grid grid-cols-2 gap-2">
+                <Label>Typ</Label>
+                <div role="radiogroup" aria-label="Typ prevedenia" className="grid grid-cols-2 gap-2">
                   {buildsInGroup.map((b) => (
                     <BuildPill
                       key={b.id}
@@ -831,6 +821,24 @@ function Configurator() {
               <strong style={{ color: "var(--color-foreground)" }}>{groupById(currentMat.group).name} · {currentMat.shortName}.</strong>{" "}
               {currentMat.subtitle}
             </p>
+          </StepCard>
+
+          {/* ── 6 · Font ── */}
+          <StepCard
+            step={6}
+            title="Font"
+            aside={currentFont?.name}
+            note={noteFor(6)}
+          >
+            <FontDots
+              char={previewChar}
+              value={config.font}
+              availableIn={currentMat.fonts}
+              materialName={currentMat.displayName}
+              canSwitchTo={(id) => buildForFont(variant, config.material, id)}
+              onPick={chooseFont}
+            />
+            <Hint>Písma, ktoré sa v prevedení {currentMat.displayName} nevyrábajú, sú stlmené — po ich výbere prepneme prevedenie.</Hint>
           </StepCard>
 
         </div>{/* settings column */}
@@ -911,7 +919,7 @@ function Configurator() {
                 value={`${formatAmount(breakdown.unit)} ${breakdown.unitLabel}`}
               />
               <TechLine
-                label={separateFace ? "Čelo / stena" : "Farba"}
+                label={separateFace ? "Čelo / telo" : "Farba"}
                 value={separateFace
                   ? `${colorLabel(currentFaceColor)} / ${colorLabel(config.bodyColor)}`
                   : colorLabel(config.bodyColor)}
