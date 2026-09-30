@@ -372,9 +372,9 @@ function buildPhysicalMat(
 //   · otherwise the face is the same stuff as the return, just its own colour.
 
 // Clear cast acrylic: a mirror-smooth sheet with a lacquer-like top coat.
-const ACRYLIC_FACE = { roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.4 } as const;
+const ACRYLIC_FACE = { roughness: 0.0, clearcoat: 1, clearcoatRoughness: 0.0, envMapIntensity: 2.2, specularIntensity: 1 } as const;
 // UV print: the ink lies ON the sheet, so it is satin rather than glass.
-const PRINT_FACE   = { roughness: 0.42, clearcoat: 0.25, clearcoatRoughness: 0.4 } as const;
+const PRINT_FACE   = { roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.8 } as const;
 
 /**
  * The colour a front-lit acrylic face actually emits: the LED's light with the

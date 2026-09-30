@@ -17,7 +17,7 @@ import {
   materialById,
   fontsFor,
   clampHeight,
-  applyTextCase,
+  autoBuild,
   hasSeparateFace,
   clampFaceColor,
   clampBodyColor,
@@ -78,9 +78,15 @@ export function sanitizeConfig(raw: unknown): Config | null {
   // one that build is made in — the same two tables the configurator filters
   // its options with (hárky "struktura" a "fonty"). A `placement` from an
   // older browser is simply not read: the new price list does not ask.
-  const material = MATERIALS.find((m) => m.id === c.material);
-  if (!material) return null;
-  if (!isOffered(variantOf({ signType: c.signType, lightMode }), material.id)) return null;
+  const asked = MATERIALS.find((m) => m.id === c.material);
+  if (!asked) return null;
+  const variant = variantOf({ signType: c.signType, lightMode });
+  if (!isOffered(variant, asked.id)) return null;
+  // Alurol veľké / malé písmená is decided by the text itself (lib/options.ts
+  // autoBuild), here as in the configurator — the request does not choose it.
+  const material = asked.group === "aluminium"
+    ? MATERIALS.find((m) => m.id === autoBuild(variant, "aluminium", String(c.text), Number(c.height)))!
+    : asked;
 
   const font = fontOptions.find((f) => f.id === c.font);
   if (!font || !fontsFor(material.id).some((f) => f.id === font.id)) return null;
@@ -89,10 +95,7 @@ export function sanitizeConfig(raw: unknown): Config | null {
   if (!Number.isFinite(height)) return null;
 
   return {
-    // Alurol je v cenníku zvlášť pre veľké a zvlášť pre malé písmo, tak sa
-    // text prepíše aj tu — request z prehliadača nerozhoduje o tom, čo sa dá
-    // vyrobiť.
-    text: applyTextCase(c.text.slice(0, 120), material.id),
+    text: c.text.slice(0, 120),
     font: font.id,
     material: material.id,
     signType: c.signType,
