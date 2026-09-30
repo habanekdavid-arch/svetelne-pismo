@@ -268,7 +268,7 @@ export default async function BlogPostPage({
             className="mt-3 text-sm"
             style={{ color: "var(--color-muted)" }}
           >
-            Vyskúšajte náš konfigurátor a získajte cenovú ponuku okamžite.
+            Vyskúšajte náš konfigurátor — nápis uvidíte v 3D na svojej stene a po prihlásení hneď aj cenu.
           </p>
           <Link
             href="/#konfigurator"

@@ -51,7 +51,7 @@ export default function ContactForm() {
       />
 
       <Field label="Meno *" name="name" />
-      <Field label="Email *" name="email" type="email" />
+      <Field label="E-mail *" name="email" type="email" />
       <Field label="Predmet *" name="subject" full />
 
       <div className="sm:col-span-2">

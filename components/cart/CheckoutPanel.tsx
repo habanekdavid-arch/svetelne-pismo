@@ -260,7 +260,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           window.location.href = data.url;
           return;
         }
-        setSubmitError("Objednávku sme uložili, ale platbu sa nepodarilo otvoriť. Nájdete ju v Moje objednávky.");
+        setSubmitError("Objednávku sme uložili, ale platbu sa nepodarilo otvoriť. Nájdete ju v časti „Moje objednávky“.");
         return;
       }
 

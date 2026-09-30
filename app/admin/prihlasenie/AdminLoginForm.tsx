@@ -50,7 +50,7 @@ export default function AdminLoginForm() {
           className="mb-2 text-[10px] font-black tracking-[0.35em]"
           style={{ color: "var(--color-muted)" }}
         >
-          Administratíva
+          Administrácia
         </p>
         <h1 className="mb-6 text-lg font-bold" style={{ color: "var(--color-foreground)" }}>
           Prihlásenie

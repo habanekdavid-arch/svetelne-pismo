@@ -9,6 +9,7 @@
 
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { isVerified } from "@/lib/email-verification.server";
 import { getUserSession } from "@/lib/user-auth";
 
 export const ADMIN_SESSION_COOKIE = "admin_session";
@@ -82,8 +83,14 @@ export async function getAdminIdentity(): Promise<AdminIdentity | null> {
   const adminSession = await getAdminSession();
   if (adminSession) return { email: adminSession.email, via: "password" };
 
+  // An allowlisted account counts only once its e-mail is confirmed —
+  // otherwise anyone could register a listed address that has no account yet
+  // and walk into the admin. Accounts older than verification count as
+  // confirmed (lib/email-verification.server.ts).
   const user = await getUserSession();
-  if (user && isAdminEmail(user.email)) return { email: user.email, via: "account" };
+  if (user && isAdminEmail(user.email) && (await isVerified(user.userId).catch(() => false))) {
+    return { email: user.email, via: "account" };
+  }
 
   return null;
 }

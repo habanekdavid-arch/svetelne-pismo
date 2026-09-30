@@ -95,7 +95,7 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Vystavujete faktúru?",
-        a: "Áno, ku každej objednávke vystavujeme faktúru. Pre firemných zákazníkov je možné uviesť IČO a DPH číslo na faktúre.",
+        a: "Áno, ku každej objednávke vystavujeme faktúru. Pre firemných zákazníkov uvedieme na faktúre IČO, DIČ aj IČ DPH — stačí ich vyplniť pri registrácii.",
       },
     ],
   },

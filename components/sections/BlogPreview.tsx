@@ -26,9 +26,9 @@ export default function BlogPreview() {
             className="reveal delay-1 mx-auto mt-4 max-w-xl leading-7"
             style={{ color: "var(--color-muted)" }}
           >
-            Pokiaľ si neviete rady, v pár krokoch jednoducho
+            Neviete si rady s výberom? V článkoch nižšie nájdete, ako
             <br className="hidden sm:block" />
-            a rýchlo vám pomôžeme s výberom svetelného textu.
+            jednotlivé materiály a spôsoby svietenia vyzerajú naživo.
           </p>
         </div>
 

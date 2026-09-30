@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
 
         {state === "sent" ? (
           <p className="rounded-2xl px-4 py-3 text-sm leading-6" style={{ background: "var(--color-surface)", color: "var(--color-foreground)" }}>
-            Ak je <strong>{email}</strong> zaregistrovaný, prišiel naň e-mail s odkazom. Platí 1 hodinu —
+            Ak je <strong>{email}</strong> zaregistrovaný, poslali sme naň e-mail s odkazom. Odkaz platí 1 hodinu —
             pozrite aj priečinok nevyžiadanej pošty.
           </p>
         ) : (

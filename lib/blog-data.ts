@@ -23,7 +23,7 @@ export const blogPosts: BlogPost[] = [
     image: "/realizacie-ukazky/3d-tlac-svetlo-spredu.avif",
     gallery: ["/realizacie-ukazky/3d-tlac-svetlo-spredu-detail.avif"],
     content: `
-Jedna z najčastejšie objednávaných kombinácií je **3D tlačené telo s plexisklovým čelom**, presvietené spredu. Na fotkách nižšie vidíte presne to, čo v konfigurátore označujeme ako materiál "3D tlač s plexi" so svietením "spredu".
+Jedna z najčastejšie objednávaných kombinácií je **3D tlačené telo s plexisklovým čelom**, presvietené spredu. Na fotkách nižšie vidíte presne to, čo v konfigurátore označujeme ako prevedenie „3D tlač s plexi“ so svietením „Spredu“.
 
 ## Prečo túto kombináciu ľudia volia
 
@@ -37,7 +37,7 @@ Jedna z najčastejšie objednávaných kombinácií je **3D tlačené telo s ple
 
 ## Ako to vidieť v konfigurátore
 
-Ak si v našom konfigurátore vyberiete materiál **3D tlač s plexi** a svietenie **spredu**, presne táto realizácia sa vám zobrazí v sekcii "Pozri si, ako tvoj text vyzerá v praxi" — aby ste vedeli, do čoho idete ešte pred objednávkou.
+Ak si v našom konfigurátore zvolíte svietenie **Spredu** a prevedenie **Plast**, presne táto realizácia sa vám zobrazí v sekcii „Pozri si, ako tvoj text vyzerá v praxi“ — aby ste vedeli, do čoho idete ešte pred objednávkou.
     `.trim(),
   },
   {
@@ -63,7 +63,7 @@ Hodí sa najmä tam, kde je nápis dostatočne viditeľný vďaka osvetleniu pri
 
 ## V konfigurátore
 
-V konfigurátore túto verziu nájdete pod materiálom **3D tlač plné písmo** — konfigurátor vám pri jej výbere automaticky skryje možnosti svietenia, keďže táto stavba sa vyrába výhradne bez neho.
+V konfigurátore zvoľte svietenie **Nesvetelné** a prevedenie **Plast** — pri menších výškach písmen konfigurátor sám použije plné 3D tlačené písmo.
     `.trim(),
   },
   {
@@ -89,7 +89,7 @@ Alurol vieme podsvietiť aj zozadu (halo efekt, kde svetlo dopadá na stenu za p
 
 ## V konfigurátore
 
-Táto realizácia sa vám zobrazí, keď si vyberiete materiál **Alurol** so svietením **spredu** — presne taká, akú v tomto nastavení naozaj vyrábame.
+Táto realizácia sa vám zobrazí, keď zvolíte svietenie **Spredu** a prevedenie **Hliník** — presne taká, akú v tomto nastavení naozaj vyrábame.
     `.trim(),
   },
   {
@@ -116,13 +116,13 @@ Táto stavba je určená **iba do interiéru** — recepcie, kancelárie, naviga
 
 ## V konfigurátore
 
-Vyberte materiál **Plexi s UV tlačou** a typ **nesvetelné** — presne túto kombináciu potom uvidíte aj v sekcii realizácií pri vašom konfigurátore.
+Zvoľte svietenie **Nesvetelné** a prevedenie **Plexi** — presne túto kombináciu potom uvidíte aj v sekcii realizácií pri vašom konfigurátore.
     `.trim(),
   },
   {
     slug: "plexi-30mm-svetlo-spredu-a-hrany",
     title: "30 mm plexi: svetlo spredu aj z hrany naraz",
-    desc: "Náš najuniverzálnejší svetelný materiál — 30 mm hrubé plexisklo, ktoré vieme presvietiť spredu, hranami, alebo oboma spôsobmi naraz.",
+    desc: "Náš najobľúbenejší svetelný materiál — 30 mm hrubé plexisklo, ktoré svieti celou prednou plochou aj mliečnymi hranami.",
     category: "Materiály",
     date: "2026-08-17",
     readMin: 4,
@@ -132,17 +132,17 @@ Vyberte materiál **Plexi s UV tlačou** a typ **nesvetelné** — presne túto 
 
 ## Prečo kombinácia spredu + hrana
 
-Keď LED pásik osvetlí 30 mm hrubý blok plexiskla z jednej strany, časť svetla presvieti von cez celú prednú plochu a časť sa "zachytí" v hranách a vykreslí jemný obrys okolo celého písmena. Výsledkom je nápis, ktorý svieti plošne aj má výrazný obrysový efekt zároveň.
+Keď LED pásik osvetlí 30 mm hrubý blok plexiskla z jednej strany, časť svetla presvieti von cez celú prednú plochu a časť sa „zachytí“ v hranách a vykreslí jemný obrys okolo celého písmena. Výsledkom je nápis, ktorý svieti plošne aj má výrazný obrysový efekt zároveň.
 
 ## Technické parametre
 
 - **Hrúbka 30 mm**, výška písmena 150 – 600 mm
-- Svietenie **spredu**, **hranami**, alebo **oboma spôsobmi**
+- Svietenie **spredu** — čelo svieti vo zvolenej farbe, mliečne hrany bielo
 - Vhodné do interiéru aj exteriéru
 
 ## V konfigurátore
 
-Ak v konfigurátore zapnete pri materiáli **30 mm plexi** obe možnosti svietenia naraz, uvidíte v sekcii realizácií presne túto ukážku.
+Ak v konfigurátore zvolíte svietenie **Spredu** a prevedenie **Plexi**, uvidíte v sekcii realizácií presne túto ukážku.
     `.trim(),
   },
   {
@@ -165,7 +165,7 @@ Svetlo sa privádza z boku profilu a v materiáli sa čiastočne odráža smerom
 
 - Keď chcete **decentnejší, menej agresívny** svetelný efekt ako plné podsvietenie
 - Pri **veľkých formátoch**, kde by plošné svietenie pôsobilo príliš silno
-- Ako **doplnkový efekt** ku klasickému svieteniu spredu (viď kombinovaný variant "spredu aj z hrany")
+- Ako **doplnkový efekt** ku klasickému svieteniu spredu
 
 ## V konfigurátore
 
@@ -196,7 +196,7 @@ Písmeno má na zadnej strane dištančníky (zvyčajne 5 – 10 cm), ktoré vyt
 
 ## V konfigurátore
 
-Vyberte materiál **Alurol** a svietenie **zozadu** — presne tento halo efekt sa vám zobrazí v sekcii realizácií, aby ste vedeli, ako bude váš nápis v skutočnosti vyzerať na stene.
+Zvoľte svietenie **Zozadu** a prevedenie **Hliník** — presne tento halo efekt sa vám zobrazí v sekcii realizácií, aby ste vedeli, ako bude váš nápis v skutočnosti vyzerať na stene.
     `.trim(),
   },
 ];

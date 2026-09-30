@@ -239,7 +239,7 @@ export default function WallPicker({
       {tab === "photo" && photoName && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: "var(--color-muted)" }}>
-            Ťahaním posúvam
+            Ťahaním posúvate:
           </span>
           {([
             { id: "sign"       as DragTarget, label: "Nápis" },
