@@ -812,18 +812,20 @@ function Configurator() {
                   )}
                   {priceAccess === "anon" && (
                     <div>
+                      {/* New visitors first: signing up is an e-mail, a password
+                          and a code — then the price shows. */}
                       <a
-                        href="/prihlasenie?spat=%2F%23konfigurator"
+                        href="/registracia?spat=%2F%23konfigurator"
                         className="inline-block rounded-full px-4 py-2 text-sm font-extrabold"
                         style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
                       >
-                        Prihlásiť sa a zobraziť cenu
+                        Zaregistrujte sa a zobrazte cenu
                       </a>
                       <p className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>
-                        Nemáte účet?{" "}
-                        <a href="/registracia?spat=%2F%23konfigurator" className="font-semibold underline">
-                          Zaregistrujte sa
-                        </a>{" "}— zaberie to minútu.
+                        Stačí e-mail a heslo — zaberie to minútu. Už máte účet?{" "}
+                        <a href="/prihlasenie?spat=%2F%23konfigurator" className="font-semibold underline">
+                          Prihláste sa
+                        </a>
                       </p>
                     </div>
                   )}

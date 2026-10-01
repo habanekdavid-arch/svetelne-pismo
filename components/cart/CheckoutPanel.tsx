@@ -119,6 +119,8 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
   // ── What it costs and how it can go ──────────────────────────────────────
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteFailed, setQuoteFailed] = useState(false);
+  // "Skúsiť znova" — asks for the quote again without closing the cart.
+  const [quoteTry, setQuoteTry] = useState(0);
   const [method, setMethod] = useState<string>("");
   const [payment, setPayment] = useState<PaymentMethodId | null>(null);
 
@@ -162,7 +164,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, itemsKey]);
+  }, [isOpen, itemsKey, quoteTry]);
 
   const carrier = quote?.deliveryMethods.find((d) => d.id === method) ?? null;
   const paymentMethods = quote?.paymentMethods ?? [];
@@ -316,7 +318,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
 
   const buttonLabel = submitting
     ? payment === "card" ? "Presmerúvam…" : "Odosielam…"
-    : paymentMethods.length === 0 || carrier?.price === null
+    : paymentMethods.length === 0
         ? "Odoslať objednávku"
         : payment === "transfer"
           ? "Objednať — zaplatiť prevodom"
@@ -336,7 +338,12 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         <Step n={1}>Doručenie</Step>
         {!quote ? (
           quoteFailed ? (
-            <p className="text-xs text-red-500">Ceny sa nepodarilo načítať. Skúste košík zavrieť a otvoriť.</p>
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              Ceny sa nepodarilo načítať.
+              <button type="button" onClick={() => setQuoteTry((n) => n + 1)} className="font-bold underline">
+                Skúsiť znova
+              </button>
+            </div>
           ) : (
             <div className="h-20 animate-pulse rounded-2xl" style={{ background: "var(--color-surface)" }} />
           )
