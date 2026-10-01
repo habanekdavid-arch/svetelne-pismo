@@ -8,6 +8,7 @@ import {
   createOrder,
   createOrderGroup,
   type DeliveryAddress,
+  type InstallationRequest,
   type Order,
   type OrderGroup,
 } from "@/lib/orders";
@@ -174,6 +175,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "phone_required" }, { status: 400 });
   }
 
+  // "Máte záujem aj o inštaláciu?" — optional. Where the sign is to go up and
+  // a note; the shop answers with a quote for the mounting.
+  let installationRequest: InstallationRequest | null = null;
+  if (body?.installationRequest) {
+    const site = readAddress(body.installationRequest.address);
+    if (!site) {
+      return NextResponse.json({ error: "installation_address_required" }, { status: 400 });
+    }
+    installationRequest = { address: site, note: str(body.installationRequest.note, 1000) ?? "" };
+  }
+
   // ── Persist ────────────────────────────────────────────────────────────────
   const groupId = randomUUID();
   const group = await createOrderGroup({
@@ -187,6 +199,7 @@ export async function POST(req: Request) {
     itemsCents: quote.itemsCents,
     deliveryCents: deliveryCents(method),
     paymentMethod: payment,
+    installationRequest,
   });
 
   const { orders, previews } = await saveSigns(quote, session.userId, name, email, groupId, pictures);

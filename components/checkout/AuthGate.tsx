@@ -12,7 +12,6 @@ export type SessionUser = { name: string; email: string; verified?: boolean };
 
 export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: SessionUser) => void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +25,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
       const res = await fetch(mode === "login" ? "/api/auth/login" : "/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "login" ? { email, password } : { name, email, password }),
+        body: JSON.stringify({ email, password }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) {
@@ -54,8 +53,8 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
           <Lock size={16} />
         </span>
         <p className="text-sm leading-6" style={{ color: "var(--color-muted)" }}>
-          Pre objednanie sa prosím prihláste alebo si vytvorte účet —
-          objednávku tak uvidíte aj neskôr v „Moje objednávky“.
+          Prihláste sa alebo si vytvorte účet — stačí e-mail a heslo.
+          Po overení e-mailu kódom uvidíte ceny a doplníte detaily účtu.
         </p>
       </div>
 
@@ -79,18 +78,6 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-3">
-        {mode === "register" && (
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Meno"
-            autoComplete="name"
-            required
-            className="w-full rounded-lg px-4 py-3 text-sm outline-none"
-            style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
-          />
-        )}
         <input
           type="email"
           value={email}

@@ -111,6 +111,10 @@ function ensureSchema(): Promise<void> {
       // quote (the pre-invoice with the mounting in it) this stays NULL and
       // the customer has nothing to pay.
       await sql`ALTER TABLE order_groups ADD COLUMN IF NOT EXISTS quote_sent_at TIMESTAMPTZ`;
+      // "Máte záujem aj o inštaláciu?" — ticked in the cart: where the sign is
+      // to go up and a note. The shop sends a quote for the mounting; the
+      // order itself is paid and delivered as usual. NULL when not asked for.
+      await sql`ALTER TABLE order_groups ADD COLUMN IF NOT EXISTS installation_request JSONB`;
       await sql`
         CREATE INDEX IF NOT EXISTS orders_group_id_idx
         ON orders (group_id)

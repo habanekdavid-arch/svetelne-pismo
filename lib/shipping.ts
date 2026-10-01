@@ -237,6 +237,11 @@ export function deliveryPlace(group: {
   return null;
 }
 
+/** "Hlavná 12, 911 01 Trenčín" — an installation site or any other address. */
+export function formatAddress(a: { street: string; houseNumber: string; zip: string; city: string }): string {
+  return `${a.street} ${a.houseNumber}, ${a.zip} ${a.city}`;
+}
+
 /** How long a sign can take to make — said wherever the customer waits for it. */
 export const PRODUCTION_TIME = "Výroba nápisu môže trvať až 3 týždne.";
 

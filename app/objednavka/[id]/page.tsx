@@ -19,7 +19,7 @@ import PayAgainButton from "@/components/orders/PayAgainButton";
 import { bankAccount, variableSymbol } from "@/lib/bank";
 import { stripeConfigured } from "@/lib/stripe";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, leadTimeNotice, PRODUCTION_TIME } from "@/lib/shipping";
+import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, leadTimeNotice, PRODUCTION_TIME, formatAddress } from "@/lib/shipping";
 
 export const metadata: Metadata = {
   title: "Objednávka | rozsvieťTO",
@@ -99,6 +99,15 @@ export default async function OrderPage({ params, searchParams }: Props) {
         {canPayByCard && cancelled && (
           <div className="mt-5">
             <PayAgainButton groupId={group.id} label="Skúsiť platbu znova" />
+          </div>
+        )}
+
+        {group.installationRequest && (
+          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            <p className="font-bold">Dopyt na cenu za inštaláciu</p>
+            <p>Miesto inštalácie: {formatAddress(group.installationRequest.address)}</p>
+            {group.installationRequest.note && <p className="whitespace-pre-line">{group.installationRequest.note}</p>}
+            <p className="mt-1 text-xs">Pripravíme cenovú ponuku na inštaláciu a pošleme vám ju e-mailom.</p>
           </div>
         )}
 

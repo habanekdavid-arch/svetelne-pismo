@@ -10,7 +10,7 @@ import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods
 import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, materialById, variantLabel } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 import { formatEur } from "@/lib/vat";
-import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, leadTimeNotice, PICKUP_ADDRESS, PRODUCTION_TIME } from "@/lib/shipping";
+import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, formatAddress, leadTimeNotice, PICKUP_ADDRESS, PRODUCTION_TIME } from "@/lib/shipping";
 
 // Every e-mail the shop sends, in one place and one look. Each function is
 // fire-and-forget from the caller's point of view: sendMail never throws, and
@@ -120,6 +120,22 @@ function bankBlock(group: OrderGroup, orders: Order[]): string {
   </div>`;
 }
 
+/** "Máte záujem aj o inštaláciu?" was ticked — where, the note, and what happens next. */
+function installationBlock(group: OrderGroup, forShop: boolean): string {
+  const req = group.installationRequest;
+  if (!req) return "";
+  return `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:12px 16px;margin:10px 0 14px">
+    <div style="font-size:13px;font-weight:800;margin-bottom:4px">Dopyt na cenu za inštaláciu</div>
+    ${rows([
+      ["Miesto inštalácie", esc(formatAddress(req.address))],
+      ["Poznámka", req.note ? esc(req.note) : null],
+    ])}
+    <div style="font-size:13px;line-height:1.6;color:#57534e">${forShop
+      ? "Zákazník má záujem o inštaláciu — pripravte a pošlite mu cenovú ponuku."
+      : "Ďakujeme za záujem o inštaláciu. Pripravíme cenovú ponuku a pošleme vám ju e-mailom."}</div>
+  </div>`;
+}
+
 function whereTo(group: OrderGroup): string | null {
   const place = deliveryPlace(group);
   if (group.deliveryMethod === INSTALLATION_METHOD) return place ? esc(place) : null;
@@ -204,6 +220,7 @@ export function buildOrderPlaced(group: OrderGroup, orders: Order[], previews?: 
           ["Platba", group.paymentMethod ? PAYMENT_METHOD_LABEL[group.paymentMethod] : null],
         ]) +
         (quote ? "" : p(esc(leadTimeNotice(group.deliveryMethod)))) +
+        installationBlock(group, false) +
         extra +
         button(orderUrl(group), "Zobraziť objednávku"),
     ),
@@ -406,13 +423,14 @@ export function buildShopNewOrder(group: OrderGroup, orders: Order[], previews?:
       ? `Nová objednávka s montážou ${orderNo(group)} — pripraviť cenovú ponuku`
       : quote
       ? `Nová objednávka s montážou ${orderNo(group)} — ${formatEur(group.totalCents / 100)}`
-      : `Nová objednávka ${orderNo(group)} — ${formatEur(group.totalCents / 100)}`,
+      : `Nová objednávka ${orderNo(group)} — ${formatEur(group.totalCents / 100)}${group.installationRequest ? " + dopyt na inštaláciu" : ""}`,
     html: layout(
       quote ? "Nová objednávka s montážou" : "Nová objednávka",
       customerRows(group) +
         signsTable(orders) +
         pics.html +
         totals(group) +
+        installationBlock(group, true) +
         p(quote === "requested"
           ? "Pripravte cenovú ponuku s montážou v administrácii."
           : quote

@@ -215,6 +215,11 @@ export type DeliveryAddress = {
   country: string;
 };
 
+export type InstallationRequest = {
+  address: DeliveryAddress;
+  note: string;
+};
+
 export type OrderGroup = {
   id: string;
   userId: string;
@@ -240,6 +245,8 @@ export type OrderGroup = {
   packetaError: string | null;
   /** The running order number (1450, 1451, …); see formatOrderNumber. */
   number: number | null;
+  /** "Máte záujem aj o inštaláciu?" — the place and a note; the shop sends a quote. */
+  installationRequest: InstallationRequest | null;
   createdAt: string;
 };
 
@@ -276,6 +283,7 @@ function mapGroup(row: Row): OrderGroup {
     packetaBarcode: row.packeta_barcode ?? null,
     packetaError: row.packeta_error ?? null,
     number: row.number == null ? null : Number(row.number),
+    installationRequest: json<InstallationRequest>(row.installation_request),
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
@@ -292,13 +300,14 @@ export async function createOrderGroup(input: {
   itemsCents: number;
   deliveryCents: number;
   paymentMethod?: PaymentMethodId | null;
+  installationRequest?: InstallationRequest | null;
 }): Promise<OrderGroup> {
   const sql = await getDb();
   const rows = (await sql`
     INSERT INTO order_groups (
       id, user_id, customer_name, customer_email, customer_phone,
       delivery_method, delivery_point, delivery_address,
-      items_cents, delivery_cents, total_cents, payment_method
+      items_cents, delivery_cents, total_cents, payment_method, installation_request
     ) VALUES (
       ${input.id},
       ${input.userId},
@@ -311,7 +320,8 @@ export async function createOrderGroup(input: {
       ${input.itemsCents},
       ${input.deliveryCents},
       ${input.itemsCents + input.deliveryCents},
-      ${input.paymentMethod ?? null}
+      ${input.paymentMethod ?? null},
+      ${input.installationRequest ? JSON.stringify(input.installationRequest) : null}::jsonb
     )
     RETURNING *
   `) as Row[];
