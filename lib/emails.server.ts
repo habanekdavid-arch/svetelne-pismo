@@ -5,6 +5,7 @@ import { siteOrigin } from "@/lib/stripe";
 import { bankAccount, variableSymbol } from "@/lib/bank";
 import type { Order, OrderGroup } from "@/lib/orders";
 import { quoteState } from "@/lib/orders";
+import { EMAIL_LOGO_CID, EMAIL_LOGO_PNG_BASE64 } from "@/lib/email-logo";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, materialById, variantLabel } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
@@ -35,7 +36,7 @@ function layout(title: string, body: string): string {
 <div style="max-width:560px;margin:0 auto;padding:28px 16px">
   <div style="margin-bottom:18px">
     <a href="${siteOrigin()}" style="text-decoration:none">
-      <img src="${siteOrigin()}/logo-email.png" width="178" height="48" alt="rozsvieťTO" style="display:block;border:0;height:48px;width:178px">
+      <img src="cid:${EMAIL_LOGO_CID}" width="178" height="48" alt="rozsvieťTO" style="display:block;border:0;height:48px;width:178px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:#111111;line-height:48px">
     </a>
   </div>
   <div style="background:#fff;border-radius:18px;padding:26px 24px;border:1px solid #e7e5e4">
@@ -423,9 +424,17 @@ export function buildShopContact(msg: { name: string; email: string; subject: st
 
 // ── Senders ──────────────────────────────────────────────────────────────────
 
+/** The logo, inside every message (lib/email-logo.ts). */
+const LOGO_ATTACHMENT: MailAttachment = {
+  filename: "rozsvietto.png",
+  content: Buffer.from(EMAIL_LOGO_PNG_BASE64, "base64"),
+  cid: EMAIL_LOGO_CID,
+  contentType: "image/png",
+};
+
 async function send(mail: BuiltMail): Promise<boolean> {
   if (!mail.to) return false;
-  return sendMail(mail);
+  return sendMail({ ...mail, attachments: [LOGO_ATTACHMENT, ...(mail.attachments ?? [])] });
 }
 
 export const mailOrderPlaced = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildOrderPlaced(g, o, p)); };

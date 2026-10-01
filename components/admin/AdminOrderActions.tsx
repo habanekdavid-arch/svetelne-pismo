@@ -1,7 +1,8 @@
 "use client";
 
 import { useTransition } from "react";
-import { setOrderStatus } from "@/app/admin/actions";
+import { usePathname, useRouter } from "next/navigation";
+import { deleteOrderAction, setOrderStatus } from "@/app/admin/actions";
 import { ORDER_STATUSES, ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders";
 
 // Action column of an order card, shaped like vytlacto3d's: a primary blue
@@ -24,7 +25,18 @@ export default function AdminOrderActions({
   status: OrderStatus;
 }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const pathname = usePathname();
   const next = NEXT_STEP[status];
+
+  function remove() {
+    if (!window.confirm("Naozaj natrvalo vymazať túto objednávku? Nedá sa to vrátiť späť.")) return;
+    startTransition(async () => {
+      await deleteOrderAction(orderId);
+      // From the order's own page there is nothing left to show — back to the list.
+      if (pathname.startsWith("/admin/objednavka/")) router.push("/admin");
+    });
+  }
 
   function change(to: OrderStatus) {
     startTransition(() => {
@@ -67,8 +79,8 @@ export default function AdminOrderActions({
         ))}
       </select>
 
-      {status !== "cancelled" && (
-        <div className="mt-auto border-t pt-2" style={{ borderColor: "var(--color-border)" }}>
+      <div className="mt-auto space-y-2 border-t pt-2" style={{ borderColor: "var(--color-border)" }}>
+        {status !== "cancelled" && (
           <button
             type="button"
             onClick={() => change("cancelled")}
@@ -77,8 +89,16 @@ export default function AdminOrderActions({
           >
             Zrušiť objednávku
           </button>
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          onClick={remove}
+          disabled={pending}
+          className="w-full rounded-xl px-3 py-1.5 text-[11px] font-semibold text-red-500 underline underline-offset-2 transition hover:text-red-700 disabled:opacity-50"
+        >
+          Vymazať objednávku
+        </button>
+      </div>
     </div>
   );
 }

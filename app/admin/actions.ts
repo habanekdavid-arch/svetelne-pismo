@@ -15,6 +15,7 @@ import { afterPaid } from "@/lib/fulfilment.server";
 import { mailOrderCancelled, mailOrderReady, mailQuoteSent } from "@/lib/emails.server";
 import { bankAccount } from "@/lib/bank";
 import { markVerified } from "@/lib/email-verification.server";
+import { deleteOrder } from "@/lib/orders";
 
 // Re-checks the admin session inside the action itself — a Server Action is
 // its own callable endpoint, so it must not rely solely on the page-level
@@ -171,5 +172,31 @@ export async function verifyUserManually(userId: string) {
   const session = await getAdminIdentity();
   if (!session || typeof userId !== "string" || !userId) return;
   await markVerified(userId);
+  revalidatePath("/admin/pouzivatelia");
+}
+
+/** "Vymazať objednávku" — removes the sign (and its now-empty checkout) for good. */
+export async function deleteOrderAction(orderId: number) {
+  const session = await getAdminIdentity();
+  if (!session) throw new Error("Nemáte oprávnenie na túto akciu.");
+  await deleteOrder(orderId);
+  revalidatePath("/admin");
+}
+
+/**
+ * "Odstrániť účet" — deletes the customer's login, profile and verification.
+ * Their orders stay (they are the shop's business records, with the name and
+ * e-mail written on them), only no longer tied to an account that can sign in.
+ */
+export async function deleteUserAction(userId: string) {
+  const session = await getAdminIdentity();
+  if (!session) throw new Error("Nemáte oprávnenie na túto akciu.");
+  if (typeof userId !== "string" || !userId) return;
+  const { prisma } = await import("@/lib/prisma");
+  const { getDb } = await import("@/lib/db");
+  const sql = await getDb();
+  await sql`DELETE FROM user_profiles WHERE user_id = ${userId}`.catch(() => {});
+  await sql`DELETE FROM user_email_verification WHERE user_id = ${userId}`.catch(() => {});
+  await prisma.user.delete({ where: { id: userId } }).catch(() => {});
   revalidatePath("/admin/pouzivatelia");
 }

@@ -164,7 +164,7 @@ export default async function EmailPreviewPage() {
               </p>
               <iframe
                 title={s.title}
-                srcDoc={s.mail.html}
+                srcDoc={s.mail.html.replace("cid:logo@rozsvietto", "/logo-email.png")}
                 sandbox=""
                 className="mt-3 h-[640px] w-full rounded-2xl"
                 style={{ border: "1px solid var(--color-border)", background: "#f5f5f4" }}
