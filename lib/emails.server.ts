@@ -256,6 +256,44 @@ export function buildPaymentFailed(group: OrderGroup): BuiltMail {
   };
 }
 
+/** "Prijať na spracovanie" in the admin — the order is being checked and prepared. */
+export function buildOrderProcessing(group: OrderGroup, orders: Order[]): BuiltMail {
+  return {
+    to: group.customerEmail,
+    subject: `Objednávku ${orderNo(group)} spracovávame`,
+    html: layout(
+      "Objednávku spracovávame",
+      p(`${n(group)} vašu objednávku ${orderNo(group)} sme prijali na spracovanie. Kontrolujeme text, rozmery, farby a materiál a pripravujeme výrobné podklady.`) +
+        p("Ak budeme potrebovať niečo upresniť, ozveme sa vám. Keď nápis spustíme do výroby, dáme vám vedieť ďalším e-mailom.") +
+        signsTable(orders) +
+        button(orderUrl(group), "Zobraziť objednávku") +
+        p(`Otázky? Napíšte na <a href="mailto:${CONTACT_EMAIL}" style="color:#b45309">${CONTACT_EMAIL}</a> alebo zavolajte na ${CONTACT_PHONE}.`),
+    ),
+  };
+}
+
+/** "Spustiť do výroby" in the admin — the sign is being made. */
+export function buildOrderInProduction(group: OrderGroup, orders: Order[], previews?: Previews): BuiltMail {
+  const installation = group.deliveryMethod === INSTALLATION_METHOD;
+  const pics = previewBlock(orders, previews);
+  return {
+    attachments: pics.attachments,
+    to: group.customerEmail,
+    subject: `Váš nápis ide do výroby — objednávka ${orderNo(group)}`,
+    html: layout(
+      "Váš nápis ide do výroby",
+      p(`${n(group)} dobrá správa — ${orders.length > 1 ? "vaše nápisy sme spustili" : "váš nápis sme spustili"} do výroby.`) +
+        p(installation
+          ? `${PRODUCTION_TIME} Keď bude hotový, ozveme sa vám a dohodneme termín montáže.`
+          : `${PRODUCTION_TIME} ${afterMadeText(group.deliveryMethod)}`) +
+        signsTable(orders) +
+        pics.html +
+        rows([[installation ? "Adresa inštalácie" : "Doručenie", whereTo(group)]]) +
+        button(orderUrl(group), "Zobraziť objednávku"),
+    ),
+  };
+}
+
 /** Every sign of the order is made — what happens next depends on the delivery. */
 export function buildOrderReady(group: OrderGroup, orders: Order[]): BuiltMail {
   const installation = group.deliveryMethod === INSTALLATION_METHOD;
@@ -441,6 +479,8 @@ export const mailOrderPlaced = async (g: OrderGroup, o: Order[], p?: Previews) =
 export const mailQuoteSent = async (g: OrderGroup, o: Order[]) => { await send(buildQuoteSent(g, o)); };
 export const mailPaymentReceived = async (g: OrderGroup) => { await send(buildPaymentReceived(g)); };
 export const mailPaymentFailed = async (g: OrderGroup) => { await send(buildPaymentFailed(g)); };
+export const mailOrderProcessing = async (g: OrderGroup, o: Order[]) => { await send(buildOrderProcessing(g, o)); };
+export const mailOrderInProduction = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildOrderInProduction(g, o, p)); };
 export const mailOrderReady = async (g: OrderGroup, o: Order[]) => { await send(buildOrderReady(g, o)); };
 export const mailOrderCancelled = async (g: OrderGroup, o: Order[]) => { await send(buildOrderCancelled(g, o)); };
 export const mailRefunded = async (g: OrderGroup) => { await send(buildRefunded(g)); };

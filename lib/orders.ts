@@ -2,16 +2,22 @@ import { getDb } from "@/lib/db";
 import type { Config } from "@/lib/types";
 import { INSTALLATION_METHOD, isPaymentMethod, type PaymentMethodId } from "@/lib/payment-methods";
 
-export type OrderStatus = "new" | "in_progress" | "done" | "cancelled";
+export type OrderStatus = "new" | "in_progress" | "production" | "done" | "cancelled";
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   new:         "Nová",
   in_progress: "V spracovaní",
+  production:  "Vo výrobe",
   done:        "Hotovo",
   cancelled:   "Zrušená",
 };
 
-export const ORDER_STATUSES: OrderStatus[] = ["new", "in_progress", "done", "cancelled"];
+export const ORDER_STATUSES: OrderStatus[] = ["new", "in_progress", "production", "done", "cancelled"];
+
+/** How far along the way a sign is — cancelled is off the way altogether. */
+export const ORDER_STATUS_STEP: Record<OrderStatus, number> = {
+  new: 0, in_progress: 1, production: 2, done: 3, cancelled: -1,
+};
 
 /**
  * The order number people see: "ROZTO-" and the checkout's running number,

@@ -7,6 +7,7 @@ import { ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders";
 const STATUS_CLASS: Record<OrderStatus, string> = {
   new:         "border-[#FFAE00] bg-[#FFAE00] text-black",
   in_progress: "border-blue-600 bg-blue-600 text-white",
+  production:  "border-violet-600 bg-violet-600 text-white",
   done:        "border-green-600 bg-green-600 text-white",
   cancelled:   "border-red-500 bg-red-500 text-white",
 };

@@ -39,7 +39,8 @@ function isOrderStatus(v: string | undefined): v is OrderStatus {
 const TILE_HINT: Record<string, string> = {
   all:         "Celkom v systéme",
   new:         "Čakajú na prijatie",
-  in_progress: "Práve sa vyrábajú",
+  in_progress: "Kontrola a príprava",
+  production:  "Práve sa vyrábajú",
   done:        "Odovzdané zákazníkovi",
   cancelled:   "Stornované",
 };
@@ -136,7 +137,7 @@ export default async function AdminPage({
         <ContactMessagesPanel />
 
         {/* Stat tiles — counts per status + total revenue; click to filter */}
-        <div className="mb-10 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="mb-10 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
           {tiles.map((t) => {
             const active = t.key === activeFilter;
             return (

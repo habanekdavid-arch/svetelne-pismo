@@ -11,9 +11,13 @@ import { ORDER_STATUSES, ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orde
 // the order's page), the orange one for the obvious next step in production,
 // the blue one to write to the customer, and "Vymazať" set apart at the
 // bottom so it is never the button you hit by accident.
+//
+// Every step forward e-mails the customer (app/admin/actions.ts): taken in
+// for processing, started in production, finished, or cancelled.
 const NEXT_STEP: Partial<Record<OrderStatus, { to: OrderStatus; label: string }>> = {
-  new:         { to: "in_progress", label: "Prijať do výroby" },
-  in_progress: { to: "done",        label: "Označiť ako hotové" },
+  new:         { to: "in_progress", label: "Prijať na spracovanie" },
+  in_progress: { to: "production",  label: "Spustiť do výroby" },
+  production:  { to: "done",        label: "Označiť ako hotové" },
 };
 
 const BTN = "flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition disabled:opacity-50";
@@ -86,7 +90,7 @@ export default function AdminOrderActions({
       )}
 
       <a
-        href={`mailto:${customerEmail}?subject=${encodeURIComponent(`Objednávka ${orderNumber} — rozsvieťTO`)}`}
+        href={`mailto:${customerEmail}?subject=${encodeURIComponent(`Objednávka ${orderNumber} — rozsvieťTO`)}&body=${encodeURIComponent(`Dobrý deň,\n\nk vašej objednávke ${orderNumber}:\n\n\n\nS pozdravom\ntím rozsvieťTO\n4from media, s.r.o.\ninfo@4frommedia.sk · +421 907 907 097`)}`}
         className={`${BTN} bg-blue-600 text-white hover:bg-blue-700`}
       >
         Napísať zákazníkovi
