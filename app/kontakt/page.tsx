@@ -46,7 +46,7 @@ export default function KontaktPage() {
 
           <div className="mt-4 space-y-2 text-sm" style={{ color: "var(--color-foreground-soft)" }}>
             <div>
-              Email:{" "}
+              E-mail:{" "}
               <a className="underline underline-offset-2" href="mailto:info@4frommedia.sk">
                 info@4frommedia.sk
               </a>
