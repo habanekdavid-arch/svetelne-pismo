@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatDateTime } from "@/lib/dates";
 import Link from "next/link";
 import { previewIds } from "@/lib/order-previews.server";
 import { notFound, redirect } from "next/navigation";
@@ -66,7 +67,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   return (
     <AccountShell
       title={quote === "sent" ? "Predfaktúra" : installation ? "Objednávka s montážou" : "Objednávka"}
-      description={`Číslo ${groupOrderNumber(group)}`}
+      description={`Číslo ${groupOrderNumber(group)} · vytvorená ${formatDateTime(group.createdAt)}`}
     >
       <AccountSection title={headline(group, cancelled)}>
         <p className="mt-3 text-sm leading-6" style={{ color: "var(--color-muted)" }}>

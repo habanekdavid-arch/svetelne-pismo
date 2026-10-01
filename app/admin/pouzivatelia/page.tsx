@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatDate } from "@/lib/dates";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
@@ -127,7 +128,7 @@ export default async function AdminUsersPage({
                         <Chip>{company ? "Firma" : p?.soleTrader ? "Živnostník" : "Súkromná osoba"}</Chip>
                       </div>
                       <p className="mt-2 text-xs" style={{ color: "var(--color-muted)" }}>
-                        Registrovaný {new Date(u.createdAt).toLocaleDateString("sk-SK")}
+                        Registrovaný {formatDate(u.createdAt)}
                       </p>
                       <div className="mt-2">
                         <DeleteUserButton userId={u.id} email={u.email} />
@@ -172,7 +173,7 @@ export default async function AdminUsersPage({
                         {theirs.slice(0, 5).map((o) => (
                           <li key={o.id}>
                             <Link href={`/admin/objednavka/${o.id}`} className="text-xs underline">
-                              {o.number} — {new Date(o.createdAt).toLocaleDateString("sk-SK")}
+                              {o.number} — {formatDate(o.createdAt)}
                             </Link>
                           </li>
                         ))}
