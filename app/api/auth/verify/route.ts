@@ -24,10 +24,10 @@ export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("token") ?? "";
   const userId = token ? await readVerifyToken(token) : null;
   if (!userId) {
-    return NextResponse.redirect(`${originOf(req)}/?overenie=neplatne`);
+    return NextResponse.redirect(`${originOf(req)}/overenie-emailu?stav=neplatne`);
   }
   await markVerified(userId);
-  return NextResponse.redirect(`${originOf(req)}/?overenie=ok`);
+  return NextResponse.redirect(`${originOf(req)}/overenie-emailu?stav=ok`);
 }
 
 // POST, for the signed-in customer:

@@ -47,7 +47,7 @@ export default function Footer() {
           <FooterHeading>Kontakt</FooterHeading>
           <div className="mt-4 space-y-2 text-sm" style={{ color: "var(--color-muted)" }}>
             <div>
-              Email:{" "}
+              E-mail:{" "}
               <a href="mailto:info@4frommedia.sk" className="transition hover:underline hover:opacity-80">
                 info@4frommedia.sk
               </a>
