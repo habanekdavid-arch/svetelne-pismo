@@ -5,6 +5,7 @@ import { getAdminIdentity } from "@/lib/admin-auth";
 import {
   getOrderGroup,
   listOrdersForGroup,
+  ORDER_STATUS_STEP,
   markGroupPaid,
   quoteState,
   sendInstallationQuote,
@@ -12,7 +13,15 @@ import {
   type OrderStatus,
 } from "@/lib/orders";
 import { afterPaid } from "@/lib/fulfilment.server";
-import { mailOrderCancelled, mailOrderReady, mailQuoteSent } from "@/lib/emails.server";
+import {
+  mailOrderCancelled,
+  mailOrderInProduction,
+  mailOrderProcessing,
+  mailOrderReady,
+  mailQuoteSent,
+  type Previews,
+} from "@/lib/emails.server";
+import { getPreview } from "@/lib/order-previews.server";
 import { bankAccount } from "@/lib/bank";
 import { markVerified } from "@/lib/email-verification.server";
 import { deleteOrder } from "@/lib/orders";
@@ -26,16 +35,34 @@ export async function setOrderStatus(orderId: number, status: OrderStatus) {
     throw new Error("Nemáte oprávnenie na túto akciu.");
   }
   const { groupId, previous } = await updateOrderStatus(orderId, status);
-  // The customer hears about it once the WHOLE order has got there — a basket
-  // of three signs is finished when the third one is, not three times.
-  if (groupId && previous !== status && (status === "done" || status === "cancelled")) {
+  // Every step forward is an e-mail to the customer: taken in for processing,
+  // started in production, finished — or cancelled. They hear about it once
+  // the WHOLE order has got that far: a basket of three signs goes into
+  // production when the last of them does, not three times.
+  if (groupId && previous !== status && status !== "new") {
     const [group, orders] = await Promise.all([getOrderGroup(groupId), listOrdersForGroup(groupId)]);
-    if (group && orders.length > 0 && orders.every((o) => o.status === status)) {
-      if (status === "done") await mailOrderReady(group, orders);
+    const allThere =
+      status === "cancelled"
+        ? orders.every((o) => o.status === "cancelled")
+        : orders.every((o) => ORDER_STATUS_STEP[o.status] >= ORDER_STATUS_STEP[status]);
+    if (group && orders.length > 0 && allThere) {
+      if (status === "in_progress") await mailOrderProcessing(group, orders);
+      else if (status === "production") await mailOrderInProduction(group, orders, await previewsOf(orders.map((o) => o.id)));
+      else if (status === "done") await mailOrderReady(group, orders);
       else await mailOrderCancelled(group, orders);
     }
   }
   revalidatePath("/admin");
+}
+
+/** The stored pictures of the signs, for the e-mail that says they are being made. */
+async function previewsOf(ids: number[]): Promise<Previews> {
+  const map: Previews = new Map();
+  for (const id of ids) {
+    const buf = await getPreview(id).catch(() => null);
+    if (buf) map.set(id, buf.toString("base64"));
+  }
+  return map;
 }
 
 /**
