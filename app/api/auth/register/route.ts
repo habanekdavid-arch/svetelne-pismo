@@ -9,22 +9,17 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days, matches lib/user-auth.ts
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  // Signing up asks only for an e-mail and a password (and the code that
+  // confirms the e-mail) — enough to see prices. Name, phone, addresses and
+  // company details are filled in later as "detaily účtu" (lib/account-details.ts).
+  const name = typeof body?.name === "string" ? body.name.trim().slice(0, 120) : "";
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body?.password === "string" ? body.password : "";
 
-  const profile = toProfile(body?.profile);
+  const profile = body?.profile ? toProfile(body.profile) : null;
 
-  if (!name || !email || !password) {
+  if (!email || !password) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
-  }
-  // What a delivery cannot happen without. The billing address may stay empty
-  // — then the delivery address is what gets invoiced (see lib/profile.ts).
-  if (!profile.phone || !profile.shipping.street || !profile.shipping.city || !profile.shipping.zip) {
-    return NextResponse.json({ error: "missing_fields" }, { status: 400 });
-  }
-  if (profile.accountType === "COMPANY" && (!profile.companyName || !profile.ico)) {
-    return NextResponse.json({ error: "missing_company" }, { status: 400 });
   }
   if (password.length < 8) {
     return NextResponse.json({ error: "weak_password" }, { status: 400 });
@@ -46,7 +41,7 @@ export async function POST(req: Request) {
   // outcome than a 500 that leaves them unable to re-register (the e-mail is
   // taken by then).
   try {
-    await saveUserProfile(user.id, profile);
+    if (profile) await saveUserProfile(user.id, profile);
   } catch (err) {
     console.error("[register] profile could not be stored:", err);
   }

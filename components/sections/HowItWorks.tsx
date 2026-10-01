@@ -95,7 +95,7 @@ const steps = [
     n: 3,
     icon: <SendIcon />,
     title: "Objednávka a platba",
-    text: "V košíku vyberte doručenie a zaplaťte kartou alebo prevodom. Ak chcete nápis aj namontovať, zvoľte montáž — po zaplatení nápisu sa vám ozveme a dohodneme realizáciu.",
+    text: "V košíku vyberte doručenie, doplňte detaily účtu a zaplaťte kartou alebo prevodom. Ak máte záujem aj o inštaláciu, vyplňte miesto inštalácie — pošleme vám cenovú ponuku.",
   },
   {
     n: 4,

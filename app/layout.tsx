@@ -10,6 +10,7 @@ import { CartProvider } from "@/lib/cart-context";
 import CartSidebar from "@/components/cart/CartSidebar";
 import FourFromFloatingButton from "@/components/layout/FourFromFloatingButton";
 import VerifyEmailNotice from "@/components/auth/VerifyEmailNotice";
+import AccountDetailsReminder from "@/components/account/AccountDetailsReminder";
 import { Suspense } from "react";
 
 const centuryGothic = localFont({
@@ -75,6 +76,8 @@ export default function RootLayout({
           <Footer />
           <CartSidebar />
           <FourFromFloatingButton />
+          {/* "Doplňte si detaily účtu" — a quiet card in the corner. */}
+          <AccountDetailsReminder />
         </CartProvider>
         <ScrollReveal />
         <CookieConsent />

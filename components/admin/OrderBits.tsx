@@ -8,7 +8,7 @@ import { formatEur } from "@/lib/vat";
 import ConfirmTransferButton from "@/components/admin/ConfirmTransferButton";
 import InstallationQuoteForm from "@/components/admin/InstallationQuoteForm";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
-import { deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
+import { deliveryPlace, DELIVERY_METHOD_LABEL, formatAddress } from "@/lib/shipping";
 
 // Pieces shared by the admin's order list (app/admin/page.tsx) and one
 // order's own page (app/admin/objednavka/[id]).
@@ -112,6 +112,14 @@ export function DeliveryPanel({ group }: { group: OrderGroup | null }) {
       )}
       {!paid && (group.paymentMethod === "transfer" || quote === "sent") && (
         <ConfirmTransferButton groupId={group.id} />
+      )}
+      {group.installationRequest && (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+          <p className="font-bold">Dopyt na cenu za inštaláciu</p>
+          <p className="mt-0.5">{formatAddress(group.installationRequest.address)}</p>
+          {group.installationRequest.note && <p className="mt-0.5 whitespace-pre-line">{group.installationRequest.note}</p>}
+          <p className="mt-1 font-semibold">Pošlite zákazníkovi cenovú ponuku na inštaláciu.</p>
+        </div>
       )}
       {group.packetaError && (
         <p className="mt-2 text-xs leading-5 text-red-500">

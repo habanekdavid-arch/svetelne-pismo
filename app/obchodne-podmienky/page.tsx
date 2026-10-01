@@ -42,10 +42,9 @@ export default function TermsPage() {
           potvrdení objednávky. Výroba začne po prijatí platby.
         </p>
         <p>
-          Pri objednávke <strong>s montážou</strong> zákazník rovnako najprv
-          zaplatí za dielo. Po prijatí platby ho kontaktujeme a dohodneme
-          montáž a realizáciu — termín, podrobnosti a cenu montáže, ktorá sa
-          účtuje samostatne.
+          Ak má zákazník záujem aj o <strong>inštaláciu</strong>, vyplní pri
+          objednávke miesto inštalácie a my mu pošleme cenovú ponuku. Inštalácia
+          nie je súčasťou ceny nápisu — dohodne sa a účtuje samostatne.
         </p>
         <p>
           Ak sa po odoslaní objednávky ukáže, že dielo s danými parametrami

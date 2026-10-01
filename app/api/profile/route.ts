@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getUserSession } from "@/lib/user-auth";
+import { prisma } from "@/lib/prisma";
+import { createUserSessionToken, getUserSession, USER_SESSION_COOKIE } from "@/lib/user-auth";
 import { getUserProfile, saveUserProfile, toProfile, EMPTY_PROFILE } from "@/lib/profile";
 
 // The customer's own invoicing/delivery details. Both handlers read the
@@ -27,5 +28,21 @@ export async function PUT(req: Request) {
   }
 
   await saveUserProfile(session.userId, profile);
-  return NextResponse.json({ profile });
+
+  // The name lives on the account itself (and in the session cookie, which
+  // the header reads) — so a new name is written there and the cookie renewed.
+  const name = typeof body?.name === "string" ? body.name.trim().slice(0, 120) : null;
+  const res = NextResponse.json({ profile, name: name ?? session.name });
+  if (name && name !== session.name) {
+    await prisma.user.update({ where: { id: session.userId }, data: { name } });
+    const token = await createUserSessionToken({ ...session, name });
+    res.cookies.set(USER_SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+  return res;
 }

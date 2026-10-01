@@ -208,9 +208,11 @@ export default async function AdminPage({
                   ? "Kontaktovať zákazníka kvôli montáži"
                   : quote === "requested"
                   ? "Pripraviť cenovú ponuku s montážou"
-                  : group && !paid && group.paymentMethod === "transfer"
-                    ? "Čaká na platbu prevodom"
-                    : null;
+                  : group?.installationRequest
+                    ? "Poslať cenovú ponuku na inštaláciu"
+                    : group && !paid && group.paymentMethod === "transfer"
+                      ? "Čaká na platbu prevodom"
+                      : null;
 
               return (
                 <article

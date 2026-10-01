@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { notifySessionChange } from "@/lib/session-client";
+import { missingAccountDetails } from "@/lib/account-details";
 import { Pencil } from "lucide-react";
 import type { Address, UserProfile } from "@/lib/profile";
 import { AccountSection } from "@/components/account/AccountShell";
@@ -15,15 +17,22 @@ export default function AccountDetails({
   email,
   initial,
   ordersCount,
+  startEditing = false,
 }: {
   name: string;
   email: string;
   initial: UserProfile;
   ordersCount: number;
+  startEditing?: boolean;
 }) {
   const [saved, setSaved] = useState<UserProfile>(initial);
   const [draft, setDraft] = useState<UserProfile>(initial);
-  const [editing, setEditing] = useState(false);
+  const [savedName, setSavedName] = useState(name);
+  const [draftName, setDraftName] = useState(name);
+  // "Doplniť" in the reminder (AccountDetailsReminder) lands here with
+  // ?upravit=1 — straight into the form.
+  const [editing, setEditing] = useState(startEditing);
+  const missing = missingAccountDetails(savedName, saved);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
@@ -38,7 +47,7 @@ export default function AccountDetails({
       const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile: draft }),
+        body: JSON.stringify({ profile: draft, name: draftName }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -50,7 +59,9 @@ export default function AccountDetails({
         return;
       }
       setSaved(draft);
+      setSavedName(draftName.trim());
       setEditing(false);
+      notifySessionChange(); // the header and the reminder read the new details
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 3000);
     } catch {
@@ -72,9 +83,25 @@ export default function AccountDetails({
           </p>
         )}
 
+        {missing.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <span>
+              <strong>Doplňte detaily účtu</strong> — meno, telefón a fakturačnú adresu. Pri objednávke
+              ich potom už nebudete vypĺňať.
+            </span>
+            <button
+              type="button"
+              onClick={() => { setDraft(saved); setDraftName(savedName); setEditing(true); }}
+              className="rounded-full bg-black px-4 py-1.5 text-xs font-bold text-white"
+            >
+              Doplniť
+            </button>
+          </div>
+        )}
+
         <AccountSection title="Osobné údaje">
           <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-            <DataTile label="Meno a priezvisko" value={name} />
+            <DataTile label="Meno a priezvisko" value={savedName} />
             <DataTile label="E-mail" value={email} />
             <DataTile label="Telefón" value={saved.phone} />
             <DataTile label="Typ účtu">
@@ -129,6 +156,7 @@ export default function AccountDetails({
               type="button"
               onClick={() => {
                 setDraft(saved);
+                setDraftName(savedName);
                 setEditing(true);
               }}
               className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition hover:opacity-90"
@@ -177,6 +205,7 @@ export default function AccountDetails({
               <option value="COMPANY">Firma</option>
             </select>
           </label>
+          <Field label="Meno a priezvisko" value={draftName} onChange={setDraftName} />
           <Field label="Telefón" value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
         </div>
       </section>

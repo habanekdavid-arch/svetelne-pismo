@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "Môj účet | rozsvieťTO",
 };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ upravit?: string }> }) {
   const session = await getUserSession();
   if (!session) redirect("/prihlasenie");
 
@@ -18,6 +18,7 @@ export default async function AccountPage() {
   // yet, so the page opens on an empty form rather than an error.
   const profile = (await getUserProfile(session.userId)) ?? EMPTY_PROFILE;
   const orders = await listOrdersForUser(session.userId);
+  const { upravit } = await searchParams;
 
   return (
     <AccountShell
@@ -31,6 +32,7 @@ export default async function AccountPage() {
         email={session.email}
         initial={profile}
         ordersCount={orders.length}
+        startEditing={upravit === "1"}
       />
     </AccountShell>
   );

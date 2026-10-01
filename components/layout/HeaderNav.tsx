@@ -30,7 +30,7 @@ function UserGlyph() {
   );
 }
 
-type SessionUser = { name: string };
+type SessionUser = { name: string; email?: string };
 
 // All the interactive parts of the header (mobile menu toggle, account
 // state, logout). Fetches its own session from /api/auth/me instead of
@@ -115,7 +115,7 @@ export default function HeaderNav() {
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold"
                 style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
               >
-                {(user.name?.trim()?.charAt(0) || "U").toUpperCase()}
+                {(user.name?.trim()?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
               </span>
               <span className="hidden sm:inline">Môj účet</span>
             </Link>
@@ -205,7 +205,7 @@ export default function HeaderNav() {
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold"
                 style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
               >
-                {(user.name?.trim()?.charAt(0) || "U").toUpperCase()}
+                {(user.name?.trim()?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
               </span>
               Môj účet
             </Link>
