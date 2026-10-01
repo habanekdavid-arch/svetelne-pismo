@@ -24,6 +24,7 @@ import EyebrowPill from "@/components/ui/EyebrowPill";
 import { orderNumber, Label, DELIVERY_LABEL } from "@/components/admin/OrderBits";
 import AdminNav from "@/components/admin/AdminNav";
 import { listContactMessages } from "@/lib/contact";
+import { previewIds } from "@/lib/order-previews.server";
 
 export const metadata: Metadata = {
   title: "Administrácia objednávok | rozsvieťTO",
@@ -79,6 +80,7 @@ export default async function AdminPage({
   ];
 
   const orders = activeFilter === "all" ? allOrders : allOrders.filter((o) => o.status === activeFilter);
+  const withPreview = await previewIds(orders.map((o) => o.id)).catch(() => new Set<number>());
 
   return (
     <main className="min-h-screen px-5 py-12" style={{ background: "var(--color-surface)" }}>
@@ -222,6 +224,17 @@ export default async function AdminPage({
                       Everything else waits behind "Zobraziť detail". */}
                   <div className="grid items-start gap-6 lg:grid-cols-[1.2fr_1.6fr_1fr_auto]">
 
+                    <div className="flex min-w-0 gap-3">
+                    {withPreview.has(o.id) && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/orders/${o.id}/preview`}
+                        alt=""
+                        className="h-16 w-24 shrink-0 rounded-xl border object-cover"
+                        style={{ borderColor: "var(--color-border)" }}
+                        loading="lazy"
+                      />
+                    )}
                     <div className="min-w-0">
                       <p className="text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
                         {orderNumber(o.id)}
@@ -235,6 +248,7 @@ export default async function AdminPage({
                       >
                         {variantLabel(o.config)}
                       </span>
+                    </div>
                     </div>
 
                     <div className="min-w-0 text-sm">

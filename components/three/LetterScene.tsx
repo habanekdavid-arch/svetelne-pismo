@@ -61,11 +61,11 @@ const BLOOM_LUMINANCE_SMOOTHING = 0.4;
 // face (small radius) so it reads as a bright face, not as a glow on the
 // wall. Only a halo letter lights the wall, and there the spread is the point.
 const BLOOM_RADIUS_FRONT        = 0.82;
-const BLOOM_RADIUS_HALO         = 0.75;
+const BLOOM_RADIUS_HALO         = 0.85;
 // Softened across the board — bloom is what turns a bright face into a white
 // blob, so each mode gets only as much flare as it needs to read as light.
 const BLOOM_INTENSITY_BASE      = 0.95; // front — a lit face flares visibly round its edges, a soft halo of light
-const BLOOM_INTENSITY_HALO      = 0.3;  // back — the glow texture already IS the soft light; more bloom only fogs the face
+const BLOOM_INTENSITY_HALO      = 0.55; // back — on top of the glow texture, enough to make the halo read as light
 // A saturated LED is darker than a white one at the same drive, so with a
 // fixed threshold it never reached the bloom at all and a red sign looked
 // like red plastic rather than a red light. The threshold comes down and the
@@ -1072,9 +1072,9 @@ export default function LetterScene(props: LetterSceneProps) {
   // the whole picture; the threshold rises as the night lightens.
   const bloomThreshold =
     BLOOM_LUMINANCE_THRESHOLD - BLOOM_THRESHOLD_SAT_DROP * glowSat + 0.35 * (1 - nightLevel)
-    // A front-lit face blooms a little earlier, so the light spills round the
+    // A lit sign blooms a little earlier, so the light spills round the
     // letters and reads as light, not just a bright fill.
-    - (lightMode === "back" ? 0 : 0.08);
+    - 0.08;
 
   return (
     <div
@@ -1084,7 +1084,9 @@ export default function LetterScene(props: LetterSceneProps) {
       <Canvas
         key={canvasKey}
         camera={{ position: CAMERA_POS, fov: CAMERA_FOV }}
-        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+        // preserveDrawingBuffer: the frame stays readable after it is shown, so
+        // the preview can be photographed for the order (lib/sign-preview.ts).
+        gl={{ antialias: true, alpha: true, powerPreference: "high-performance", preserveDrawingBuffer: true }}
         // Capped at 1.5: a 2× buffer on a wide preview, with transmission and
         // bloom on top, is more than a laptop GPU keeps up with for long.
         dpr={[1, 1.5]}

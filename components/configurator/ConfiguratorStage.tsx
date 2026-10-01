@@ -44,6 +44,7 @@ import {
 } from "@/lib/options";
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
 import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
+import { registerSnapshotter, capturePreview } from "@/lib/sign-preview";
 import type { DragTarget, ZoomView } from "@/components/three/LetterScene";
 
 /** The whole framed view — kept here too, so the page does not import the 3D chunk. */
@@ -187,6 +188,12 @@ function Configurator() {
 
   // Keep ShowcaseSection in sync with every config change
   useEffect(() => { publishConfig(config); }, [config, publishConfig]);
+
+  // Lets the cart photograph this sign for the order (lib/sign-preview.ts).
+  useEffect(() => {
+    registerSnapshotter({ config, canvas: () => previewRef.current?.querySelector("canvas") ?? null });
+    return () => registerSnapshotter(null);
+  }, [config]);
 
   // ── Derived state ────────────────────────────────────────────────────────
   const currentMat = materialById(config.material);
@@ -349,6 +356,7 @@ function Configurator() {
   // next one can be typed straight away. Everything else stays — a second
   // sign for the same shopfront is usually the same build with other words.
   function startAnotherSign() {
+    void capturePreview(config);
     addToCart(config, { open: false, size: signSize });
     patch({ text: "" });
     textInputRef.current?.focus();
@@ -921,7 +929,7 @@ function Configurator() {
                   Zrušiť úpravu
                 </button>
                 <button
-                  onClick={() => applyEdit(config, signSize)}
+                  onClick={() => { void capturePreview(config); applyEdit(config, signSize); }}
                   className="btn-press w-full rounded-2xl px-12 py-4 text-base font-black tracking-wide shadow-[0_10px_24px_-10px_rgba(255,174,0,.9)] sm:w-auto"
                   style={{ background: "var(--accent)", color: "var(--accent-foreground)", border: "2px solid var(--accent)" }}
                 >
@@ -944,7 +952,7 @@ function Configurator() {
                 </button>
 
                 <button
-                  onClick={() => addToCart(config, { size: signSize })}
+                  onClick={() => { void capturePreview(config); addToCart(config, { size: signSize }); }}
                   className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
                   style={{
                     background: "var(--color-background)",
@@ -959,7 +967,7 @@ function Configurator() {
                     order is always placed from there, so a customer who configured
                     two signs does not lose one of them by ordering the other. */}
                 <button
-                  onClick={() => checkout(config, signSize)}
+                  onClick={() => { void capturePreview(config); checkout(config, signSize); }}
                   className="btn-press w-full rounded-2xl px-12 py-4 text-base font-black tracking-wide shadow-[0_10px_24px_-10px_rgba(255,174,0,.9)] sm:w-auto"
                   style={{ background: "var(--accent)", color: "var(--accent-foreground)", border: "2px solid var(--accent)" }}
                 >

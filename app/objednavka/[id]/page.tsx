@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { previewIds } from "@/lib/order-previews.server";
 import { notFound, redirect } from "next/navigation";
 import { getUserSession } from "@/lib/user-auth";
 import {
@@ -46,6 +47,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   if (!group || group.userId !== session.userId) notFound();
 
   const orders = await listOrdersForGroup(id);
+  const withPreview = await previewIds(orders.map((o) => o.id)).catch(() => new Set<number>());
   const paid = group.paymentStatus === "paid";
   const cancelled = stav === "zrusene";
   const installation = group.deliveryMethod === INSTALLATION_METHOD;
@@ -108,6 +110,16 @@ export default async function OrderPage({ params, searchParams }: Props) {
               style={{ background: "var(--color-surface)" }}
             >
               <div className="min-w-0">
+                {withPreview.has(order.id) && (
+                  <a href={`/api/orders/${order.id}/preview`} target="_blank" rel="noopener noreferrer" className="mb-2 block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/orders/${order.id}/preview`}
+                      alt={`Náhľad nápisu ${oneLine(order.config.text)}`}
+                      className="w-full max-w-sm rounded-lg"
+                    />
+                  </a>
+                )}
                 <p className="truncate text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
                   {oneLine(order.config.text) || "Váš nápis"}
                 </p>

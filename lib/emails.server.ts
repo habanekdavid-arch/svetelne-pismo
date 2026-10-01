@@ -131,12 +131,38 @@ function whereTo(group: OrderGroup): string | null {
 // posts it. The builders are also what the admin's e-mail preview renders
 // (app/admin/emaily), so what is previewed is exactly what is sent.
 
-export type BuiltMail = { to: string; subject: string; html: string; replyTo?: string };
+export type MailAttachment = { filename: string; content: Buffer; cid: string; contentType: string };
+export type BuiltMail = { to: string; subject: string; html: string; replyTo?: string; attachments?: MailAttachment[] };
+
+/** Ordered signs' pictures (lib/order-previews.server.ts), by order id, as base64 JPEG. */
+export type Previews = Map<number, string>;
+
+/** The watermarked pictures of the signs, inline — and the attachments that carry them. */
+function previewBlock(orders: Order[], previews?: Previews): { html: string; attachments: MailAttachment[] } {
+  const attachments: MailAttachment[] = [];
+  const cells: string[] = [];
+  for (const o of orders) {
+    const b64 = previews?.get(o.id);
+    if (!b64) continue;
+    const cid = `nahlad-${o.id}@rozsvietto`;
+    attachments.push({ filename: `nahlad-${o.id}.jpg`, content: Buffer.from(b64, "base64"), cid, contentType: "image/jpeg" });
+    cells.push(`<div style="margin:8px 0 4px">
+      <img src="cid:${cid}" alt="Náhľad nápisu ${esc(oneLine(o.config.text))}" width="512" style="display:block;width:100%;max-width:512px;height:auto;border-radius:12px;border:1px solid #e7e5e4">
+      <div style="font-size:12px;color:#78716c;margin-top:4px">${esc(oneLine(o.config.text) || "Nápis")} — náhľad z konfigurátora</div>
+    </div>`);
+  }
+  if (cells.length === 0) return { html: "", attachments };
+  return {
+    html: `<div style="margin:10px 0 14px"><div style="font-size:13px;font-weight:800;margin-bottom:2px">${cells.length === 1 ? "Náhľad vášho nápisu" : "Náhľady vašich nápisov"}</div>${cells.join("")}</div>`,
+    attachments,
+  };
+}
 
 const n = (group: OrderGroup) => `Dobrý deň ${esc(group.customerName)},`;
 
 /** Right after the order is placed — whatever kind it is. */
-export function buildOrderPlaced(group: OrderGroup, orders: Order[]): BuiltMail {
+export function buildOrderPlaced(group: OrderGroup, orders: Order[], previews?: Previews): BuiltMail {
+  const pics = previewBlock(orders, previews);
   const quote = quoteState(group);
   let intro: string;
   let extra = "";
@@ -161,6 +187,7 @@ export function buildOrderPlaced(group: OrderGroup, orders: Order[]): BuiltMail 
   }
 
   return {
+    attachments: pics.attachments,
     to: group.customerEmail,
     subject: quote === "requested"
       ? `Objednávka ${orderNo(group)} čaká na cenovú ponuku`
@@ -169,6 +196,7 @@ export function buildOrderPlaced(group: OrderGroup, orders: Order[]): BuiltMail 
       quote === "requested" ? "Objednávka čaká na cenovú ponuku" : "Objednávku sme prijali",
       p(`${n(group)} ${intro}`) +
         signsTable(orders) +
+        pics.html +
         totals(group) +
         rows([
           [quote ? "Adresa inštalácie" : "Doručenie", whereTo(group)],
@@ -326,9 +354,11 @@ function customerRows(group: OrderGroup): string {
 }
 
 /** New order in. */
-export function buildShopNewOrder(group: OrderGroup, orders: Order[]): BuiltMail {
+export function buildShopNewOrder(group: OrderGroup, orders: Order[], previews?: Previews): BuiltMail {
+  const pics = previewBlock(orders, previews);
   const quote = quoteState(group);
   return {
+    attachments: pics.attachments,
     to: SHOP_INBOX,
     replyTo: group.customerEmail,
     subject: quote === "requested"
@@ -340,6 +370,7 @@ export function buildShopNewOrder(group: OrderGroup, orders: Order[]): BuiltMail
       quote ? "Nová objednávka s montážou" : "Nová objednávka",
       customerRows(group) +
         signsTable(orders) +
+        pics.html +
         totals(group) +
         p(quote === "requested"
           ? "Pripravte cenovú ponuku s montážou v administrácii."
@@ -395,7 +426,7 @@ async function send(mail: BuiltMail): Promise<boolean> {
   return sendMail(mail);
 }
 
-export const mailOrderPlaced = async (g: OrderGroup, o: Order[]) => { await send(buildOrderPlaced(g, o)); };
+export const mailOrderPlaced = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildOrderPlaced(g, o, p)); };
 export const mailQuoteSent = async (g: OrderGroup, o: Order[]) => { await send(buildQuoteSent(g, o)); };
 export const mailPaymentReceived = async (g: OrderGroup) => { await send(buildPaymentReceived(g)); };
 export const mailPaymentFailed = async (g: OrderGroup) => { await send(buildPaymentFailed(g)); };
@@ -404,6 +435,6 @@ export const mailOrderCancelled = async (g: OrderGroup, o: Order[]) => { await s
 export const mailRefunded = async (g: OrderGroup) => { await send(buildRefunded(g)); };
 export const mailPasswordReset = (to: string, link: string) => send(buildPasswordReset(to, link));
 export const mailVerifyEmail = (to: string, name: string, link: string) => send(buildVerifyEmail(to, name, link));
-export const mailShopNewOrder = async (g: OrderGroup, o: Order[]) => { await send(buildShopNewOrder(g, o)); };
+export const mailShopNewOrder = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildShopNewOrder(g, o, p)); };
 export const mailShopPaid = async (g: OrderGroup, o: Order[]) => { await send(buildShopPaid(g, o)); };
 export const mailShopContact = async (m: { name: string; email: string; subject: string; message: string }) => { await send(buildShopContact(m)); };
