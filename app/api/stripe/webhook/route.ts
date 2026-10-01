@@ -4,6 +4,7 @@ import { stripe, webhookSecret } from "@/lib/stripe";
 import { getOrderGroup, markGroupPaid, setGroupPaymentStatus } from "@/lib/orders";
 import { afterPaid } from "@/lib/fulfilment.server";
 import { mailPaymentFailed, mailRefunded } from "@/lib/emails.server";
+import { recordWebhookEvent } from "@/lib/stripe-log.server";
 
 // Stripe's own report of what happened to a payment.
 //
@@ -38,6 +39,9 @@ export async function POST(req: Request) {
     console.error("[stripe] podpis webhooku neplatný:", err);
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
+
+  // Proof for the admin's Stripe test that the webhook reaches the shop.
+  await recordWebhookEvent(event.type, event.livemode).catch(() => {});
 
   try {
     switch (event.type) {
