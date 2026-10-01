@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/site-url";
 import localFont from "next/font/local";
 import "./globals.css";
 import Header from "@/components/layout/Header";
@@ -42,6 +43,8 @@ const centuryGothic = localFont({
 
 
 export const metadata: Metadata = {
+  // Shared links and social previews resolve against the live domain.
+  metadataBase: new URL(SITE_URL),
   title: "rozsvieťTO | Konfigurátor svetelného písma",
   description: "Navrhnite si vlastné svetelné písmo a 3D písmo na mieru. Živý náhľad aj cena.",
 };
