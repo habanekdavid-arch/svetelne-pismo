@@ -62,8 +62,8 @@ export function integrations(): Integration[] {
       ok: mail,
       status: mail
         ? `Zapnuté — ${mailSetup().host} ako ${mailSetup().user}, odosiela ${MAIL_FROM}, objednávky chodia na ${SHOP_INBOX}${mailSetup().fallback ? ", záložný Gmail zapnutý" : ""}.`
-        : "Vypnuté — chýba heslo schránky office@4frommedia.sk (SMTP_PASSWORD). Objednávky a správy sú zatiaľ len v administrácii.",
-      missing: mail ? missing("GMAIL_USER", "GMAIL_APP_PASSWORD") : missing("SMTP_PASSWORD"),
+        : "Vypnuté — chýba RESEND_API_KEY (odporúčané) alebo heslo schránky office@4frommedia.sk (SMTP_PASSWORD). Overovacie e-maily, potvrdenia objednávok ani správy neodchádzajú.",
+      missing: mail ? missing("RESEND_API_KEY", "GMAIL_USER", "GMAIL_APP_PASSWORD") : missing("RESEND_API_KEY", "SMTP_PASSWORD"),
     },
     {
       name: "Analytika (Google Tag Manager)",

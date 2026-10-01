@@ -2,46 +2,42 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { onSessionChange } from "@/lib/session-client";
+import VerifyCodeForm from "@/components/auth/VerifyCodeForm";
 
 // "Overte svoj e-mail" — shown to a signed-in customer whose address is not
-// confirmed yet (a new account), with a button to send the link again. Also
-// says how clicking the link went, when the verify route sends the customer
-// back here with ?overenie=ok / ?overenie=neplatne.
+// confirmed yet (a new account): type in the code from the e-mail, or send it
+// again. Also says how clicking the link went, when the verify route sends
+// the customer back here with ?overenie=ok / ?overenie=neplatne.
 
-export default function VerifyEmailNotice({ email }: { email?: string }) {
+export default function VerifyEmailNotice() {
   const params = useSearchParams();
   const result = params.get("overenie");
   const [pending, setPending] = useState<{ email: string } | null>(null);
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const [justVerified, setJustVerified] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled && d?.user && d.user.verified === false) setPending({ email: d.user.email });
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
+    const check = () =>
+      fetch("/api/auth/me", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled) return;
+          setPending(d?.user && d.user.verified === false ? { email: d.user.email } : null);
+        })
+        .catch(() => {});
+    check();
+    const off = onSessionChange(check);
+    return () => { cancelled = true; off(); };
   }, [result]);
 
-  async function resend() {
-    setState("sending");
-    const res = await fetch("/api/auth/verify", { method: "POST" }).catch(() => null);
-    setState(res?.ok ? "sent" : "failed");
-  }
-
-  if (result === "ok") {
-    return (
-      <Banner tone="ok">
-        E-mail je overený. Ďakujeme — môžete objednávať.
-      </Banner>
-    );
+  if (result === "ok" || justVerified) {
+    return <Banner tone="ok">E-mail je overený. Ďakujeme — teraz uvidíte ceny a môžete objednávať.</Banner>;
   }
   if (result === "neplatne" && !pending) {
     return (
       <Banner tone="warn">
-        Overovací odkaz je neplatný alebo mu vypršala platnosť. Prihláste sa a pošlite si nový.
+        Overovací odkaz je neplatný alebo mu vypršala platnosť. Prihláste sa a pošlite si nový kód.
       </Banner>
     );
   }
@@ -49,19 +45,11 @@ export default function VerifyEmailNotice({ email }: { email?: string }) {
 
   return (
     <Banner tone="warn">
-      <span>
-        Overte prosím svoj e-mail — poslali sme odkaz na <strong>{email ?? pending.email}</strong>.
-        Objednať sa dá až po overení.
+      <span className="w-full sm:w-auto">
+        Overte prosím svoj e-mail — kód sme poslali na <strong>{pending.email}</strong>. Cenu uvidíte
+        a objednať môžete až po overení.
       </span>
-      <button
-        type="button"
-        onClick={resend}
-        disabled={state === "sending" || state === "sent"}
-        className="shrink-0 rounded-full bg-black px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
-      >
-        {state === "sending" ? "Posielam…" : state === "sent" ? "Odoslané ✓" : "Poslať znova"}
-      </button>
-      {state === "failed" && <span className="text-xs text-red-600">E-mail sa nepodarilo odoslať, skúste neskôr.</span>}
+      <VerifyCodeForm onVerified={() => setJustVerified(true)} />
     </Banner>
   );
 }

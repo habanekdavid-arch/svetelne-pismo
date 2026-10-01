@@ -8,6 +8,7 @@ import { listUnverified } from "@/lib/email-verification.server";
 import { listAllOrders, type Order } from "@/lib/orders";
 import { formatEur } from "@/lib/vat";
 import AdminNav from "@/components/admin/AdminNav";
+import VerifyUserButton from "@/components/admin/VerifyUserButton";
 import { orderNumber, Label } from "@/components/admin/OrderBits";
 
 export const metadata: Metadata = {
@@ -119,6 +120,7 @@ export default async function AdminUsersPage({
                         <Chip tone={unverified.has(u.id) ? "warn" : "ok"}>
                           {unverified.has(u.id) ? "E-mail neoverený" : "E-mail overený"}
                         </Chip>
+                        {unverified.has(u.id) && <VerifyUserButton userId={u.id} />}
                         <Chip>{company ? "Firma" : p?.soleTrader ? "Živnostník" : "Súkromná osoba"}</Chip>
                       </div>
                       <p className="mt-2 text-xs" style={{ color: "var(--color-muted)" }}>

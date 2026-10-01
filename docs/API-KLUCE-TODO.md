@@ -12,6 +12,7 @@ Po uložení treba spraviť **Redeploy** (Deployments → posledné nasadenie �
 
 | Čo | Kľúč vo Verceli | Odkiaľ |
 |---|---|---|
+| E-maily cez Resend (odporúčané) | `RESEND_API_KEY`, `RESEND_FROM` | kľúč z resend.com; `RESEND_FROM` napr. `rozsvieťTO <info@rozsvietto.sk>` na doméne overenej v Resend. Keď je nastavený, posiela sa cez Resend a SMTP je záloha |
 | Heslo e-mailovej schránky | `SMTP_PASSWORD` | heslo k schránke office@4frommedia.sk (prihlásenie), odosiela sa ako info@4frommedia.sk |
 | Platba kartou | `STRIPE_SECRET_KEY` | Stripe → Developers → API keys |
 | Potvrdenie platieb | `STRIPE_WEBHOOK_SECRET` | Stripe → Developers → Webhooks (návod v časti 2) |
