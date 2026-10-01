@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatDateTime } from "@/lib/dates";
 import { oneLine } from "@/lib/sign-text";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -70,12 +71,8 @@ export default async function AccountOrdersPage() {
               const group = o.groupId ? groups.get(o.groupId) : undefined;
               const quote = group ? quoteState(group) : null;
 
-              return (
-                <article
-                  key={o.id}
-                  className="rounded-2xl p-5"
-                  style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
-                >
+              const cardStyle = { background: "var(--color-surface)", border: "1px solid var(--color-border)" };
+              const body = (
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -94,7 +91,7 @@ export default async function AccountOrdersPage() {
                         {o.config.height} mm / {depthMmFor(o.config.material, o.config.height)} mm
                       </p>
                       <p className="mt-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
-                        Objednávka {o.number} · {new Date(o.createdAt).toLocaleDateString("sk-SK")}
+                        Objednávka {o.number} · {formatDateTime(o.createdAt)}
                       </p>
                     </div>
 
@@ -114,16 +111,29 @@ export default async function AccountOrdersPage() {
                         </p>
                       )}
                       {o.groupId && (
-                        <Link
-                          href={`/objednavka/${o.groupId}`}
+                        <span
                           className="mt-1.5 inline-block text-xs font-semibold underline underline-offset-2"
                           style={{ color: "var(--color-foreground)" }}
                         >
-                          {quote === "sent" ? "Zobraziť predfaktúru" : "Detail objednávky"}
-                        </Link>
+                          {quote === "sent" ? "Zobraziť predfaktúru" : "Detail objednávky"} →
+                        </span>
                       )}
                     </div>
                   </div>
+              );
+              // The whole card opens the order — the "Detail" line is only its label.
+              return o.groupId ? (
+                <Link
+                  key={o.id}
+                  href={`/objednavka/${o.groupId}`}
+                  className="block rounded-2xl p-5 transition hover:-translate-y-0.5 hover:shadow-md"
+                  style={cardStyle}
+                >
+                  {body}
+                </Link>
+              ) : (
+                <article key={o.id} className="rounded-2xl p-5" style={cardStyle}>
+                  {body}
                 </article>
               );
             })}

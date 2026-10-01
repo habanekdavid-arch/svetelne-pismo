@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatDateTime, formatDate } from "@/lib/dates";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
@@ -84,9 +85,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             </h1>
             <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
               Prijatá{" "}
-              {new Date(order.createdAt).toLocaleString("sk-SK", {
-                day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
-              })}{" "}
+              {formatDateTime(order.createdAt)}{" "}
               · #{order.id}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -149,7 +148,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               {user && (
                 <SpecLine
                   label="Registrovaný od"
-                  value={new Date(user.createdAt).toLocaleDateString("sk-SK")}
+                  value={formatDate(user.createdAt)}
                 />
               )}
               <SpecLine label="Objednávok spolu" value={String(userOrders.length)} />

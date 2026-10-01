@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { formatDateTime } from "@/lib/dates";
 import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -284,9 +285,7 @@ export default async function AdminPage({
                         <Label>Dátum</Label>
                       </div>
                       <p style={{ color: "var(--color-foreground)" }}>
-                        {new Date(o.createdAt).toLocaleString("sk-SK", {
-                          day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
-                        })}
+                        {formatDateTime(o.createdAt)}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <StatusBadge status={o.status} />
@@ -391,9 +390,7 @@ async function ContactMessagesPanel() {
                   {m.subject}
                 </p>
                 <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-                  {new Date(m.createdAt).toLocaleString("sk-SK", {
-                    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
-                  })}
+                  {formatDateTime(m.createdAt)}
                 </p>
               </div>
               <p className="mt-0.5 text-xs" style={{ color: "var(--color-muted)" }}>
