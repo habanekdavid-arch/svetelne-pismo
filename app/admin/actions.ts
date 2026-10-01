@@ -154,12 +154,44 @@ export async function runSelfTest(kind: SelfTestKind, to?: string): Promise<Self
       const { stripe, webhookSecret } = await import("@/lib/stripe");
       const client = stripe();
       if (!client) return done(false, "Chýba STRIPE_SECRET_KEY — platba kartou sa v košíku neponúka.");
-      const balance = await client.balance.retrieve();
-      const live = balance.livemode;
-      const hook = webhookSecret()
-        ? "webhook secret je nastavený"
-        : "CHÝBA STRIPE_WEBHOOK_SECRET — platby by sa neoznačili ako zaplatené";
-      return done(Boolean(webhookSecret()), `Kľúč funguje (${live ? "ostrý režim" : "testovací režim"}), ${hook}.`);
+      // Only the key's kind is reported (sk_/rk_, live/test), never the key.
+      const key = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+      const restricted = key.startsWith("rk_");
+      const live = key.includes("_live_");
+      const parts: string[] = [
+        `${restricted ? "Obmedzený kľúč (rk_)" : "Tajný kľúč (sk_)"}, ${live ? "ostrý režim" : "testovací režim"}`,
+      ];
+      // The one call the shop makes with the key: opening a Checkout Session.
+      // Listing them needs the same "Checkout Sessions" permission.
+      let keyOk = false;
+      try {
+        await client.checkout.sessions.list({ limit: 1 });
+        keyOk = true;
+        parts.push("kľúč funguje a má prístup k platbám (Checkout Sessions)");
+      } catch (err) {
+        const type = (err as { type?: string })?.type;
+        parts.push(
+          type === "StripePermissionError"
+            ? "KĽÚČU CHÝBA OPRÁVNENIE — v Stripe pri kľúči povoľte Checkout Sessions: Write"
+            : type === "StripeAuthenticationError"
+              ? "KĽÚČ JE NEPLATNÝ — skopírujte ho zo Stripe znova"
+              : `Stripe neodpovedá: ${(err as Error)?.message ?? "neznáma chyba"}`,
+        );
+      }
+      const secret = webhookSecret();
+      if (!secret) parts.push("CHÝBA STRIPE_WEBHOOK_SECRET — platby by sa neoznačili ako zaplatené");
+      else if (!secret.startsWith("whsec_")) parts.push("STRIPE_WEBHOOK_SECRET nezačína na whsec_ — skontrolujte, či je to Signing secret webhooku");
+      else parts.push("webhook secret je nastavený");
+      const { lastWebhookEvent } = await import("@/lib/stripe-log.server");
+      const last = await lastWebhookEvent().catch(() => null);
+      if (last) {
+        const when = new Date(last.at).toLocaleString("sk-SK", { timeZone: "Europe/Bratislava" });
+        parts.push(`posledná udalosť z webhooku: ${last.type} (${last.livemode ? "ostrý" : "testovací"} režim), ${when}`);
+        if (last.livemode !== live) parts.push("POZOR: webhook a kľúč sú v inom režime (test vs. ostrý)");
+      } else {
+        parts.push("z webhooku zatiaľ neprišla žiadna udalosť — v Stripe pri webhooku kliknite „Send test event“ a test spustite znova");
+      }
+      return done(keyOk && Boolean(secret?.startsWith("whsec_")), parts.join(" · ") + ".");
     }
 
     if (kind === "quote") {
