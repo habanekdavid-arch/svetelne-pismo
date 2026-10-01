@@ -13,6 +13,7 @@ import {
 import { getUserProfile, type Address } from "@/lib/profile";
 import { isVerified } from "@/lib/email-verification.server";
 import { prisma } from "@/lib/prisma";
+import { previewIds } from "@/lib/order-previews.server";
 import {
   fontOptions,
   MATERIALS,
@@ -52,6 +53,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     isVerified(order.userId).catch(() => true),
     listOrdersForUser(order.userId).catch(() => []),
   ]);
+  const hasPreview = (await previewIds([order.id]).catch(() => new Set<number>())).has(order.id);
   const siblings = group ? (await listOrdersForGroup(group.id)).filter((o) => o.id !== order.id) : [];
 
   const font = fontOptions.find((f) => f.id === order.config.font);
@@ -166,6 +168,17 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
 
           {/* The sign */}
           <Card title="Nápis">
+            {hasPreview && (
+              <a href={`/api/orders/${order.id}/preview`} target="_blank" rel="noopener noreferrer" className="mb-4 block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/orders/${order.id}/preview`}
+                  alt={`Náhľad nápisu ${order.config.text}`}
+                  className="w-full rounded-2xl border"
+                  style={{ borderColor: "var(--color-border)" }}
+                />
+              </a>
+            )}
             <p className="whitespace-pre-line text-xl font-extrabold" style={{ color: "var(--color-foreground)" }}>
               {order.config.text}
             </p>

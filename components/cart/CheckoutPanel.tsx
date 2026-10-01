@@ -11,6 +11,7 @@ import { generateClientOrderId, trackPurchase } from "@/lib/analytics";
 import { notifySessionChange, onSessionChange } from "@/lib/session-client";
 import { formatEur } from "@/lib/vat";
 import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
+import { capturePreview } from "@/lib/sign-preview";
 import { isInBratislava, isPickup, leadTimeNotice } from "@/lib/shipping";
 import { AddressFields, emptyAddress } from "@/components/checkout/AddressFields";
 import AuthGate, { type SessionUser } from "@/components/checkout/AuthGate";
@@ -195,15 +196,19 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // The picture of each sign (lib/sign-preview.ts) — taken when it went
+      // into the cart, or now for the one still open in the configurator.
+      const previews = await Promise.all(configs.map((c) => capturePreview(c).catch(() => null)));
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           installation
-            ? { kind: "installation", items: configs, name, email, phone, installation: { address: site }, payment, terms }
+            ? { kind: "installation", items: configs, previews, name, email, phone, installation: { address: site }, payment, terms }
             : {
                 kind: "standard",
                 items: configs,
+                previews,
                 name,
                 email,
                 phone,

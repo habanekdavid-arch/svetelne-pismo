@@ -107,6 +107,8 @@ export type Mail = {
   /** Plain-text alternative; derived from the HTML when left out. */
   text?: string;
   replyTo?: string;
+  /** Inline pictures (cid) — the sign previews in the order e-mails. */
+  attachments?: { filename: string; content: Buffer; cid: string; contentType: string }[];
 };
 
 /**
@@ -127,6 +129,7 @@ export async function sendMail(mail: Mail): Promise<boolean> {
     html: mail.html,
     text: mail.text ?? htmlToText(mail.html),
     replyTo: mail.replyTo ?? REPLY_TO,
+    attachments: mail.attachments,
   };
   try {
     await primaryTransport().sendMail(message);

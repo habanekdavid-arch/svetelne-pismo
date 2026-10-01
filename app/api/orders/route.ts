@@ -3,6 +3,7 @@ import { mailOrderPlaced, mailShopNewOrder } from "@/lib/emails.server";
 import { randomUUID } from "node:crypto";
 import { getUserSession } from "@/lib/user-auth";
 import { isVerified } from "@/lib/email-verification.server";
+import { readPreview, savePreview } from "@/lib/order-previews.server";
 import {
   createOrder,
   createOrderGroup,
@@ -85,6 +86,10 @@ export async function POST(req: Request) {
   const phone = typeof body?.phone === "string" ? body.phone.trim().slice(0, 32) || null : null;
 
   const quote = await quoteBasket(configs);
+  // A watermarked picture per sign, in the same order as the signs — optional.
+  const pictures: (string | null)[] = Array.isArray(body?.previews)
+    ? body.previews.slice(0, configs.length).map(readPreview)
+    : [];
 
   // Card or transfer — only one the shop can actually take right now. With
   // neither set up the order is an enquiry and the shop confirms it by hand.
@@ -128,8 +133,8 @@ export async function POST(req: Request) {
       deliveryCents: 0,
       paymentMethod: payment,
     });
-    const orders = await saveSigns(quote, session.userId, name, email, groupId);
-    after(() => notifyPlaced(group, orders));
+    const { orders, previews } = await saveSigns(quote, session.userId, name, email, groupId, pictures);
+    after(() => notifyPlaced(group, orders, previews));
     return NextResponse.json({
       groupId,
       orders,
@@ -184,8 +189,8 @@ export async function POST(req: Request) {
     paymentMethod: payment,
   });
 
-  const orders = await saveSigns(quote, session.userId, name, email, groupId);
-  after(() => notifyPlaced(group, orders));
+  const { orders, previews } = await saveSigns(quote, session.userId, name, email, groupId, pictures);
+  after(() => notifyPlaced(group, orders, previews));
 
   return NextResponse.json({
     groupId,
@@ -201,8 +206,8 @@ export async function POST(req: Request) {
 }
 
 /** Confirmation to the customer and a heads-up to the shop — after the response. */
-async function notifyPlaced(group: OrderGroup, orders: Order[]): Promise<void> {
-  await Promise.all([mailOrderPlaced(group, orders), mailShopNewOrder(group, orders)]);
+async function notifyPlaced(group: OrderGroup, orders: Order[], previews: Map<number, string>): Promise<void> {
+  await Promise.all([mailOrderPlaced(group, orders, previews), mailShopNewOrder(group, orders, previews)]);
 }
 
 /** One order row per sign, all tied to the checkout they were part of. */
@@ -212,22 +217,33 @@ async function saveSigns(
   name: string,
   email: string,
   groupId: string,
+  pictures: (string | null)[],
 ) {
   const orders = [];
-  for (const item of quote.items) {
-    orders.push(
-      await createOrder({
-        userId,
-        customerName: name,
-        customerEmail: email,
-        config: item.config,
-        price: item.price,
-        priceCents: item.priceCents,
-        groupId,
-      }),
-    );
+  const previews = new Map<number, string>();
+  for (const [i, item] of quote.items.entries()) {
+    const order = await createOrder({
+      userId,
+      customerName: name,
+      customerEmail: email,
+      config: item.config,
+      price: item.price,
+      priceCents: item.priceCents,
+      groupId,
+    });
+    orders.push(order);
+    const picture = pictures[i];
+    if (picture) {
+      // A picture that does not store is no reason to lose the order.
+      try {
+        await savePreview(order.id, picture);
+        previews.set(order.id, picture);
+      } catch (err) {
+        console.error("[objednávka] náhľad sa nepodarilo uložiť:", err);
+      }
+    }
   }
-  return orders;
+  return { orders, previews };
 }
 
 function str(value: unknown, max: number): string | null {
