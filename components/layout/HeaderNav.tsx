@@ -55,6 +55,7 @@ export default function HeaderNav() {
   }, []);
 
   const links = [
+    { href: "/#konfigurator", label: "Konfigurátor" },
     { href: "/#materialy", label: "Materiály" },
     { href: "/#konfigurator", label: "Ceny" },
     { href: "/#faq", label: "FAQ" },
@@ -75,7 +76,7 @@ export default function HeaderNav() {
         aria-label="Hlavná navigácia"
       >
         {links.map((l) => (
-          <Link key={l.href} href={l.href} className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
+          <Link key={l.label} href={l.href} className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
             {l.label}
           </Link>
         ))}
@@ -165,7 +166,7 @@ export default function HeaderNav() {
         <nav className="flex flex-col gap-1 px-5 py-4" style={cgRegular} aria-label="Mobilná navigácia">
           {links.map((l) => (
             <Link
-              key={l.href}
+              key={l.label}
               href={l.href}
               onClick={() => setOpen(false)}
               className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
