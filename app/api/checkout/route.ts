@@ -21,10 +21,8 @@ import {
   variantLabel,
 } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
-import { deliveryPlace, DELIVERY_METHOD_LABEL, formatAddress, formatDeliveryPrice } from "@/lib/shipping";
+import { deliveryPlace, DELIVERY_METHOD_LABEL, formatAddress } from "@/lib/shipping";
 import { measureSign } from "@/lib/sign-metrics.server";
-import { previewIds } from "@/lib/order-previews.server";
-import { previewToken } from "@/lib/preview-token.server";
 import { formatEur } from "@/lib/vat";
 
 // Opens the Stripe Checkout Session for an order that has already been placed
@@ -72,14 +70,17 @@ export async function POST(req: Request) {
   const origin = new URL(req.url).origin || siteOrigin();
 
   const no = groupOrderNumber(group);
-  // The full spec of every sign travels to Stripe — the payment page, the
-  // receipt and the dashboard's payment detail all show what was bought, down
-  // to the font, the colours and the size — with its watermarked picture.
-  const withPicture = await previewIds(orders.map((o) => o.id)).catch(() => new Set<number>());
-  const specs = await Promise.all(orders.map((o) => signSpec(o)));
+  // Laid out like vytlacto3d's payment page: one short line per sign —
+  // "Svetelný nápis: KAVIAREŇ" over "Alurol – veľké písmená, Svetelné spredu,
+  // 1 ks | výška 400 mm | 2073 × 322 mm" — then "Dodanie" with how it goes.
+  // The full spec (font, colours, depth) goes to the metadata below.
+  const sizes = await Promise.all(
+    orders.map((o) => measureSign(o.config.text, o.config.font, o.config.height).catch(() => null)),
+  );
+  const specs = orders.map((o, i) => signSpec(o, sizes[i]));
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = orders.map((order, i) => {
-    const material = materialById(order.config.material);
-    const token = withPicture.has(order.id) ? previewToken(order.id) : null;
+    const c = order.config;
+    const size = sizes[i];
     return {
       quantity: 1,
       price_data: {
@@ -88,11 +89,14 @@ export async function POST(req: Request) {
         // rows written before checkout existed, which never reach Stripe.
         unit_amount: order.priceCents ?? order.price * 100,
         product_data: {
-          name: `${orders.length > 1 ? `${i + 1}/${orders.length} · ` : ""}„${oneLine(order.config.text) || "Svetelný nápis"}“ — ${material.displayName}`,
-          description: specs[i],
-          ...(token && origin.startsWith("https://")
-            ? { images: [`${origin}/api/orders/${order.id}/preview?t=${token}`] }
-            : {}),
+          name: `Svetelný nápis: ${oneLine(c.text) || "nápis"}`,
+          description: [
+            `${materialById(c.material).displayName}, ${variantLabel(c)}, 1 ks`,
+            `výška ${c.height} mm`,
+            size ? `${Math.round(size.widthMm)} × ${Math.round(size.heightMm)} mm` : null,
+          ]
+            .filter(Boolean)
+            .join(" | "),
           metadata: { order_number: no, sign_id: String(order.id) },
         },
       },
@@ -107,8 +111,10 @@ export async function POST(req: Request) {
         unit_amount: group.deliveryCents,
         product_data: {
           // For an installation order this line is the quoted mounting.
-          name: quoteState(group) ? "Montáž" : `Doprava — ${DELIVERY_METHOD_LABEL[group.deliveryMethod] ?? group.deliveryMethod}`,
-          description: [deliveryPlace(group), formatDeliveryPrice(group.deliveryCents / 100)].filter(Boolean).join(" · "),
+          name: quoteState(group) ? "Montáž" : "Dodanie",
+          description: quoteState(group)
+            ? deliveryPlace(group) ?? "Montáž u zákazníka"
+            : DELIVERY_METHOD_LABEL[group.deliveryMethod] ?? group.deliveryMethod,
         },
       },
     });
@@ -117,7 +123,7 @@ export async function POST(req: Request) {
   // The whole order in the payment's metadata (Stripe → Payments → detail →
   // Metadata), so it can be read there without opening the admin.
   const metadata = orderMetadata(group, orders, specs, no);
-  const checkout = await client.checkout.sessions.create({
+  const params: Stripe.Checkout.SessionCreateParams = {
     mode: "payment",
     line_items: lineItems,
     customer_email: group.customerEmail,
@@ -130,13 +136,29 @@ export async function POST(req: Request) {
       // What the Payments list in the dashboard shows for this payment.
       description: `Objednávka ${no} — ${orders.length} ${orders.length === 1 ? "nápis" : orders.length < 5 ? "nápisy" : "nápisov"} — ${group.customerName} — rozsvieťTO`,
     },
-    custom_text: {
-      submit: { message: `Objednávka ${no} · rozsvieťTO · výroba do 3 týždňov od prijatia platby` },
-    },
     success_url: `${origin}/dakujeme/${group.id}`,
     cancel_url: `${origin}/nedokoncena/${group.id}`,
     locale: "sk",
-  });
+  };
+  // The Stripe account is shared with vytlacto3d, so its own branding is
+  // vytlacto3d's. A rozsvieťTO payment carries rozsvieťTO's logo and colour
+  // for this one page. Should Stripe refuse it, the payment opens with the
+  // account's branding rather than not at all.
+  const branding: Stripe.Checkout.SessionCreateParams.BrandingSettings | null = origin.startsWith("https://")
+    ? {
+        logo: { type: "url", url: `${origin}/logo-email.png` },
+        button_color: "#FFAE00",
+        border_style: "rounded",
+      }
+    : null;
+  let checkout: Stripe.Checkout.Session;
+  try {
+    checkout = await client.checkout.sessions.create(branding ? { ...params, branding_settings: branding } : params);
+  } catch (err) {
+    if (!branding) throw err;
+    console.error("[stripe] vzhľad rozsvieťTO odmietnutý, platba bez neho:", err);
+    checkout = await client.checkout.sessions.create(params);
+  }
 
   if (!checkout.url) {
     return NextResponse.json({ error: "stripe_no_url" }, { status: 502 });
@@ -147,10 +169,9 @@ export async function POST(req: Request) {
 }
 
 /** "Svetelné spredu · font Oswald Bold · výška písmen 300 mm · celý nápis 1269 × 310 mm · …" */
-async function signSpec(order: Order): Promise<string> {
+function signSpec(order: Order, size: { widthMm: number; heightMm: number } | null): string {
   const c = order.config;
   const font = fontOptions.find((f) => f.id === c.font)?.name ?? c.font;
-  const size = await measureSign(c.text, c.font, c.height).catch(() => null);
   const colours = hasSeparateFace(c.material)
     ? `čelo ${colorLabel(faceColorOf(c))}, telo ${colorLabel(c.bodyColor)}`
     : `farba ${colorLabel(c.bodyColor)}`;
