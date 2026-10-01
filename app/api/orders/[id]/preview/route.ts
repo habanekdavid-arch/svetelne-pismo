@@ -2,21 +2,18 @@ import { getUserSession } from "@/lib/user-auth";
 import { getAdminIdentity } from "@/lib/admin-auth";
 import { getOrder } from "@/lib/orders";
 import { getPreview } from "@/lib/order-previews.server";
-import { checkPreviewToken } from "@/lib/preview-token.server";
 
 export const runtime = "nodejs";
 
 // The watermarked picture of one ordered sign — for the customer who ordered
-// it and for the admin, and for Stripe with a signed link
-// (lib/preview-token.server.ts), nobody else.
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+// it and for the admin, nobody else.
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const order = await getOrder(Number(id));
   if (!order) return new Response("Not found", { status: 404 });
 
-  const signed = checkPreviewToken(order.id, new URL(req.url).searchParams.get("t"));
-  const admin = signed ? null : await getAdminIdentity();
-  if (!signed && !admin) {
+  const admin = await getAdminIdentity();
+  if (!admin) {
     const session = await getUserSession();
     if (!session || session.userId !== order.userId) return new Response("Not found", { status: 404 });
   }

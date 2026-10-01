@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { PreviewLightbox } from "@/components/orders/PreviewImage";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { deleteOrderAction, setOrderStatus } from "@/app/admin/actions";
@@ -37,6 +38,7 @@ export default function AdminOrderActions({
   hasPreview: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [previewOpen, setPreviewOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const onDetail = pathname.startsWith("/admin/objednavka/");
@@ -60,16 +62,22 @@ export default function AdminOrderActions({
   return (
     <div className="flex flex-col gap-2 lg:w-[200px]">
       {hasPreview && (
-        <a
-          href={`/api/orders/${orderId}/preview`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
           className={`${BTN} hover:opacity-80`}
           style={QUIET}
         >
           <EyeIcon />
           Náhľad nápisu
-        </a>
+        </button>
+      )}
+      {previewOpen && (
+        <PreviewLightbox
+          src={`/api/orders/${orderId}/preview`}
+          alt={`Náhľad nápisu — objednávka ${orderNumber}`}
+          onClose={() => setPreviewOpen(false)}
+        />
       )}
 
       {!onDetail && (

@@ -13,6 +13,7 @@ import {
 } from "@/lib/orders";
 import { materialById } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
+import PreviewImage from "@/components/orders/PreviewImage";
 import { formatEur } from "@/lib/vat";
 import AccountShell, { AccountSection } from "@/components/account/AccountShell";
 import PayAgainButton from "@/components/orders/PayAgainButton";
@@ -116,30 +117,30 @@ export default async function OrderPage({ params, searchParams }: Props) {
           {orders.map((order) => (
             <li
               key={order.id}
-              className="flex items-start justify-between gap-3 rounded-xl px-4 py-3"
+              className="rounded-xl px-4 py-3"
               style={{ background: "var(--color-surface)" }}
             >
-              <div className="min-w-0">
-                {withPreview.has(order.id) && (
-                  <a href={`/api/orders/${order.id}/preview`} target="_blank" rel="noopener noreferrer" className="mb-2 block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/orders/${order.id}/preview`}
-                      alt={`Náhľad nápisu ${oneLine(order.config.text)}`}
-                      className="w-full max-w-sm rounded-lg"
-                    />
-                  </a>
-                )}
-                <p className="truncate text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-                  {oneLine(order.config.text) || "Váš nápis"}
-                </p>
-                <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
-                  {materialById(order.config.material).displayName} · výška písmen {order.config.height} mm
-                </p>
+              {/* The picture across the whole card; a click opens it bigger. */}
+              {withPreview.has(order.id) && (
+                <PreviewImage
+                  src={`/api/orders/${order.id}/preview`}
+                  alt={`Náhľad nápisu ${oneLine(order.config.text)}`}
+                  className="mb-3 rounded-lg"
+                />
+              )}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
+                    {oneLine(order.config.text) || "Váš nápis"}
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--color-muted)" }}>
+                    {materialById(order.config.material).displayName} · výška písmen {order.config.height} mm
+                  </p>
+                </div>
+                <span className="shrink-0 text-sm font-black" style={{ color: "var(--color-foreground)" }}>
+                  {formatEur((order.priceCents ?? order.price * 100) / 100)}
+                </span>
               </div>
-              <span className="shrink-0 text-sm font-black" style={{ color: "var(--color-foreground)" }}>
-                {formatEur((order.priceCents ?? order.price * 100) / 100)}
-              </span>
             </li>
           ))}
         </ul>
