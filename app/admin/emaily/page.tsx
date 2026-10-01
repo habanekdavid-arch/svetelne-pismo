@@ -7,6 +7,7 @@ import type { Order, OrderGroup } from "@/lib/orders";
 import { INSTALLATION_METHOD } from "@/lib/payment-methods";
 import {
   buildOrderPlaced,
+  buildOrderUnfinished,
   buildQuoteSent,
   buildPaymentReceived,
   buildPaymentFailed,
@@ -93,7 +94,8 @@ type Sample = { title: string; who: "zákazník" | "vy"; when: string; mail: Bui
 function samples(): Sample[] {
   const paid = { paymentStatus: "paid" as const };
   return [
-    { who: "zákazník", title: "Potvrdenie objednávky — platba kartou, kuriér DPD", when: "hneď po odoslaní objednávky", mail: buildOrderPlaced(group({}), SIGNS) },
+    { who: "zákazník", title: "Potvrdenie objednávky — zaplatené kartou, kuriér DPD", when: "až keď platba kartou prejde (pri karte sa potvrdenie neposiela skôr)", mail: buildOrderPlaced(group({ paymentStatus: "paid" }), SIGNS) },
+    { who: "zákazník", title: "Objednávka nie je dokončená", when: "zákazník odišiel z platby kartou bez zaplatenia (raz, asi po hodine); môže ju dokončiť do 7 dní", mail: buildOrderUnfinished(group({}), SIGNS, new Date(Date.now() + 7 * 24 * 3600 * 1000)) },
     { who: "zákazník", title: "Potvrdenie objednávky — prevod, osobný odber Prievidza", when: "hneď po odoslaní objednávky; obsahuje platobné údaje", mail: buildOrderPlaced(group({ ...PRIEVIDZA, paymentMethod: "transfer" }), SIGNS) },
     { who: "zákazník", title: "Potvrdenie objednávky — prevod, osobný odber Bratislava", when: "hneď po odoslaní objednávky", mail: buildOrderPlaced(group({ ...BRATISLAVA, paymentMethod: "transfer" }), SIGNS) },
     { who: "zákazník", title: "Potvrdenie objednávky + dopyt na inštaláciu", when: "keď zákazník v košíku zaškrtne „Máte záujem aj o inštaláciu?“", mail: buildOrderPlaced(group({ installationRequest: { address: { street: "Hlavná", houseNumber: "12", city: "Trenčín", zip: "911 01", country: "sk" }, note: "Fasáda z kontaktného zatepľovacieho systému, výška cca 3 m." } }), SIGNS) },

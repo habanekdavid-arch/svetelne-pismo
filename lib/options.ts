@@ -302,12 +302,12 @@ export const MATERIALS: MaterialOption[] = [
     shortName: "UV tlač",
     tagline: "Plexi",
     subtitle: "Rezané číre plexi s farebnou UV potlačou čela — cenovo najdostupnejšia voľba.",
-    bullets: ["Hrúbka 5 / 8 / 12 mm podľa výšky", "Výška 50 – 250 mm", "Nesvetelné"],
+    bullets: ["Hrúbka 5 / 8 / 12 mm podľa výšky", "Výška 50 – 600 mm", "Nesvetelné"],
     fonts: ALL_FONTS,
     bands: [
       { minMm: 50,  maxMm: 99,  depthMm: 5 },
       { minMm: 100, maxMm: 149, depthMm: 8 },
-      { minMm: 150, maxMm: 250, depthMm: 12 },
+      { minMm: 150, maxMm: 600, depthMm: 12 },
     ],
     plainPrice: PLEXI_UV_PLAIN,
     pbr: {

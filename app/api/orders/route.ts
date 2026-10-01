@@ -218,9 +218,18 @@ export async function POST(req: Request) {
   });
 }
 
-/** Confirmation to the customer and a heads-up to the shop — after the response. */
+/**
+ * A heads-up to the shop, and the confirmation to the customer — except for a
+ * card payment, which is confirmed only once it has gone through
+ * (lib/fulfilment.server.ts); one left unfinished gets the "nie je dokončená"
+ * e-mail instead (Stripe webhook, checkout.session.expired).
+ */
 async function notifyPlaced(group: OrderGroup, orders: Order[], previews: Map<number, string>): Promise<void> {
-  await Promise.all([mailOrderPlaced(group, orders, previews), mailShopNewOrder(group, orders, previews)]);
+  const payingByCard = group.paymentMethod === "card" && group.totalCents > 0;
+  await Promise.all([
+    payingByCard ? Promise.resolve() : mailOrderPlaced(group, orders, previews),
+    mailShopNewOrder(group, orders, previews),
+  ]);
 }
 
 /** One order row per sign, all tied to the checkout they were part of. */

@@ -260,6 +260,28 @@ export function buildPaymentReceived(group: OrderGroup): BuiltMail {
   };
 }
 
+/**
+ * The customer went to pay by card and did not finish. No order confirmation
+ * goes out for that — only this: the order is kept, and it can be finished and
+ * paid any time until the deadline.
+ */
+export function buildOrderUnfinished(group: OrderGroup, orders: Order[], deadline: Date): BuiltMail {
+  const until = deadline.toLocaleDateString("sk-SK", { timeZone: "Europe/Bratislava", day: "numeric", month: "numeric", year: "numeric" });
+  return {
+    to: group.customerEmail,
+    subject: `Objednávka ${orderNo(group)} nie je dokončená`,
+    html: layout(
+      "Objednávka nie je dokončená",
+      p(`${n(group)} vašu objednávku ${orderNo(group)} sme uložili, ale platba neprebehla a nič sme vám nestrhli.`) +
+        p(`Dokončiť a zaplatiť ju môžete kedykoľvek <strong>do ${esc(until)}</strong> — kartou alebo prevodom. Výrobu začneme hneď, ako platba príde.`) +
+        signsTable(orders) +
+        totals(group) +
+        button(`${siteOrigin()}/nedokoncena/${group.id}`, "Dokončiť objednávku") +
+        p(`Otázky? Napíšte na <a href="mailto:${CONTACT_EMAIL}" style="color:#b45309">${CONTACT_EMAIL}</a> alebo zavolajte na ${CONTACT_PHONE}.`),
+    ),
+  };
+}
+
 /** A card payment that did not go through (Stripe: async_payment_failed). */
 export function buildPaymentFailed(group: OrderGroup): BuiltMail {
   return {
@@ -496,6 +518,7 @@ async function send(mail: BuiltMail): Promise<boolean> {
 export const mailOrderPlaced = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildOrderPlaced(g, o, p)); };
 export const mailQuoteSent = async (g: OrderGroup, o: Order[]) => { await send(buildQuoteSent(g, o)); };
 export const mailPaymentReceived = async (g: OrderGroup) => { await send(buildPaymentReceived(g)); };
+export const mailOrderUnfinished = async (g: OrderGroup, o: Order[], d: Date) => { await send(buildOrderUnfinished(g, o, d)); };
 export const mailPaymentFailed = async (g: OrderGroup) => { await send(buildPaymentFailed(g)); };
 export const mailOrderProcessing = async (g: OrderGroup, o: Order[]) => { await send(buildOrderProcessing(g, o)); };
 export const mailOrderInProduction = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildOrderInProduction(g, o, p)); };

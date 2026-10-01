@@ -7,6 +7,7 @@ import { getUserSession } from "@/lib/user-auth";
 import {
   getOrderGroup,
   groupOrderNumber,
+  payWindowClosed,
   listOrdersForGroup,
   PAYMENT_STATUS_LABEL,
   quoteState,
@@ -60,7 +61,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const payable = !paid && group.totalCents > 0 && quote !== "requested";
   // A card can be (re)tried whenever the shop takes cards — also by someone
   // who picked a transfer and changed their mind.
-  const canPayByCard = payable && stripeConfigured();
+  const canPayByCard = payable && stripeConfigured() && !payWindowClosed(group);
   const bank = payable && (group.paymentMethod === "transfer" || quote === "sent") ? bankAccount() : null;
   const vs = orders[0] ? variableSymbol(orders[0].id) : null;
 

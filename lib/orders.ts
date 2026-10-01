@@ -374,6 +374,34 @@ export async function markGroupPaid(
   return rows.length > 0;
 }
 
+/**
+ * How long an unpaid order can still be finished and paid by card: a week
+ * from when it was placed. After that the price may no longer hold.
+ */
+export const PAY_WINDOW_DAYS = 7;
+
+export function payDeadline(group: Pick<OrderGroup, "createdAt">): Date {
+  return new Date(new Date(group.createdAt).getTime() + PAY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+}
+
+export function payWindowClosed(group: Pick<OrderGroup, "createdAt">, now = new Date()): boolean {
+  return now.getTime() > payDeadline(group).getTime();
+}
+
+/**
+ * Claims the one "objednávka nie je dokončená" e-mail for an unpaid order.
+ * True only the first time — a second abandoned payment does not mail again.
+ */
+export async function claimUnfinishedMail(groupId: string): Promise<boolean> {
+  const sql = await getDb();
+  const rows = (await sql`
+    UPDATE order_groups SET unfinished_mail_at = now()
+    WHERE id = ${groupId} AND unfinished_mail_at IS NULL AND payment_status <> 'paid'
+    RETURNING id
+  `) as Row[];
+  return rows.length > 0;
+}
+
 export async function setGroupPaymentStatus(
   groupId: string,
   status: PaymentStatus,
