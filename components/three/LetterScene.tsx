@@ -66,12 +66,8 @@ const BLOOM_RADIUS_HALO         = 0.85;
 // blob, so each mode gets only as much flare as it needs to read as light.
 const BLOOM_INTENSITY_BASE      = 0.95; // front — a lit face flares visibly round its edges, a soft halo of light
 const BLOOM_INTENSITY_HALO      = 0.55; // back — on top of the glow texture, enough to make the halo read as light
-// A saturated LED is darker than a white one at the same drive, so with a
-// fixed threshold it never reached the bloom at all and a red sign looked
-// like red plastic rather than a red light. The threshold comes down and the
-// flare comes up in proportion to how saturated the colour is, which is what
-// puts the glow back without pushing the colour to white again.
-const BLOOM_THRESHOLD_SAT_DROP  = 0.45;
+// A saturated colour gets a little more flare on top of the brightness
+// correction in LetterScene (shineLum), so it reads as coloured light.
 const BLOOM_INTENSITY_SAT_GAIN  = 0.55;
 
 // Depth is at true scale too (mmToUnits), so a 60 mm profile on a 300 mm
@@ -1051,14 +1047,22 @@ export default function LetterScene(props: LetterSceneProps) {
   }, []);
   // Bloom follows the colour the sign really shines in (LED through its face),
   // for the same reason the emissive headroom does.
-  const glowSat = colourSaturation(
-    `#${emittedColor(
-      new THREE.Color(safeColor(props.lightColor)),
-      new THREE.Color(safeColor(props.faceColor ?? props.letterColor)),
-      faceKindFor(props.material, signType, lightMode),
-      lightMode,
-    ).getHexString()}`,
+  const shine = emittedColor(
+    new THREE.Color(safeColor(props.lightColor)),
+    new THREE.Color(safeColor(props.faceColor ?? props.letterColor)),
+    faceKindFor(props.material, signType, lightMode),
+    lightMode,
   );
+  const glowSat = colourSaturation(`#${shine.getHexString()}`);
+  // How bright the light is next to white light at the same drive (0–1),
+  // after its colour is normalised to its strongest channel. Bloom works on
+  // brightness, so a blue or red face — a quarter as bright as white — never
+  // reached the threshold and looked like painted plastic rather than light.
+  // The threshold is scaled down by this, and the flare up, so every colour
+  // glows about as much as white does.
+  const shinePeak = Math.max(shine.r, shine.g, shine.b, 1e-3);
+  const shineLum = Math.min(1, Math.max(0.18,
+    (0.2126 * shine.r + 0.7152 * shine.g + 0.0722 * shine.b) / shinePeak));
   // Bloom only when something is actually emitting — an illuminated sign at
   // night. In daylight the sign is switched off, so blooming a plain lit face
   // would just fog the preview.
@@ -1066,15 +1070,18 @@ export default function LetterScene(props: LetterSceneProps) {
   const nightLevel = Math.min(1, Math.max(0, props.nightLevel ?? DEFAULT_NIGHT_LEVEL));
   const bloomIntensity =
     (lightMode === "back" ? BLOOM_INTENSITY_HALO : BLOOM_INTENSITY_BASE)
-    * (1 + BLOOM_INTENSITY_SAT_GAIN * glowSat) * (0.4 + 0.8 * nightLevel);
+    * (1 + BLOOM_INTENSITY_SAT_GAIN * glowSat) * (0.4 + 0.8 * nightLevel)
+    * Math.min(3, 1 / shineLum);
   const bloomRadius = lightMode === "back" ? BLOOM_RADIUS_HALO : BLOOM_RADIUS_FRONT;
   // At dusk the wall itself is still bright enough to bloom, which bleached
   // the whole picture; the threshold rises as the night lightens.
-  const bloomThreshold =
-    BLOOM_LUMINANCE_THRESHOLD - BLOOM_THRESHOLD_SAT_DROP * glowSat + 0.35 * (1 - nightLevel)
-    // A lit sign blooms a little earlier, so the light spills round the
-    // letters and reads as light, not just a bright fill.
-    - 0.08;
+  const bloomThreshold = Math.max(0.1,
+    (BLOOM_LUMINANCE_THRESHOLD + 0.35 * (1 - nightLevel)
+      // A lit sign blooms a little earlier, so the light spills round the
+      // letters and reads as light, not just a bright fill.
+      - 0.08)
+    // …and a coloured one in proportion to how much darker its light is.
+    * Math.pow(shineLum, 1.5));
 
   return (
     <div

@@ -6,6 +6,8 @@ import { notifySessionChange } from "@/lib/session-client";
 // Typing in the 6-digit code from the verification e-mail — and sending the
 // e-mail again. Used in the banner under the header and in the cart.
 
+export const VERIFIED_EVENT = "rozsvietto:email-verified";
+
 type SendState = "idle" | "sending" | "sent" | "failed" | "disabled";
 
 export default function VerifyCodeForm({ onVerified, compact }: { onVerified?: () => void; compact?: boolean }) {
@@ -31,6 +33,9 @@ export default function VerifyCodeForm({ onVerified, compact }: { onVerified?: (
     setChecking(false);
     if (res?.ok) {
       notifySessionChange();
+      // The pop-up (VerifyEmailNotice) thanks the customer wherever the code
+      // was typed — in the pop-up itself, the cart or the price card.
+      window.dispatchEvent(new Event(VERIFIED_EVENT));
       onVerified?.();
       return;
     }
@@ -61,7 +66,7 @@ export default function VerifyCodeForm({ onVerified, compact }: { onVerified?: (
           autoComplete="one-time-code"
           placeholder="6-miestny kód"
           aria-label="Overovací kód z e-mailu"
-          className="w-32 rounded-full border border-amber-300 bg-white px-3 py-1.5 text-center text-sm font-bold tracking-[0.2em] text-black outline-none focus:border-amber-500"
+          className="w-36 rounded-full border border-amber-300 bg-white px-3 py-1.5 text-center text-sm font-bold tracking-[0.2em] text-black outline-none placeholder:font-normal placeholder:tracking-normal focus:border-amber-500"
         />
         <button
           type="submit"
