@@ -60,6 +60,8 @@ export default function HeaderNav() {
     { href: "/#faq", label: "FAQ" },
     { href: "/blog", label: "Blog" },
   ];
+  // Finished jobs live on the 4from media site — opened in a new tab.
+  const REALIZACIE = "https://www.4from.media/svetelna-reklama/";
 
   return (
     <>
@@ -77,6 +79,15 @@ export default function HeaderNav() {
             {l.label}
           </Link>
         ))}
+        <a
+          href={REALIZACIE}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="nav-link whitespace-nowrap"
+          style={{ color: "var(--color-foreground)" }}
+        >
+          Realizácie
+        </a>
         <a
           href="https://www.4frommedia.sk"
           target="_blank"
@@ -163,6 +174,16 @@ export default function HeaderNav() {
               {l.label}
             </Link>
           ))}
+          <a
+            href={REALIZACIE}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
+            style={{ color: "var(--color-foreground)" }}
+          >
+            Realizácie
+          </a>
           <a
             href="https://www.4frommedia.sk"
             target="_blank"

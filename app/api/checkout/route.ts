@@ -46,7 +46,9 @@ export async function POST(req: Request) {
   }
 
   const orders = await listOrdersForGroup(groupId);
-  const origin = siteOrigin();
+  // Back to the site the customer is on — NEXT_PUBLIC_SITE_URL can name a
+  // domain that is not connected yet.
+  const origin = new URL(req.url).origin || siteOrigin();
 
   const lineItems = orders.map((order) => {
     const material = materialById(order.config.material);
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
     metadata: { orderGroupId: group.id },
     payment_intent_data: { metadata: { orderGroupId: group.id } },
     success_url: `${origin}/dakujeme/${group.id}`,
-    cancel_url: `${origin}/objednavka/${group.id}?stav=zrusene`,
+    cancel_url: `${origin}/nedokoncena/${group.id}`,
     locale: "sk",
   });
 
