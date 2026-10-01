@@ -55,6 +55,38 @@ async function loadFont(fontId: string): Promise<Loaded> {
 type Box = { w: number; h: number };
 
 /** A glyph's inked box in font units, or null for a space (which inks nothing). */
+/**
+ * The bounding box of one row of text, at `size`. Ligatures and other
+ * substitutions are switched off: a sign is cut letter by letter. Some fonts
+ * opentype.js cannot shape at all (Oswald: "substFormat: 2 is not yet
+ * supported") — the row is then laid out by hand, glyph after glyph with its
+ * advance and kerning, which is all a bounding box needs.
+ */
+function lineBox(font: Loaded, line: string, size: number): { x1: number; y1: number; x2: number; y2: number } {
+  try {
+    return font.getPath(line, 0, 0, size, { kerning: true, features: { liga: false, rlig: false } }).getBoundingBox();
+  } catch {
+    const scale = size / (font.unitsPerEm || 1000);
+    const box = { x1: Infinity, y1: Infinity, x2: -Infinity, y2: -Infinity };
+    let x = 0;
+    let prev: ReturnType<Loaded["charToGlyph"]> | null = null;
+    for (const char of Array.from(line)) {
+      const glyph = font.charToGlyph(char);
+      if (prev) x += font.getKerningValue(prev, glyph) * scale;
+      const bb = glyph.getPath(x, 0, size).getBoundingBox();
+      if (Number.isFinite(bb.x1) && bb.x2 > bb.x1) {
+        box.x1 = Math.min(box.x1, bb.x1);
+        box.y1 = Math.min(box.y1, bb.y1);
+        box.x2 = Math.max(box.x2, bb.x2);
+        box.y2 = Math.max(box.y2, bb.y2);
+      }
+      x += (glyph.advanceWidth ?? 0) * scale;
+      prev = glyph;
+    }
+    return box;
+  }
+}
+
 function glyphBox(font: Loaded, char: string): Box | null {
   const glyph = font.charToGlyph(char);
   const bb = glyph.getBoundingBox();
@@ -104,7 +136,7 @@ export async function measureSign(
   let lastDescent = 0;
 
   lines.forEach((line, i) => {
-    const bbox = font.getPath(line, 0, 0, unitsPerEm).getBoundingBox();
+    const bbox = lineBox(font, line, unitsPerEm);
     const lineWidth = Number.isFinite(bbox.x2 - bbox.x1) ? bbox.x2 - bbox.x1 : 0;
     widest = Math.max(widest, lineWidth);
 

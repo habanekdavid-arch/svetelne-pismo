@@ -11,7 +11,7 @@ export type SessionUser = { name: string; email: string; verified?: boolean };
 // navigation away from the cart, no Clerk modal.
 
 export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: SessionUser) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register">("register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +60,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
 
       {/* Mode tabs */}
       <div className="mb-4 flex gap-1 rounded-full p-1" style={{ background: "var(--color-surface-raised)" }}>
-        {(["login", "register"] as const).map((m) => (
+        {(["register", "login"] as const).map((m) => (
           <button
             key={m}
             type="button"

@@ -14,7 +14,7 @@ import type { DragTarget } from "@/components/three/LetterScene";
 
 // The wall under the preview, chosen in three tabs:
 //   · Farba          — plaster painted in one of a few façade colours;
-//   · Povrch         — omietka, tehla, drevo or kov, each a real texture;
+//   · Povrch         — omietka, tehla, drevo, lamely or kov, each a real texture;
 //   · Vlastný návrh  — the customer's own photo, as before.
 // Picking a wall clears the photo and the other way round: it is one choice,
 // not two that could contradict each other.
@@ -176,7 +176,7 @@ export default function WallPicker({
                   style={{
                     backgroundColor: s.paintable ? wall.color : undefined,
                     backgroundImage: `url(${wallTextureUrl(s.id, "color")})`,
-                    backgroundSize: s.id === "brick" ? "160%" : "220%",
+                    backgroundSize: s.id === "brick" ? "160%" : s.id === "slats" ? "300%" : "220%",
                     backgroundBlendMode: s.paintable ? "multiply" : undefined,
                   }}
                 />

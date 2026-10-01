@@ -136,7 +136,12 @@ export async function quoteBasket(configs: Config[]): Promise<Quote> {
   for (const config of configs) {
     // Measured here, never taken from the request: this is what the price is
     // worked out from.
-    const size = await measureSign(config.text, config.font, config.height);
+    // A font the measuring cannot read is no reason to fail the whole basket:
+    // the price then falls back to lib/pricing.ts's own estimate.
+    const size = await measureSign(config.text, config.font, config.height).catch((err) => {
+      console.error("[cena] nápis sa nepodarilo zmerať:", config.font, err);
+      return null;
+    });
     const price = calculatePrice(config, size);
     const material = materialById(config.material);
 

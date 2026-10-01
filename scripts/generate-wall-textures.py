@@ -1,6 +1,6 @@
 """
 Generates the seamless wall textures the 3D preview mounts the sign on:
-public/textures/walls/{plaster,brick,wood,metal}-{color,height}.jpg
+public/textures/walls/{plaster,brick,wood,slats,metal}-{color,height}.jpg
 
 Every tile covers 980 x 980 mm of wall (TILE_UNITS in
 components/three/wallTexture.ts = 14 brick courses of 70 mm), at 1024 px, so
@@ -200,6 +200,46 @@ def wood():
     save("wood", out, height)
 
 
+# ── Slats (drevené lamely): vertical walnut-brown slats on a black backing ──
+# The interior look behind many shop signs: 14 slats per tile — 40 mm of wood,
+# 30 mm of dark gap — running the full height. Each slat has its own tone and
+# a long grain; the sides fall off into shadow so they read as standing out.
+def slats():
+    r = rng(51)
+    count = 14
+    p = N / count                     # 70 mm period
+    slat = 40 * MM
+    yy, xx = np.mgrid[0:N, 0:N].astype(float)
+    lx = np.mod(xx, p)
+    idx = np.floor(xx / p).astype(int)
+    grain = fbm(52, 0.7, aniso=(1, 80))
+    streak = fbm(53, 1.6, aniso=(1, 20))
+    blotch = fbm(54, 2.8, aniso=(1, 3))
+    base = np.array([0.50, 0.29, 0.17])          # walnut / teak brown
+    out = np.zeros((N, N, 3))
+    height = np.zeros((N, N))
+    x0 = (p - slat) / 2
+    on = (lx >= x0) & (lx < x0 + slat)
+    u = np.clip((lx - x0) / slat, 0, 1)          # 0..1 across the slat face
+    # Rounded-off look: lit face, sides turning away into shadow.
+    profile = np.clip(np.sin(np.pi * u) ** 0.35, 0, 1)
+    for k in range(count):
+        m = idx == k
+        tone = 0.85 + 0.25 * r.random()
+        warm = np.array([1.0, 0.95 + 0.08 * r.random(), 0.9 + 0.15 * r.random()])
+        c = base * tone * warm
+        c = c * (0.82 + 0.3 * grain[..., None]) * (0.92 + 0.14 * streak[..., None]) * (0.94 + 0.1 * blotch[..., None])
+        c = c * (0.55 + 0.45 * profile[..., None])
+        out[m] = c[m]
+    height = np.where(on, 0.55 + 0.45 * profile + 0.03 * grain, 0.0)
+    # The backing between slats: almost black, a touch of warm light near the slats.
+    near = np.clip(1 - np.minimum(np.abs(lx - x0), np.abs(lx - x0 - slat)) / (8 * MM), 0, 1)
+    backing = np.array([0.05, 0.04, 0.035]) * (1 + 1.5 * near[..., None])
+    out = np.where(on[..., None], out, backing)
+    out = ndimage.gaussian_filter(out, (0.6, 0.6, 0), mode="wrap")
+    save("slats", out, height)
+
+
 # ── Metal (kov): brushed anthracite façade panels, 490 mm, recessed seams ──
 def metal():
     brush = fbm(41, 1.0, aniso=(1, 60))
@@ -227,6 +267,10 @@ def metal():
 
 
 if __name__ == "__main__":
-    for f in (plaster, brick, wood, metal):
+    import sys
+    only = set(sys.argv[1:])           # e.g. `slats` to make just that one
+    for f in (plaster, brick, wood, slats, metal):
+        if only and f.__name__ not in only:
+            continue
         f()
         print("done", f.__name__)

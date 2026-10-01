@@ -4,12 +4,12 @@
 //
 // It is chosen in three places (components/configurator/WallPicker.tsx):
 //   · Farba          — painted plaster in a colour;
-//   · Povrch         — omietka, tehla, drevo or kov, each in its own look;
+//   · Povrch         — omietka, tehla, drevo, lamely or kov, each in its own look;
 //   · Vlastný návrh  — the customer's own photo.
 // The textures are real images (public/textures/walls, made by
 // scripts/generate-wall-textures.py), seamless and at true scale.
 
-export type WallSurfaceId = "plaster" | "brick" | "wood" | "metal";
+export type WallSurfaceId = "plaster" | "brick" | "wood" | "slats" | "metal";
 
 export type WallSurface = {
   id: WallSurfaceId;
@@ -27,6 +27,7 @@ export const WALL_SURFACES: WallSurface[] = [
   { id: "plaster", label: "Omietka", hint: "Zrnitá fasádna omietka",        paintable: true,  roughness: 0.95, metalness: 0,    bump: 0.9 },
   { id: "brick",   label: "Tehla",   hint: "Lícová tehla s maltou",        paintable: false, roughness: 0.9,  metalness: 0,    bump: 1.4 },
   { id: "wood",    label: "Drevo",   hint: "Drevený obklad z dosiek",      paintable: false, roughness: 0.75, metalness: 0,    bump: 0.8 },
+  { id: "slats",   label: "Lamely",  hint: "Drevené lamely na tmavom podklade", paintable: false, roughness: 0.6, metalness: 0,  bump: 1.6 },
   { id: "metal",   label: "Kov",     hint: "Brúsené kovové fasádne panely", paintable: false, roughness: 0.42, metalness: 0.55, bump: 0.5 },
 ];
 
