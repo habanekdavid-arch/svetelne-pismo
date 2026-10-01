@@ -115,6 +115,8 @@ function ensureSchema(): Promise<void> {
       // to go up and a note. The shop sends a quote for the mounting; the
       // order itself is paid and delivered as usual. NULL when not asked for.
       await sql`ALTER TABLE order_groups ADD COLUMN IF NOT EXISTS installation_request JSONB`;
+      // When the "objednávka nie je dokončená" e-mail went out — it goes once.
+      await sql`ALTER TABLE order_groups ADD COLUMN IF NOT EXISTS unfinished_mail_at TIMESTAMPTZ`;
       await sql`
         CREATE INDEX IF NOT EXISTS orders_group_id_idx
         ON orders (group_id)

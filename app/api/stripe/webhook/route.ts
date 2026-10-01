@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe, webhookSecret } from "@/lib/stripe";
-import { getOrderGroup, markGroupPaid, setGroupPaymentStatus } from "@/lib/orders";
+import {
+  claimUnfinishedMail,
+  getOrderGroup,
+  listOrdersForGroup,
+  markGroupPaid,
+  payDeadline,
+  payWindowClosed,
+  setGroupPaymentStatus,
+} from "@/lib/orders";
 import { afterPaid } from "@/lib/fulfilment.server";
-import { mailPaymentFailed, mailRefunded } from "@/lib/emails.server";
+import { mailOrderUnfinished, mailPaymentFailed, mailRefunded } from "@/lib/emails.server";
 import { recordWebhookEvent } from "@/lib/stripe-log.server";
 
 // Stripe's own report of what happened to a payment.
@@ -64,11 +72,13 @@ export async function POST(req: Request) {
           // Never walk back an order that is already paid.
           if (group && group.paymentStatus !== "paid") {
             await setGroupPaymentStatus(groupId, "failed");
-            // A payment that was tried and failed is worth telling the
-            // customer about; a checkout page simply left open until it
-            // expired is not.
             if (event.type === "checkout.session.async_payment_failed") {
               await mailPaymentFailed(group);
+            } else if (!payWindowClosed(group) && (await claimUnfinishedMail(groupId))) {
+              // Left the payment page without paying: no order confirmation
+              // went out, so say once that the order is kept and can be
+              // finished and paid within the week.
+              await mailOrderUnfinished(group, await listOrdersForGroup(groupId), payDeadline(group));
             }
           }
         }

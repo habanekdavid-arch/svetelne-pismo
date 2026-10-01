@@ -324,8 +324,9 @@ function Configurator() {
   }
 
   function chooseVariant(v: VariantId) {
-    // A new variant starts from its natural view again: a halo at night.
-    setManualMode(null);
+    // Picking a lit sign shows it lit — the preview switches to night every
+    // time. Deň stays one click away; a plain sign goes back to daylight.
+    setManualMode(v === "plain" ? null : "night");
     apply(variantFields(v));
   }
 

@@ -6,6 +6,7 @@ import {
   getOrderGroup,
   groupOrderNumber,
   listOrdersForGroup,
+  payWindowClosed,
   quoteState,
   type Order,
   type OrderGroup,
@@ -64,6 +65,10 @@ export async function POST(req: Request) {
   }
   if (group.totalCents <= 0) {
     return NextResponse.json({ error: "nothing_to_pay" }, { status: 400 });
+  }
+  // An unpaid order can be finished for a week (lib/orders.ts PAY_WINDOW_DAYS).
+  if (payWindowClosed(group)) {
+    return NextResponse.json({ error: "pay_window_closed" }, { status: 410 });
   }
 
   const orders = await listOrdersForGroup(groupId);
@@ -160,6 +165,10 @@ export async function POST(req: Request) {
     success_url: `${origin}/dakujeme/${group.id}`,
     cancel_url: `${origin}/nedokoncena/${group.id}`,
     locale: "sk",
+    // A payment page left open closes after an hour; Stripe then reports it
+    // (checkout.session.expired) and the customer gets the "nie je dokončená"
+    // e-mail. Stripe's own minimum is 30 minutes.
+    expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
   };
   // The Stripe account is shared with vytlacto3d, so its own branding is
   // vytlacto3d's. A rozsvieťTO payment carries rozsvieťTO's logo and colour

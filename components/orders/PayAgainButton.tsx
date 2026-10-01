@@ -35,6 +35,8 @@ export default function PayAgainButton({
       setError(
         data?.error === "payments_disabled"
           ? "Platba kartou zatiaľ nie je zapnutá. Ozveme sa vám e-mailom."
+          : data?.error === "pay_window_closed"
+            ? "Lehota na zaplatenie (7 dní) uplynula. Napíšte nám na info@4frommedia.sk a objednávku obnovíme."
           : "Platbu sa nepodarilo otvoriť. Skúste to prosím znova.",
       );
     } catch {

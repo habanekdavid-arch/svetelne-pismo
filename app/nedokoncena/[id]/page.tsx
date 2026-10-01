@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getUserSession } from "@/lib/user-auth";
-import { getOrderGroup, groupOrderNumber, listOrdersForGroup } from "@/lib/orders";
+import { getOrderGroup, groupOrderNumber, listOrdersForGroup, payDeadline, payWindowClosed } from "@/lib/orders";
+import { formatDate } from "@/lib/dates";
 import { oneLine } from "@/lib/sign-text";
 import { materialById } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
@@ -29,6 +30,7 @@ export default async function UnfinishedOrderPage({ params }: { params: Promise<
   if (group.paymentStatus === "paid") redirect(`/dakujeme/${group.id}`);
 
   const orders = await listOrdersForGroup(group.id);
+  const closed = payWindowClosed(group);
   const no = groupOrderNumber(group);
   const bank = bankAccount();
   const vs = orders[0] ? variableSymbol(orders[0].id) : null;
@@ -53,7 +55,12 @@ export default async function UnfinishedOrderPage({ params }: { params: Promise<
             Platba neprebehla a nič sme vám nestrhli. Objednávku máme uloženú — dokončite ju platbou
             kartou alebo prevodom. Výrobu začneme hneď, ako platba príde.
           </p>
-          {stripeConfigured() && group.totalCents > 0 && (
+          <p className="mx-auto mt-3 max-w-md text-sm font-bold" style={{ color: closed ? "#dc2626" : "var(--color-foreground)" }}>
+            {closed
+              ? "Lehota na dokončenie (7 dní) uplynula. Napíšte nám a objednávku obnovíme."
+              : `Dokončiť a zaplatiť ju môžete do ${formatDate(payDeadline(group))}.`}
+          </p>
+          {stripeConfigured() && group.totalCents > 0 && !closed && (
             <div className="mt-6 flex justify-center">
               <PayAgainButton groupId={group.id} label={`Zaplatiť kartou ${formatEur(group.totalCents / 100)}`} />
             </div>
@@ -86,7 +93,7 @@ export default async function UnfinishedOrderPage({ params }: { params: Promise<
           </div>
         </section>
 
-        {bank && vs && group.totalCents > 0 && (
+        {bank && vs && group.totalCents > 0 && !closed && (
           <section className="mt-6 rounded-3xl border border-orange-200 bg-orange-50 p-6 text-sm text-orange-900">
             <h2 className="text-base font-extrabold">Alebo zaplaťte prevodom</h2>
             <dl className="mt-3 space-y-1">
