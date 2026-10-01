@@ -26,6 +26,7 @@ import {
 import { formatEur } from "@/lib/vat";
 import StatusBadge from "@/components/orders/StatusBadge";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
+import PreviewImage from "@/components/orders/PreviewImage";
 import AdminNav from "@/components/admin/AdminNav";
 import { Label, SpecLine, DeliveryPanel } from "@/components/admin/OrderBits";
 
@@ -177,15 +178,11 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           {/* The sign */}
           <Card title="Nápis">
             {hasPreview && (
-              <a href={`/api/orders/${order.id}/preview`} target="_blank" rel="noopener noreferrer" className="mb-4 block">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/orders/${order.id}/preview`}
-                  alt={`Náhľad nápisu ${order.config.text}`}
-                  className="w-full rounded-2xl border"
-                  style={{ borderColor: "var(--color-border)" }}
-                />
-              </a>
+              <PreviewImage
+                src={`/api/orders/${order.id}/preview`}
+                alt={`Náhľad nápisu ${order.config.text}`}
+                className="mb-4 rounded-2xl border border-[var(--color-border)]"
+              />
             )}
             <p className="whitespace-pre-line text-xl font-extrabold" style={{ color: "var(--color-foreground)" }}>
               {order.config.text}
