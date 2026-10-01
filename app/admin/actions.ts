@@ -14,6 +14,7 @@ import {
 import { afterPaid } from "@/lib/fulfilment.server";
 import { mailOrderCancelled, mailOrderReady, mailQuoteSent } from "@/lib/emails.server";
 import { bankAccount } from "@/lib/bank";
+import { markVerified } from "@/lib/email-verification.server";
 
 // Re-checks the admin session inside the action itself — a Server Action is
 // its own callable endpoint, so it must not rely solely on the page-level
@@ -163,4 +164,12 @@ export async function runSelfTest(kind: SelfTestKind, to?: string): Promise<Self
   } catch (err) {
     return done(false, `Chyba: ${err instanceof Error ? err.message : String(err)}`.slice(0, 500));
   }
+}
+
+/** "Overiť ručne" — confirms a customer's e-mail by hand (they wrote in, the mail never arrived). */
+export async function verifyUserManually(userId: string) {
+  const session = await getAdminIdentity();
+  if (!session || typeof userId !== "string" || !userId) return;
+  await markVerified(userId);
+  revalidatePath("/admin/pouzivatelia");
 }

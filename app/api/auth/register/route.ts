@@ -54,16 +54,17 @@ export async function POST(req: Request) {
   // The address has to be confirmed before the first order: mark the account
   // as waiting and send the link. Signing in works meanwhile.
   let verified = true;
+  let mailSent = false;
   try {
     await markPending(user.id);
     verified = false;
-    await sendVerification(user);
+    mailSent = await sendVerification(user, new URL(req.url).origin);
   } catch (err) {
     console.error("[register] verification e-mail could not be sent:", err);
   }
 
   const token = await createUserSessionToken({ userId: user.id, email: user.email, name: user.name });
-  const res = NextResponse.json({ user: { name: user.name, email: user.email, verified } });
+  const res = NextResponse.json({ user: { name: user.name, email: user.email, verified }, mailSent });
   res.cookies.set(USER_SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

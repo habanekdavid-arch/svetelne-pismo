@@ -45,6 +45,7 @@ import {
 import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
 import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
 import { registerSnapshotter, capturePreview } from "@/lib/sign-preview";
+import VerifyCodeForm from "@/components/auth/VerifyCodeForm";
 import type { DragTarget, ZoomView } from "@/components/three/LetterScene";
 
 /** The whole framed view — kept here too, so the page does not import the 3D chunk. */
@@ -167,7 +168,6 @@ function Configurator() {
   // confirmed (lib/price-access.ts); before that a blurred placeholder and
   // the next step — sign in, or confirm the e-mail.
   const priceAccess = usePriceAccess();
-  const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
   const signedIn = priceAccess === "ok";
 
   const [config, setConfig] = useState<Config>({
@@ -804,21 +804,10 @@ function Configurator() {
                       <p className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
                         Cenu uvidíte po overení e-mailu.
                       </p>
-                      <p className="mt-0.5 text-xs" style={{ color: "var(--color-muted)" }}>
-                        Kliknite na odkaz v e-maile, ktorý sme vám poslali po registrácii.{" "}
-                        <button
-                          type="button"
-                          disabled={resend === "sending" || resend === "sent"}
-                          onClick={async () => {
-                            setResend("sending");
-                            const r = await fetch("/api/auth/verify", { method: "POST" }).catch(() => null);
-                            setResend(r?.ok ? "sent" : "failed");
-                          }}
-                          className="font-semibold underline disabled:no-underline"
-                        >
-                          {resend === "sending" ? "Posielam…" : resend === "sent" ? "Odoslané ✓" : resend === "failed" ? "Nepodarilo sa, skúsiť znova" : "Poslať e-mail znova"}
-                        </button>
+                      <p className="mt-0.5 mb-2 text-xs" style={{ color: "var(--color-muted)" }}>
+                        Zadajte 6-miestny kód z e-mailu, ktorý sme vám poslali po registrácii.
                       </p>
+                      <VerifyCodeForm compact />
                     </div>
                   )}
                   {priceAccess === "anon" && (

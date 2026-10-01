@@ -326,16 +326,18 @@ export function buildPasswordReset(to: string, link: string): BuiltMail {
 }
 
 /** Right after registration — the account can order once the address is confirmed. */
-export function buildVerifyEmail(to: string, name: string, link: string): BuiltMail {
+export function buildVerifyEmail(to: string, name: string, link: string, code: string): BuiltMail {
   return {
     to,
-    subject: "Overte svoj e-mail — rozsvieťTO",
+    subject: `Váš overovací kód: ${code} — rozsvieťTO`,
     html: layout(
       "Overenie e-mailu",
       p(`Dobrý deň${name ? ` ${esc(name)}` : ""}, ďakujeme za registráciu.`) +
-        p("Kliknutím na tlačidlo potvrdíte, že táto e-mailová adresa patrí vám. Potom môžete objednávať.") +
+        p("Na webe zadajte tento overovací kód:") +
+        `<div style="font-size:30px;font-weight:800;letter-spacing:8px;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;padding:14px 18px;text-align:center;margin:6px 0 16px">${esc(code)}</div>` +
+        p("Alebo kliknite na tlačidlo — overí vás jedným klikom:") +
         button(link, "Overiť e-mail") +
-        p('<span style="font-size:12px;color:#78716c">Odkaz platí 7 dní. Ak ste sa neregistrovali, tento e-mail ignorujte.</span>'),
+        p('<span style="font-size:12px;color:#78716c">Kód platí 1 hodinu, odkaz 7 dní. Ak ste sa neregistrovali, tento e-mail ignorujte.</span>'),
     ),
   };
 }
@@ -434,7 +436,7 @@ export const mailOrderReady = async (g: OrderGroup, o: Order[]) => { await send(
 export const mailOrderCancelled = async (g: OrderGroup, o: Order[]) => { await send(buildOrderCancelled(g, o)); };
 export const mailRefunded = async (g: OrderGroup) => { await send(buildRefunded(g)); };
 export const mailPasswordReset = (to: string, link: string) => send(buildPasswordReset(to, link));
-export const mailVerifyEmail = (to: string, name: string, link: string) => send(buildVerifyEmail(to, name, link));
+export const mailVerifyEmail = (to: string, name: string, link: string, code: string) => send(buildVerifyEmail(to, name, link, code));
 export const mailShopNewOrder = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildShopNewOrder(g, o, p)); };
 export const mailShopPaid = async (g: OrderGroup, o: Order[]) => { await send(buildShopPaid(g, o)); };
 export const mailShopContact = async (m: { name: string; email: string; subject: string; message: string }) => { await send(buildShopContact(m)); };

@@ -57,12 +57,55 @@ export const SHOP_INBOX = process.env.ADMIN_ORDER_EMAIL?.trim() || DEFAULT_FROM_
 /** Where customers' replies go — the inbox they see on the site. */
 export const REPLY_TO = process.env.EMAIL_REPLY_TO?.trim() || SHOP_INBOX;
 
-export function mailConfigured(): boolean {
+// ── Resend (optional, recommended) ───────────────────────────────────────────
+// An e-mail API over HTTPS instead of SMTP: no mailbox password, no Microsoft
+// 365 SMTP settings — just RESEND_API_KEY from resend.com and a verified
+// sending domain. When it is set it is tried first; SMTP stays as the backup.
+const resendKey = process.env.RESEND_API_KEY?.trim() || "";
+/** The sender for Resend — must be on a domain verified in Resend. */
+const RESEND_FROM = process.env.RESEND_FROM?.trim() || MAIL_FROM;
+
+function smtpConfigured(): boolean {
   return Boolean(user && pass);
+}
+
+export function mailConfigured(): boolean {
+  return Boolean(resendKey) || smtpConfigured();
+}
+
+/** Sends through Resend; throws with Resend's own message when it refuses. */
+async function sendViaResend(message: {
+  to: string; subject: string; html: string; text: string; replyTo: string;
+  attachments?: Mail["attachments"];
+}): Promise<void> {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: RESEND_FROM,
+      to: [message.to],
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+      reply_to: message.replyTo,
+      attachments: message.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content.toString("base64"),
+        content_id: a.cid,
+        content_type: a.contentType,
+      })),
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Resend ${res.status}: ${body.slice(0, 300)}`);
+  }
 }
 
 /** Which transport is in use — for the admin's integration panel. */
 export function mailSetup(): { host: string; user: string; fallback: boolean } {
+  if (resendKey) return { host: "Resend (API)", user: RESEND_FROM, fallback: smtpConfigured() };
   return { host, user, fallback: Boolean(!useLegacyGmail && gmailUser && gmailPass) };
 }
 
@@ -131,6 +174,15 @@ export async function sendMail(mail: Mail): Promise<boolean> {
     replyTo: mail.replyTo ?? REPLY_TO,
     attachments: mail.attachments,
   };
+  if (resendKey) {
+    try {
+      await sendViaResend(message);
+      return true;
+    } catch (err) {
+      console.error(`[e-mail] Resend zlyhal: „${mail.subject}“ → ${mail.to}:`, err);
+      if (!smtpConfigured()) return false;
+    }
+  }
   try {
     await primaryTransport().sendMail(message);
     return true;
@@ -161,7 +213,7 @@ export async function sendMail(mail: Mail): Promise<boolean> {
  */
 export async function sendTestMail(mail: Mail): Promise<{ ok: boolean; detail: string }> {
   if (!mailConfigured()) {
-    return { ok: false, detail: "Chýba heslo schránky (SMTP_PASSWORD) — e-maily sa neposielajú." };
+    return { ok: false, detail: "Nie je nastavené odosielanie — chýba RESEND_API_KEY alebo heslo schránky (SMTP_PASSWORD)." };
   }
   const message = {
     from: MAIL_FROM,
@@ -171,9 +223,19 @@ export async function sendTestMail(mail: Mail): Promise<{ ok: boolean; detail: s
     text: mail.text ?? htmlToText(mail.html),
     replyTo: mail.replyTo ?? REPLY_TO,
   };
+  let resendError = "";
+  if (resendKey) {
+    try {
+      await sendViaResend(message);
+      return { ok: true, detail: `Odoslané cez Resend, odosielateľ ${RESEND_FROM}.` };
+    } catch (err) {
+      resendError = `Resend zlyhal: ${(err as Error).message}`;
+      if (!smtpConfigured()) return { ok: false, detail: resendError };
+    }
+  }
   try {
     await primaryTransport().sendMail(message);
-    return { ok: true, detail: `Odoslané cez ${host}:${port} ako ${user}, odosielateľ ${MAIL_FROM}.` };
+    return { ok: true, detail: `${resendError ? resendError + " — " : ""}Odoslané cez ${host}:${port} ako ${user}, odosielateľ ${MAIL_FROM}.` };
   } catch (err) {
     const e = err as { code?: string; response?: string; message?: string };
     const reason = `${e.code ?? "chyba"}: ${e.response ?? e.message ?? String(err)}`.slice(0, 400);

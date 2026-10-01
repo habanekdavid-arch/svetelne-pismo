@@ -12,6 +12,7 @@ import { notifySessionChange, onSessionChange } from "@/lib/session-client";
 import { formatEur } from "@/lib/vat";
 import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
 import { capturePreview } from "@/lib/sign-preview";
+import VerifyCodeForm from "@/components/auth/VerifyCodeForm";
 import { isInBratislava, isPickup, leadTimeNotice } from "@/lib/shipping";
 import { AddressFields, emptyAddress } from "@/components/checkout/AddressFields";
 import AuthGate, { type SessionUser } from "@/components/checkout/AuthGate";
@@ -537,7 +538,9 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         </label>
 
         {submitError && <Err>{submitError}</Err>}
-        {user && user.verified === false && <VerifyInline email={user.email} />}
+        {user && user.verified === false && (
+          <VerifyInline email={user.email} onVerified={() => setUser((u) => (u ? { ...u, verified: true } : u))} />
+        )}
         {!user && user !== undefined && (
           <p className="text-center text-xs" style={{ color: "var(--color-muted)" }}>
             Na dokončenie objednávky sa prihláste alebo zaregistrujte vyššie.
@@ -568,24 +571,14 @@ function Blurred() {
   return <span aria-label="Cena po prihlásení" className="inline-block select-none blur-[5px]">{PRICE_PLACEHOLDER}</span>;
 }
 
-/** A new account orders once its e-mail is confirmed — with a way to get the link again. */
-function VerifyInline({ email }: { email: string }) {
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+/** A new account orders once its e-mail is confirmed — the code from the e-mail, or a new one. */
+function VerifyInline({ email, onVerified }: { email: string; onVerified: () => void }) {
   return (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-      Na objednanie treba overiť e-mail. Odkaz sme poslali na <strong>{email}</strong>.{" "}
-      <button
-        type="button"
-        disabled={state === "sending" || state === "sent"}
-        onClick={async () => {
-          setState("sending");
-          const r = await fetch("/api/auth/verify", { method: "POST" }).catch(() => null);
-          setState(r?.ok ? "sent" : "failed");
-        }}
-        className="font-bold underline disabled:no-underline"
-      >
-        {state === "sending" ? "Posielam…" : state === "sent" ? "Odoslané ✓" : state === "failed" ? "Nepodarilo sa, skúsiť znova" : "Poslať znova"}
-      </button>
+    <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+      <p>
+        Na objednanie treba overiť e-mail. Zadajte kód, ktorý sme poslali na <strong>{email}</strong>.
+      </p>
+      <VerifyCodeForm compact onVerified={onVerified} />
     </div>
   );
 }
