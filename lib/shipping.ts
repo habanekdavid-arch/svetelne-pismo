@@ -48,10 +48,10 @@ function num(raw: string | undefined, fallback: number): number {
 
 // ── Prices ───────────────────────────────────────────────────────────────────
 // Final, VAT-inclusive prices. Collecting in person costs nothing; DPD is
-// 6,15 € (5 € + 23 % DPH). Overridable from the environment so a change in the
+// 18,45 € (15 € + 23 % DPH). Overridable from the environment so a change in the
 // carrier's tariff does not need a code change.
 export const DELIVERY_PRICES = {
-  dpd: numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_DPD, 6.15),
+  dpd: numOrZero(process.env.NEXT_PUBLIC_DELIVERY_PRICE_DPD, 18.45),
 } as const;
 
 function numOrZero(raw: string | undefined, fallback: number): number {

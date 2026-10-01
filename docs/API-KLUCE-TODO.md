@@ -53,7 +53,7 @@ Nič netreba dopĺňať. Prevody chodia na ten istý účet ako na vytlacto3d:
 Packeta sa už nepoužíva a nič pre ňu netreba zadávať. V košíku sú tri možnosti:
 - **Osobný odber — Prievidza** (zadarmo): 4from media, s.r.o., M. Hodžu 393/5, 971 01 Prievidza.
 - **Osobný odber — Bratislava** (zadarmo): zákazník zadá miesto v Bratislave, čas odovzdania dohodnete telefonicky.
-- **Kuriér DPD** (6,15 € s DPH): zásielku podávate v DPD ručne. Nápis, ktorý je na balík DPD príliš veľký, sa ponúkne ako „Preprava na dohodu“.
+- **Kuriér DPD** (18,45 € s DPH): zásielku podávate v DPD ručne. Nápis, ktorý je na balík DPD príliš veľký, sa ponúkne ako „Preprava na dohodu“.
 
 ## 5. E-maily — rovnaké ako na vytlacto3d
 
@@ -93,5 +93,5 @@ Tieto premenné majú rozumné predvolené hodnoty a meniť ich netreba.
 
 | Premenná | Predvolene | Čo mení |
 |---|---|---|
-| `NEXT_PUBLIC_DELIVERY_PRICE_DPD` | 6.15 | cena kuriéra DPD (€ s DPH) |
+| `NEXT_PUBLIC_DELIVERY_PRICE_DPD` | 18.45 | cena kuriéra DPD (€ s DPH) |
 | `NEXT_PUBLIC_DPD_MAX_KG` / `NEXT_PUBLIC_DPD_MAX_CM` | 31.5 / 175 | najväčší balík pre DPD, väčší ide prepravou na dohodu |
