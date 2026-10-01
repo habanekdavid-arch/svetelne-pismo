@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { getUserSession } from "@/lib/user-auth";
 import {
   getOrderGroup,
+  groupOrderNumber,
   listOrdersForGroup,
   PAYMENT_STATUS_LABEL,
   quoteState,
@@ -64,7 +65,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
   return (
     <AccountShell
       title={quote === "sent" ? "Predfaktúra" : installation ? "Objednávka s montážou" : "Objednávka"}
-      description={`Číslo ${group.id.split("-")[0].toUpperCase()}`}
+      description={`Číslo ${groupOrderNumber(group)}`}
     >
       <AccountSection title={headline(group, cancelled)}>
         <p className="mt-3 text-sm leading-6" style={{ color: "var(--color-muted)" }}>
@@ -83,7 +84,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
             {bank.bank && <Row label="Banka" value={bank.bank} />}
             <Row label="Variabilný symbol" value={vs} />
             <Row label="Príjemca" value={bank.holder} />
-            <Row label="Správa pre príjemcu" value={`Objednávka ${group.id.split("-")[0].toUpperCase()}`} />
+            <Row label="Správa pre príjemcu" value={`Objednávka ${groupOrderNumber(group)}`} />
           </dl>
         )}
 

@@ -21,7 +21,7 @@ import LogoutButton from "@/components/admin/LogoutButton";
 import SelfTestPanel from "@/components/admin/SelfTestPanel";
 import { SHOP_INBOX } from "@/lib/mailer.server";
 import EyebrowPill from "@/components/ui/EyebrowPill";
-import { orderNumber, Label, DELIVERY_LABEL } from "@/components/admin/OrderBits";
+import { Label, DELIVERY_LABEL } from "@/components/admin/OrderBits";
 import AdminNav from "@/components/admin/AdminNav";
 import { listContactMessages } from "@/lib/contact";
 import { previewIds } from "@/lib/order-previews.server";
@@ -221,7 +221,7 @@ export default async function AdminPage({
                 >
                   {/* The card holds what is needed at a glance — number,
                       state, the sign in one line, price, contact and date.
-                      Everything else waits behind "Zobraziť detail". */}
+                      Everything else waits behind "Detail objednávky". */}
                   <div className="grid items-start gap-6 lg:grid-cols-[1.2fr_1.6fr_1fr_auto]">
 
                     <div className="flex min-w-0 gap-3">
@@ -237,7 +237,7 @@ export default async function AdminPage({
                     )}
                     <div className="min-w-0">
                       <p className="text-lg font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                        {orderNumber(o.id)}
+                        {o.number}
                       </p>
                       <p className="mt-1 truncate text-sm font-semibold" style={{ color: "var(--color-foreground-soft)" }}>
                         {oneLine(o.config.text)}
@@ -305,16 +305,14 @@ export default async function AdminPage({
                       )}
                     </div>
 
-                    <AdminOrderActions orderId={o.id} status={o.status} />
+                    <AdminOrderActions
+                      orderId={o.id}
+                      orderNumber={o.number}
+                      status={o.status}
+                      customerEmail={o.customerEmail}
+                      hasPreview={withPreview.has(o.id)}
+                    />
                   </div>
-
-                  <Link
-                    href={`/admin/objednavka/${o.id}`}
-                    className="mt-4 inline-block text-sm font-bold underline underline-offset-4"
-                    style={{ color: "var(--color-foreground)" }}
-                  >
-                    Zobraziť detail objednávky →
-                  </Link>
                 </article>
               );
             })}

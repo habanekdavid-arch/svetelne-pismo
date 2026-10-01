@@ -37,7 +37,7 @@ const SIGNS: Order[] = [
       text: "KAVIAREŇ", font: "montserrat-extrabold", material: "alurol-upper", signType: "illuminated",
       lightMode: "front", lightColor: "#ffffff", bodyColor: "#0a0a0a", faceColor: "#f1f0ea", height: 400, rotation: 0,
     },
-    price: 690, priceCents: 69000, groupId: "a1b2c3d4-0000", status: "new", createdAt: new Date().toISOString(),
+    price: 690, priceCents: 69000, groupId: "a1b2c3d4-0000", number: "ROZTO-1450", status: "new", createdAt: new Date().toISOString(),
   },
 ];
 
@@ -63,6 +63,7 @@ function group(over: Partial<OrderGroup>): OrderGroup {
     packetaPacketId: null,
     packetaBarcode: null,
     packetaError: null,
+    number: 1450,
     createdAt: new Date().toISOString(),
     ...over,
   };

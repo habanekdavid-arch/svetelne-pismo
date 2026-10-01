@@ -27,7 +27,7 @@ import { formatEur } from "@/lib/vat";
 import StatusBadge from "@/components/orders/StatusBadge";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
 import AdminNav from "@/components/admin/AdminNav";
-import { orderNumber, Label, SpecLine, DeliveryPanel } from "@/components/admin/OrderBits";
+import { Label, SpecLine, DeliveryPanel } from "@/components/admin/OrderBits";
 
 export const metadata: Metadata = {
   title: "Detail objednávky | rozsvieťTO",
@@ -77,7 +77,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
         >
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: "var(--color-foreground)" }}>
-              {orderNumber(order.id)}
+              {order.number}
             </h1>
             <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
               Prijatá{" "}
@@ -110,7 +110,13 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             )}
           </div>
           <div className="w-full sm:w-auto">
-            <AdminOrderActions orderId={order.id} status={order.status} />
+            <AdminOrderActions
+              orderId={order.id}
+              orderNumber={order.number}
+              status={order.status}
+              customerEmail={order.customerEmail}
+              hasPreview={hasPreview}
+            />
           </div>
         </div>
 
@@ -212,7 +218,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 {siblings.map((s) => (
                   <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 text-sm">
                     <Link href={`/admin/objednavka/${s.id}`} className="font-bold underline" style={{ color: "var(--color-foreground)" }}>
-                      {orderNumber(s.id)} — {s.config.text.replace(/\n/g, " / ")}
+                      {s.number} — {s.config.text.replace(/\n/g, " / ")}
                     </Link>
                     <span style={{ color: "var(--color-muted)" }}>{formatEur(s.price)}</span>
                   </li>

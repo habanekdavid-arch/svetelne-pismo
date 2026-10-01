@@ -94,7 +94,7 @@ export default async function AccountOrdersPage() {
                         {o.config.height} mm / {depthMmFor(o.config.material, o.config.height)} mm
                       </p>
                       <p className="mt-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
-                        Objednané {new Date(o.createdAt).toLocaleDateString("sk-SK")} · #{o.id}
+                        Objednávka {o.number} · {new Date(o.createdAt).toLocaleDateString("sk-SK")}
                       </p>
                     </div>
 

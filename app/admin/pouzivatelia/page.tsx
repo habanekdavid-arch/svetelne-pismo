@@ -10,7 +10,7 @@ import { formatEur } from "@/lib/vat";
 import AdminNav from "@/components/admin/AdminNav";
 import VerifyUserButton from "@/components/admin/VerifyUserButton";
 import DeleteUserButton from "@/components/admin/DeleteUserButton";
-import { orderNumber, Label } from "@/components/admin/OrderBits";
+import { Label } from "@/components/admin/OrderBits";
 
 export const metadata: Metadata = {
   title: "Používatelia | rozsvieťTO",
@@ -170,7 +170,7 @@ export default async function AdminUsersPage({
                         {theirs.slice(0, 5).map((o) => (
                           <li key={o.id}>
                             <Link href={`/admin/objednavka/${o.id}`} className="text-xs underline">
-                              {orderNumber(o.id)} — {new Date(o.createdAt).toLocaleDateString("sk-SK")}
+                              {o.number} — {new Date(o.createdAt).toLocaleDateString("sk-SK")}
                             </Link>
                           </li>
                         ))}
