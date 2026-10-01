@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getUserSession } from "@/lib/user-auth";
-import { getOrderGroup, listOrdersForGroup } from "@/lib/orders";
+import { getOrderGroup, groupOrderNumber, listOrdersForGroup } from "@/lib/orders";
 import { oneLine } from "@/lib/sign-text";
 import { materialById } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
@@ -29,7 +29,7 @@ export default async function UnfinishedOrderPage({ params }: { params: Promise<
   if (group.paymentStatus === "paid") redirect(`/dakujeme/${group.id}`);
 
   const orders = await listOrdersForGroup(group.id);
-  const no = group.id.split("-")[0].toUpperCase();
+  const no = groupOrderNumber(group);
   const bank = bankAccount();
   const vs = orders[0] ? variableSymbol(orders[0].id) : null;
 

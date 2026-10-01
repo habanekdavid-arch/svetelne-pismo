@@ -115,6 +115,33 @@ function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS orders_group_id_idx
         ON orders (group_id)
       `;
+
+      // The order number the customer and the shop see: ROZTO-1450, 1451, …
+      // one per checkout, in the order they came in. Checkouts from before
+      // the column existed are numbered once, oldest first, and the sequence
+      // carries on after them.
+      await sql`CREATE SEQUENCE IF NOT EXISTS order_number_seq START WITH 1450 MINVALUE 1450`;
+      await sql`ALTER TABLE order_groups ADD COLUMN IF NOT EXISTS number INTEGER`;
+      const unnumbered = (await sql`SELECT 1 FROM order_groups WHERE number IS NULL LIMIT 1`) as unknown[];
+      if (unnumbered.length > 0) {
+        await sql`
+          UPDATE order_groups g SET number = s.n
+          FROM (
+            SELECT id, (SELECT COALESCE(MAX(number), 1449) FROM order_groups)
+                       + ROW_NUMBER() OVER (ORDER BY created_at, id) AS n
+            FROM order_groups WHERE number IS NULL
+          ) s
+          WHERE g.id = s.id
+        `;
+        await sql`
+          SELECT setval('order_number_seq', GREATEST(1450, (SELECT MAX(number) FROM order_groups) + 1), false)
+        `;
+      }
+      await sql`ALTER TABLE order_groups ALTER COLUMN number SET DEFAULT nextval('order_number_seq')`;
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS order_groups_number_idx
+        ON order_groups (number)
+      `;
     })();
   }
   return schemaReady;

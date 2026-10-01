@@ -83,7 +83,7 @@ Prihlasovacia schránka `office@4frommedia.sk`, server (`smtp.office365.com`, po
 ## 7. Už nastavené (len skontrolovať)
 
 - [x] `DATABASE_URL` a ostatné `POSTGRES_…` / `PG…` z integrácie Neon.
-- [x] `USER_SESSION_SECRET` a `ADMIN_SESSION_SECRET`.
+- [x] `USER_SESSION_SECRET` (`ADMIN_SESSION_SECRET` sa už nepoužíva — do administrácie sa ide len cez účet z `ADMIN_EMAILS`).
 - [x] `ADMIN_EMAILS`
 
 ---

@@ -1,40 +1,49 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { deleteOrderAction, setOrderStatus } from "@/app/admin/actions";
 import { ORDER_STATUSES, ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/orders";
 
-// Action column of an order card, shaped like vytlacto3d's: a primary blue
-// button for the obvious next step, a full status select underneath for
-// anything else, and the destructive action pushed to the bottom behind a
-// divider so it is never the button you hit by accident.
-//
-// The "next step" mirrors how its admin works — one button that says what
-// happens now, rather than making you find the right value in a dropdown.
+// Action column of an order card, shaped like vytlacto3d's: a stack of
+// full-width buttons — the two quiet ones that only look (the sign's picture,
+// the order's page), the orange one for the obvious next step in production,
+// the blue one to write to the customer, and "Vymazať" set apart at the
+// bottom so it is never the button you hit by accident.
 const NEXT_STEP: Partial<Record<OrderStatus, { to: OrderStatus; label: string }>> = {
   new:         { to: "in_progress", label: "Prijať do výroby" },
-  in_progress: { to: "done",        label: "Označiť HOTOVÉ" },
+  in_progress: { to: "done",        label: "Označiť ako hotové" },
 };
+
+const BTN = "flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition disabled:opacity-50";
+const QUIET = { background: "var(--color-background)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" };
 
 export default function AdminOrderActions({
   orderId,
+  orderNumber,
   status,
+  customerEmail,
+  hasPreview,
 }: {
   orderId: number;
+  orderNumber: string;
   status: OrderStatus;
+  customerEmail: string;
+  hasPreview: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
+  const onDetail = pathname.startsWith("/admin/objednavka/");
   const next = NEXT_STEP[status];
 
   function remove() {
-    if (!window.confirm("Naozaj natrvalo vymazať túto objednávku? Nedá sa to vrátiť späť.")) return;
+    if (!window.confirm(`Naozaj natrvalo vymazať objednávku ${orderNumber}? Nedá sa to vrátiť späť.`)) return;
     startTransition(async () => {
       await deleteOrderAction(orderId);
       // From the order's own page there is nothing left to show — back to the list.
-      if (pathname.startsWith("/admin/objednavka/")) router.push("/admin");
+      if (onDetail) router.push("/admin");
     });
   }
 
@@ -45,60 +54,85 @@ export default function AdminOrderActions({
   }
 
   return (
-    <div className="flex flex-col gap-2 xl:min-w-[170px]">
+    <div className="flex flex-col gap-2 lg:w-[200px]">
+      {hasPreview && (
+        <a
+          href={`/api/orders/${orderId}/preview`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${BTN} hover:opacity-80`}
+          style={QUIET}
+        >
+          <EyeIcon />
+          Náhľad nápisu
+        </a>
+      )}
+
+      {!onDetail && (
+        <Link href={`/admin/objednavka/${orderId}`} className={`${BTN} hover:opacity-80`} style={QUIET}>
+          Detail objednávky
+        </Link>
+      )}
+
       {next && (
         <button
           type="button"
           onClick={() => change(next.to)}
           disabled={pending}
-          className="w-full rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
+          className={`${BTN} bg-[#FFAE00] text-black hover:bg-[#f0a300]`}
         >
           {next.label}
         </button>
       )}
 
-      <label className="sr-only" htmlFor={`status-${orderId}`}>
-        Stav objednávky
-      </label>
-      <select
-        id={`status-${orderId}`}
-        value={status}
-        disabled={pending}
-        onChange={(e) => change(e.target.value as OrderStatus)}
-        className="w-full rounded-xl px-3 py-2 text-xs font-bold outline-none disabled:opacity-50"
-        style={{
-          background: "var(--color-background)",
-          color: "var(--color-foreground)",
-          border: "1px solid var(--color-border)",
-        }}
+      <a
+        href={`mailto:${customerEmail}?subject=${encodeURIComponent(`Objednávka ${orderNumber} — rozsvieťTO`)}`}
+        className={`${BTN} bg-blue-600 text-white hover:bg-blue-700`}
       >
-        {ORDER_STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {ORDER_STATUS_LABEL[s]}
-          </option>
-        ))}
-      </select>
+        Napísať zákazníkovi
+      </a>
 
-      <div className="mt-auto space-y-2 border-t pt-2" style={{ borderColor: "var(--color-border)" }}>
-        {status !== "cancelled" && (
-          <button
-            type="button"
-            onClick={() => change("cancelled")}
+      {/* Any other state — back a step, cancelled — only on the order's own
+          page, where there is room to think about it. */}
+      {onDetail && (
+        <>
+          <label className="sr-only" htmlFor={`status-${orderId}`}>
+            Stav objednávky
+          </label>
+          <select
+            id={`status-${orderId}`}
+            value={status}
             disabled={pending}
-            className="w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50"
+            onChange={(e) => change(e.target.value as OrderStatus)}
+            className="w-full rounded-xl px-3 py-2.5 text-sm font-bold outline-none disabled:opacity-50"
+            style={QUIET}
           >
-            Zrušiť objednávku
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={remove}
-          disabled={pending}
-          className="w-full rounded-xl px-3 py-1.5 text-[11px] font-semibold text-red-500 underline underline-offset-2 transition hover:text-red-700 disabled:opacity-50"
-        >
-          Vymazať objednávku
-        </button>
-      </div>
+            {ORDER_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                Stav: {ORDER_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
+      <button
+        type="button"
+        onClick={remove}
+        disabled={pending}
+        className={`${BTN} mt-3 border border-red-300 bg-red-50 text-red-600 hover:bg-red-100`}
+      >
+        Vymazať
+      </button>
     </div>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   );
 }

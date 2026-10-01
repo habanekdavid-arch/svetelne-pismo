@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CheckCircle2, Clock, Mail, Package, Wrench } from "lucide-react";
 import { getUserSession } from "@/lib/user-auth";
-import { getOrderGroup, listOrdersForGroup, quoteState } from "@/lib/orders";
+import { getOrderGroup, groupOrderNumber, listOrdersForGroup, quoteState } from "@/lib/orders";
 import { materialById, variantLabel } from "@/lib/options";
 import { oneLine } from "@/lib/sign-text";
 import { formatEur } from "@/lib/vat";
@@ -37,7 +37,7 @@ export default async function ThankYouPage({ params }: Props) {
   if (!group || group.userId !== session.userId) notFound();
   const orders = await listOrdersForGroup(id);
 
-  const no = group.id.split("-")[0].toUpperCase();
+  const no = groupOrderNumber(group);
   const paid = group.paymentStatus === "paid";
   const installation = group.deliveryMethod === INSTALLATION_METHOD;
   const quote = quoteState(group);

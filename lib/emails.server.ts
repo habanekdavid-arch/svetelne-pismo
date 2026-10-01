@@ -4,7 +4,7 @@ import { sendMail, SHOP_INBOX } from "@/lib/mailer.server";
 import { siteOrigin } from "@/lib/stripe";
 import { bankAccount, variableSymbol } from "@/lib/bank";
 import type { Order, OrderGroup } from "@/lib/orders";
-import { quoteState } from "@/lib/orders";
+import { groupOrderNumber, quoteState } from "@/lib/orders";
 import { EMAIL_LOGO_CID, EMAIL_LOGO_PNG_BASE64 } from "@/lib/email-logo";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
 import { colorLabel, depthMmFor, faceColorOf, hasSeparateFace, materialById, variantLabel } from "@/lib/options";
@@ -24,7 +24,7 @@ function esc(v: string): string {
 }
 
 function orderNo(group: OrderGroup): string {
-  return group.id.split("-")[0].toUpperCase();
+  return groupOrderNumber(group);
 }
 
 function orderUrl(group: OrderGroup): string {

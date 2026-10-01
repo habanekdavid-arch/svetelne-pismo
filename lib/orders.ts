@@ -13,6 +13,16 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 
 export const ORDER_STATUSES: OrderStatus[] = ["new", "in_progress", "done", "cancelled"];
 
+/**
+ * The order number people see: "ROZTO-" and the checkout's running number,
+ * from 1450 up. A sign from before checkouts existed has no such number and
+ * keeps its old "ROZ-0042" form, so it can never be mistaken for a new one.
+ */
+export function formatOrderNumber(groupNumber: number | null | undefined, orderId?: number): string {
+  if (groupNumber != null) return `ROZTO-${groupNumber}`;
+  return `ROZ-${String(orderId ?? 0).padStart(4, "0")}`;
+}
+
 /** "1 objednávka" / "3 objednávky" / "7 objednávok" — Slovak counts three ways. */
 export function orderCountLabel(count: number): string {
   const word = count === 1 ? "objednávka" : count >= 2 && count <= 4 ? "objednávky" : "objednávok";
@@ -30,6 +40,8 @@ export type Order = {
   priceCents: number | null;
   /** The checkout this sign belonged to; null for older rows. */
   groupId: string | null;
+  /** The order number to show — ROZTO-1450 — shared by every sign of one checkout. */
+  number: string;
   status: OrderStatus;
   createdAt: string;
 };
@@ -52,6 +64,7 @@ function mapRow(row: Row): Order {
     price: Number(row.price),
     priceCents: row.price_cents == null ? null : Number(row.price_cents),
     groupId: row.group_id ?? null,
+    number: formatOrderNumber(row.group_number == null ? null : Number(row.group_number), Number(row.id)),
     status: row.status as OrderStatus,
     createdAt: new Date(row.created_at).toISOString(),
   };
@@ -82,7 +95,7 @@ export async function createOrder(input: {
       ${input.priceCents ?? input.price * 100},
       ${input.groupId ?? null}
     )
-    RETURNING *
+    RETURNING *, (SELECT g.number FROM order_groups g WHERE g.id = orders.group_id) AS group_number
   `) as Row[];
   return mapRow(rows[0]);
 }
@@ -90,7 +103,9 @@ export async function createOrder(input: {
 export async function listOrdersForUser(userId: string): Promise<Order[]> {
   const sql = await getDb();
   const rows = (await sql`
-    SELECT * FROM orders WHERE user_id = ${userId} ORDER BY created_at DESC
+    SELECT o.*, g.number AS group_number
+    FROM orders o LEFT JOIN order_groups g ON g.id = o.group_id
+    WHERE o.user_id = ${userId} ORDER BY o.created_at DESC
   `) as Row[];
   return rows.map(mapRow);
 }
@@ -98,13 +113,21 @@ export async function listOrdersForUser(userId: string): Promise<Order[]> {
 export async function getOrder(id: number): Promise<Order | null> {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   const sql = await getDb();
-  const rows = (await sql`SELECT * FROM orders WHERE id = ${id}`) as Row[];
+  const rows = (await sql`
+    SELECT o.*, g.number AS group_number
+    FROM orders o LEFT JOIN order_groups g ON g.id = o.group_id
+    WHERE o.id = ${id}
+  `) as Row[];
   return rows[0] ? mapRow(rows[0]) : null;
 }
 
 export async function listAllOrders(): Promise<Order[]> {
   const sql = await getDb();
-  const rows = (await sql`SELECT * FROM orders ORDER BY created_at DESC`) as Row[];
+  const rows = (await sql`
+    SELECT o.*, g.number AS group_number
+    FROM orders o LEFT JOIN order_groups g ON g.id = o.group_id
+    ORDER BY o.created_at DESC
+  `) as Row[];
   return rows.map(mapRow);
 }
 
@@ -209,8 +232,15 @@ export type OrderGroup = {
   packetaPacketId: string | null;
   packetaBarcode: string | null;
   packetaError: string | null;
+  /** The running order number (1450, 1451, …); see formatOrderNumber. */
+  number: number | null;
   createdAt: string;
 };
+
+/** "ROZTO-1450" for a checkout. */
+export function groupOrderNumber(group: OrderGroup): string {
+  return group.number != null ? formatOrderNumber(group.number) : group.id.split("-")[0].toUpperCase();
+}
 
 function json<T>(value: unknown): T | null {
   if (value == null) return null;
@@ -239,6 +269,7 @@ function mapGroup(row: Row): OrderGroup {
     packetaPacketId: row.packeta_packet_id ?? null,
     packetaBarcode: row.packeta_barcode ?? null,
     packetaError: row.packeta_error ?? null,
+    number: row.number == null ? null : Number(row.number),
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
@@ -338,7 +369,9 @@ export async function setGroupPaymentStatus(
 export async function listOrdersForGroup(groupId: string): Promise<Order[]> {
   const sql = await getDb();
   const rows = (await sql`
-    SELECT * FROM orders WHERE group_id = ${groupId} ORDER BY id ASC
+    SELECT o.*, g.number AS group_number
+    FROM orders o LEFT JOIN order_groups g ON g.id = o.group_id
+    WHERE o.group_id = ${groupId} ORDER BY o.id ASC
   `) as Row[];
   return rows.map(mapRow);
 }

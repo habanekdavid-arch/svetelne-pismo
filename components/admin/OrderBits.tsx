@@ -13,12 +13,6 @@ import { deliveryPlace, DELIVERY_METHOD_LABEL } from "@/lib/shipping";
 // Pieces shared by the admin's order list (app/admin/page.tsx) and one
 // order's own page (app/admin/objednavka/[id]).
 
-// Human-facing order number. The database id stays visible next to it so a
-// row is still findable by its real primary key.
-export function orderNumber(id: number): string {
-  return `ROZ-${String(id).padStart(4, "0")}`;
-}
-
 export function Label({ children }: { children: React.ReactNode }) {
   return (
     <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--color-muted)" }}>

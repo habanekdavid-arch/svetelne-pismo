@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { listUserProfiles, type Address, type UserProfile } from "@/lib/profile";
@@ -10,7 +10,7 @@ import { formatEur } from "@/lib/vat";
 import AdminNav from "@/components/admin/AdminNav";
 import VerifyUserButton from "@/components/admin/VerifyUserButton";
 import DeleteUserButton from "@/components/admin/DeleteUserButton";
-import { orderNumber, Label } from "@/components/admin/OrderBits";
+import { Label } from "@/components/admin/OrderBits";
 
 export const metadata: Metadata = {
   title: "Používatelia | rozsvieťTO",
@@ -27,7 +27,9 @@ export default async function AdminUsersPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const session = await getAdminIdentity();
-  if (!session) redirect("/admin/prihlasenie");
+  // Only a signed-in account listed in ADMIN_EMAILS gets in; anyone else
+  // sees an ordinary 404, as if there were no admin at all.
+  if (!session) notFound();
 
   const { q: rawQ } = await searchParams;
   const q = (rawQ ?? "").trim().toLowerCase();
@@ -170,7 +172,7 @@ export default async function AdminUsersPage({
                         {theirs.slice(0, 5).map((o) => (
                           <li key={o.id}>
                             <Link href={`/admin/objednavka/${o.id}`} className="text-xs underline">
-                              {orderNumber(o.id)} — {new Date(o.createdAt).toLocaleDateString("sk-SK")}
+                              {o.number} — {new Date(o.createdAt).toLocaleDateString("sk-SK")}
                             </Link>
                           </li>
                         ))}
