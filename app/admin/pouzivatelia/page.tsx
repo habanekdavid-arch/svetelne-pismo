@@ -9,6 +9,7 @@ import { listAllOrders, type Order } from "@/lib/orders";
 import { formatEur } from "@/lib/vat";
 import AdminNav from "@/components/admin/AdminNav";
 import VerifyUserButton from "@/components/admin/VerifyUserButton";
+import DeleteUserButton from "@/components/admin/DeleteUserButton";
 import { orderNumber, Label } from "@/components/admin/OrderBits";
 
 export const metadata: Metadata = {
@@ -126,6 +127,9 @@ export default async function AdminUsersPage({
                       <p className="mt-2 text-xs" style={{ color: "var(--color-muted)" }}>
                         Registrovaný {new Date(u.createdAt).toLocaleDateString("sk-SK")}
                       </p>
+                      <div className="mt-2">
+                        <DeleteUserButton userId={u.id} email={u.email} />
+                      </div>
                     </div>
 
                     <div className="min-w-0">

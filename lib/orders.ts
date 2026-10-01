@@ -109,6 +109,26 @@ export async function listAllOrders(): Promise<Order[]> {
 }
 
 /**
+ * Deletes one sign for good — the admin's "Vymazať". Its picture goes with
+ * it, and so does the checkout it belonged to once no sign is left in it.
+ */
+export async function deleteOrder(id: number): Promise<boolean> {
+  if (!Number.isSafeInteger(id) || id <= 0) return false;
+  const sql = await getDb();
+  const rows = (await sql`DELETE FROM orders WHERE id = ${id} RETURNING group_id`) as Row[];
+  if (rows.length === 0) return false;
+  await sql`DELETE FROM order_previews WHERE order_id = ${id}`.catch(() => {});
+  const groupId = rows[0].group_id as string | null;
+  if (groupId) {
+    await sql`
+      DELETE FROM order_groups g
+      WHERE g.id = ${groupId} AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.group_id = g.id)
+    `;
+  }
+  return true;
+}
+
+/**
  * Sets one sign's status. Returns the checkout it belongs to (null for signs
  * placed before checkouts existed) and what it was before, so the caller can
  * tell a real change from a repeat click.
