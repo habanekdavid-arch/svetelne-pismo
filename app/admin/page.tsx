@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { oneLine } from "@/lib/sign-text";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
 import {
   listAllOrders,
@@ -17,7 +17,6 @@ import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
 import { integrations } from "@/lib/integrations.server";
 import StatusBadge from "@/components/orders/StatusBadge";
-import LogoutButton from "@/components/admin/LogoutButton";
 import SelfTestPanel from "@/components/admin/SelfTestPanel";
 import { SHOP_INBOX } from "@/lib/mailer.server";
 import EyebrowPill from "@/components/ui/EyebrowPill";
@@ -45,8 +44,8 @@ const TILE_HINT: Record<string, string> = {
   cancelled:   "Stornované",
 };
 
-// Own password-based login (AdminUser + bcrypt) or an allowlisted account —
-// see lib/admin-auth.ts and app/admin/prihlasenie.
+// Open only to a signed-in account whose e-mail is listed in ADMIN_EMAILS —
+// see lib/admin-auth.ts. There is no separate admin login page.
 //
 // Laid out like vytlacto3d's admin: an eyebrow + heading block with the exit
 // actions on the right, a row of clickable stat tiles that double as the
@@ -57,7 +56,9 @@ export default async function AdminPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const session = await getAdminIdentity();
-  if (!session) redirect("/admin/prihlasenie");
+  // Only a signed-in account listed in ADMIN_EMAILS gets in; anyone else
+  // sees an ordinary 404, as if there were no admin at all.
+  if (!session) notFound();
 
   const { status: statusParam } = await searchParams;
   const activeFilter = isOrderStatus(statusParam) ? statusParam : "all";
@@ -117,9 +118,6 @@ export default async function AdminPage({
             >
               Späť na web
             </Link>
-            {/* Only the password login has an admin cookie to clear. An
-                allowlisted account signs out from its own profile. */}
-            {session.via === "password" && <LogoutButton />}
           </div>
         </div>
 

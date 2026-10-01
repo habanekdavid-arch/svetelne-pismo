@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getAdminIdentity } from "@/lib/admin-auth";
 import {
   getOrder,
@@ -40,7 +40,9 @@ export const metadata: Metadata = {
 // checkout.
 export default async function AdminOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminIdentity();
-  if (!session) redirect("/admin/prihlasenie");
+  // Only a signed-in account listed in ADMIN_EMAILS gets in; anyone else
+  // sees an ordinary 404, as if there were no admin at all.
+  if (!session) notFound();
 
   const { id } = await params;
   const order = await getOrder(Number(id));

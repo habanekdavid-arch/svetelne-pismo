@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { notifySessionChange } from "@/lib/session-client";
 
-// Own login — Prisma User + bcrypt, no Clerk anywhere on the site. Same
-// shape as app/admin/prihlasenie, a separate table/cookie.
+// Own login — Prisma User + bcrypt, no Clerk anywhere on the site. It is
+// also the only way into /admin: an account listed in ADMIN_EMAILS.
 //
 // Laid out like vytlacto3d's sign-in: one card on a tinted page, an eyebrow
 // above the heading, a line explaining what is behind the login, and a show/
