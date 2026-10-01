@@ -47,6 +47,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "rozsvieťTO | Konfigurátor svetelného písma",
   description: "Navrhnite si vlastné svetelné písmo a 3D písmo na mieru. Živý náhľad aj cena.",
+  // Google Search Console — proves the site is ours (meta tag method).
+  verification: { google: "hZXx031MDVjId5fbByhAM1EkZmquyg9FxEAhInTCpXM" },
 };
 
 export default function RootLayout({
