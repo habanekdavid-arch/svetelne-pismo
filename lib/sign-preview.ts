@@ -109,23 +109,38 @@ async function watermark(source: HTMLCanvasElement): Promise<string | null> {
 
   const mark = await watermarkLogo();
   if (mark) {
-    // A diagonal grid of logos, white with a dark edge so it reads on a light
-    // wall and on a night scene alike.
-    const lw = Math.round(w * 0.22);
+    // A diagonal grid of big logos, white with a dark edge so it reads on a
+    // light wall and on a night scene alike — strong enough that the picture
+    // cannot pass for a finished design without us.
+    const lw = Math.round(w * 0.36);
     const lh = Math.round((lw * mark.height) / mark.width);
+    // The same logo in dark ink, drawn just behind the white one as its edge.
+    const ink = document.createElement("canvas");
+    ink.width = mark.width;
+    ink.height = mark.height;
+    const ictx = ink.getContext("2d");
+    if (ictx) {
+      ictx.drawImage(mark, 0, 0);
+      ictx.globalCompositeOperation = "source-in";
+      ictx.fillStyle = "#000";
+      ictx.fillRect(0, 0, ink.width, ink.height);
+    }
+    const edge = Math.max(1.5, w / 600);
     ctx.save();
     ctx.translate(w / 2, h / 2);
     ctx.rotate(-Math.PI / 9);
-    ctx.globalAlpha = 0.32;
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = 3;
-    const stepX = lw * 1.45;
-    const stepY = lh * 2.1;
+    const stepX = lw * 1.3;
+    const stepY = lh * 1.9;
     const reach = Math.hypot(w, h);
     let row = 0;
     for (let y = -reach / 2; y < reach / 2; y += stepY, row++) {
       const shift = row % 2 ? stepX / 2 : 0;
       for (let x = -reach / 2 - shift; x < reach / 2; x += stepX) {
+        ctx.globalAlpha = 0.5;
+        for (const [dx, dy] of [[-edge, 0], [edge, 0], [0, -edge], [0, edge]]) {
+          ctx.drawImage(ink, x + dx, y + dy, lw, lh);
+        }
+        ctx.globalAlpha = 0.72;
         ctx.drawImage(mark, x, y, lw, lh);
       }
     }
