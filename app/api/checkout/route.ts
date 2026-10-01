@@ -23,6 +23,8 @@ import {
 import { oneLine } from "@/lib/sign-text";
 import { deliveryPlace, DELIVERY_METHOD_LABEL, formatAddress } from "@/lib/shipping";
 import { measureSign } from "@/lib/sign-metrics.server";
+import { previewIds } from "@/lib/order-previews.server";
+import { previewToken } from "@/lib/preview-token.server";
 import { formatEur } from "@/lib/vat";
 
 // Opens the Stripe Checkout Session for an order that has already been placed
@@ -72,8 +74,10 @@ export async function POST(req: Request) {
   const no = groupOrderNumber(group);
   // Laid out like vytlacto3d's payment page: one short line per sign —
   // "Svetelný nápis: KAVIAREŇ" over "Alurol – veľké písmená, Svetelné spredu,
-  // 1 ks | výška 400 mm | 2073 × 322 mm" — then "Dodanie" with how it goes.
-  // The full spec (font, colours, depth) goes to the metadata below.
+  // 1 ks | výška 400 mm | 2073 × 322 mm", with the sign's watermarked picture
+  // so the customer sees what they are paying for — then Medzisúčet, Dodanie
+  // and the total. The full spec (font, colours, depth) goes to the metadata.
+  const withPicture = await previewIds(orders.map((o) => o.id)).catch(() => new Set<number>());
   const sizes = await Promise.all(
     orders.map((o) => measureSign(o.config.text, o.config.font, o.config.height).catch(() => null)),
   );
@@ -81,6 +85,8 @@ export async function POST(req: Request) {
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = orders.map((order, i) => {
     const c = order.config;
     const size = sizes[i];
+    // A signed link only Stripe is given (lib/preview-token.server.ts).
+    const token = withPicture.has(order.id) ? previewToken(order.id) : null;
     return {
       quantity: 1,
       price_data: {
@@ -97,28 +103,43 @@ export async function POST(req: Request) {
           ]
             .filter(Boolean)
             .join(" | "),
+          ...(token && origin.startsWith("https://")
+            ? { images: [`${origin}/api/orders/${order.id}/preview?t=${token}`] }
+            : {}),
           metadata: { order_number: no, sign_id: String(order.id) },
         },
       },
     };
   });
 
-  if (group.deliveryCents > 0) {
-    lineItems.push({
-      quantity: 1,
-      price_data: {
-        currency: group.currency.toLowerCase(),
-        unit_amount: group.deliveryCents,
-        product_data: {
-          // For an installation order this line is the quoted mounting.
-          name: quoteState(group) ? "Montáž" : "Dodanie",
-          description: quoteState(group)
-            ? deliveryPlace(group) ?? "Montáž u zákazníka"
-            : DELIVERY_METHOD_LABEL[group.deliveryMethod] ?? group.deliveryMethod,
+  // Delivery as Stripe's own shipping row — "Dodanie / Kuriér DPD" between
+  // Medzisúčet and the total, free collection as "Zadarmo". An (older)
+  // installation order's quoted mounting stays an ordinary line.
+  const installationQuote = Boolean(quoteState(group));
+  const deliveryName = DELIVERY_METHOD_LABEL[group.deliveryMethod] ?? group.deliveryMethod;
+  const shipping: Stripe.Checkout.SessionCreateParams.ShippingOption[] | null = installationQuote
+    ? null
+    : [{
+        shipping_rate_data: {
+          type: "fixed_amount",
+          display_name: deliveryName,
+          fixed_amount: { amount: group.deliveryCents, currency: group.currency.toLowerCase() },
         },
-      },
-    });
-  }
+      }];
+  const deliveryLine: Stripe.Checkout.SessionCreateParams.LineItem | null = group.deliveryCents > 0
+    ? {
+        quantity: 1,
+        price_data: {
+          currency: group.currency.toLowerCase(),
+          unit_amount: group.deliveryCents,
+          product_data: {
+            name: installationQuote ? "Montáž" : "Dodanie",
+            description: installationQuote ? deliveryPlace(group) ?? "Montáž u zákazníka" : deliveryName,
+          },
+        },
+      }
+    : null;
+  if (installationQuote && deliveryLine) lineItems.push(deliveryLine);
 
   // The whole order in the payment's metadata (Stripe → Payments → detail →
   // Metadata), so it can be read there without opening the admin.
@@ -142,8 +163,7 @@ export async function POST(req: Request) {
   };
   // The Stripe account is shared with vytlacto3d, so its own branding is
   // vytlacto3d's. A rozsvieťTO payment carries rozsvieťTO's logo and colour
-  // for this one page. Should Stripe refuse it, the payment opens with the
-  // account's branding rather than not at all.
+  // for this one page.
   const branding: Stripe.Checkout.SessionCreateParams.BrandingSettings | null = origin.startsWith("https://")
     ? {
         logo: { type: "url", url: `${origin}/logo-email.png` },
@@ -151,14 +171,31 @@ export async function POST(req: Request) {
         border_style: "rounded",
       }
     : null;
-  let checkout: Stripe.Checkout.Session;
-  try {
-    checkout = await client.checkout.sessions.create(branding ? { ...params, branding_settings: branding } : params);
-  } catch (err) {
-    if (!branding) throw err;
-    console.error("[stripe] vzhľad rozsvieťTO odmietnutý, platba bez neho:", err);
-    checkout = await client.checkout.sessions.create(params);
+  // Tried in order, each a step plainer — should Stripe refuse the branding
+  // or the shipping row (an older API version, a restricted key without that
+  // permission), the payment still opens rather than not at all.
+  const attempts: Stripe.Checkout.SessionCreateParams[] = [];
+  const withShipping: Stripe.Checkout.SessionCreateParams = shipping ? { ...params, shipping_options: shipping } : params;
+  const asLine: Stripe.Checkout.SessionCreateParams =
+    !installationQuote && deliveryLine ? { ...params, line_items: [...lineItems, deliveryLine] } : params;
+  if (branding) attempts.push({ ...withShipping, branding_settings: branding });
+  attempts.push(withShipping);
+  if (shipping) attempts.push(asLine);
+  let checkout: Stripe.Checkout.Session | null = null;
+  let lastError: unknown = null;
+  for (const attempt of attempts) {
+    try {
+      checkout = await client.checkout.sessions.create(attempt);
+      break;
+    } catch (err) {
+      lastError = err;
+      // Only a request Stripe found invalid is worth retrying plainer; a bad
+      // key or a network failure would fail the same way again.
+      if ((err as { type?: string })?.type !== "StripeInvalidRequestError") break;
+      console.error("[stripe] platba odmietnutá, skúšam jednoduchšiu:", (err as Error).message);
+    }
   }
+  if (!checkout) throw lastError;
 
   if (!checkout.url) {
     return NextResponse.json({ error: "stripe_no_url" }, { status: 502 });
