@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { onSessionChange } from "@/lib/session-client";
 import VerifyCodeForm, { VERIFIED_EVENT } from "@/components/auth/VerifyCodeForm";
 
@@ -15,6 +15,7 @@ const SNOOZE_KEY = "rozsvietto-verify-later";
 
 export default function VerifyEmailNotice() {
   const params = useSearchParams();
+  const router = useRouter();
   const result = params.get("overenie");
   const [pending, setPending] = useState<{ email: string } | null>(null);
   const [open, setOpen] = useState(false);
@@ -84,7 +85,7 @@ export default function VerifyEmailNotice() {
             setThanks(false);
             const target = document.getElementById("konfigurator");
             if (target) target.scrollIntoView({ behavior: "smooth" });
-            else window.location.href = "/#konfigurator";
+            else router.push("/#konfigurator");
           }}
           className="mt-6 rounded-2xl px-6 py-3 text-sm font-bold"
           style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
