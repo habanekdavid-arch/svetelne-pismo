@@ -43,6 +43,12 @@ export const CURVE_SEGMENTS = 10;      // 8–12: smooth enough for round script
 export const BEVEL_SIZE = 0.018;       // small — just enough for edges to catch light
 export const BEVEL_THICKNESS = 0.014;
 export const BEVEL_SEGMENTS = 3;
+/**
+ * Letters are made with a sharp edge where the side meets the face — a real
+ * channel letter's return is bent straight into its face, with no rounding.
+ * So the bevel is off; set this to false only to bring the rounded edge back.
+ */
+export const SHARP_EDGES = true;
 
 // Safety fallback for shapes that fail to extrude WITH a bevel (self-
 // intersecting/overlapping strokes in script fonts are the usual cause) —
@@ -389,7 +395,7 @@ export function buildSolidLetterGeometry(
       // down the whole word.
       let geo: THREE.BufferGeometry | null = null;
       try {
-        geo = extrudeShape(shape, depth, false);
+        geo = extrudeShape(shape, depth, SHARP_EDGES);
       } catch {
         try {
           geo = extrudeShape(shape, depth, true);
