@@ -24,6 +24,7 @@ import EyebrowPill from "@/components/ui/EyebrowPill";
 import { Label, DELIVERY_LABEL } from "@/components/admin/OrderBits";
 import AdminNav from "@/components/admin/AdminNav";
 import { listContactMessages } from "@/lib/contact";
+import { formatBytes } from "@/lib/contact-attachments";
 import { previewIds } from "@/lib/order-previews.server";
 
 export const metadata: Metadata = {
@@ -402,6 +403,22 @@ async function ContactMessagesPanel() {
               <p className="mt-2 whitespace-pre-line" style={{ color: "var(--color-foreground-soft)" }}>
                 {m.message}
               </p>
+              {m.attachments.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {m.attachments.map((a) => (
+                    <li key={a.id}>
+                      <a
+                        href={`/api/admin/contact-attachment/${a.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold underline-offset-2 hover:underline"
+                        style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+                      >
+                        📎 {a.filename}
+                        <span style={{ color: "var(--color-muted)" }}>{formatBytes(a.size)}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

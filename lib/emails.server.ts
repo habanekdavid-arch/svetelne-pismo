@@ -148,7 +148,7 @@ function whereTo(group: OrderGroup): string | null {
 // posts it. The builders are also what the admin's e-mail preview renders
 // (app/admin/emaily), so what is previewed is exactly what is sent.
 
-export type MailAttachment = { filename: string; content: Buffer; cid: string; contentType: string };
+export type MailAttachment = { filename: string; content: Buffer; cid?: string; contentType: string };
 export type BuiltMail = { to: string; subject: string; html: string; replyTo?: string; attachments?: MailAttachment[] };
 
 /** Ordered signs' pictures (lib/order-previews.server.ts), by order id, as base64 JPEG. */
@@ -487,7 +487,18 @@ export function buildShopPaid(group: OrderGroup, orders: Order[]): BuiltMail {
 }
 
 /** A message from the contact form. */
-export function buildShopContact(msg: { name: string; email: string; subject: string; message: string }): BuiltMail {
+export function buildShopContact(msg: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  /** Files the visitor attached — sent on as ordinary attachments. */
+  files?: { filename: string; contentType: string; content: Buffer }[];
+}): BuiltMail {
+  const files = msg.files ?? [];
+  const list = files.length
+    ? `<p style="font-size:13px;color:#57534e;margin:12px 0 0">Prílohy (${files.length}): ${files.map((f) => esc(f.filename)).join(", ")}</p>`
+    : "";
   return {
     to: SHOP_INBOX,
     replyTo: msg.email,
@@ -495,8 +506,10 @@ export function buildShopContact(msg: { name: string; email: string; subject: st
     html: layout(
       "Správa z kontaktného formulára",
       rows([["Od", `${esc(msg.name)} &lt;${esc(msg.email)}&gt;`], ["Predmet", esc(msg.subject)]]) +
-        `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fafaf9;border-radius:12px;padding:12px 14px">${esc(msg.message)}</div>`,
+        `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fafaf9;border-radius:12px;padding:12px 14px">${esc(msg.message)}</div>` +
+        list,
     ),
+    attachments: files.map((f) => ({ filename: f.filename, content: f.content, contentType: f.contentType })),
   };
 }
 
@@ -529,4 +542,4 @@ export const mailPasswordReset = (to: string, link: string) => send(buildPasswor
 export const mailVerifyEmail = (to: string, name: string, link: string, code: string) => send(buildVerifyEmail(to, name, link, code));
 export const mailShopNewOrder = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildShopNewOrder(g, o, p)); };
 export const mailShopPaid = async (g: OrderGroup, o: Order[]) => { await send(buildShopPaid(g, o)); };
-export const mailShopContact = async (m: { name: string; email: string; subject: string; message: string }) => { await send(buildShopContact(m)); };
+export const mailShopContact = async (m: Parameters<typeof buildShopContact>[0]) => { await send(buildShopContact(m)); };

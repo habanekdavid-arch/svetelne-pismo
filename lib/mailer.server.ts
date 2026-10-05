@@ -91,7 +91,7 @@ async function sendViaResend(message: {
       attachments: message.attachments?.map((a) => ({
         filename: a.filename,
         content: a.content.toString("base64"),
-        content_id: a.cid,
+        ...(a.cid ? { content_id: a.cid } : {}),
         content_type: a.contentType,
       })),
     }),
@@ -150,8 +150,12 @@ export type Mail = {
   /** Plain-text alternative; derived from the HTML when left out. */
   text?: string;
   replyTo?: string;
-  /** Inline pictures (cid) — the sign previews in the order e-mails. */
-  attachments?: { filename: string; content: Buffer; cid: string; contentType: string }[];
+  /**
+   * Files sent with the mail. With a `cid` a picture is shown inline (the sign
+   * previews in the order e-mails); without one it is an ordinary attachment
+   * (files from the contact form).
+   */
+  attachments?: { filename: string; content: Buffer; cid?: string; contentType: string }[];
 };
 
 /**
