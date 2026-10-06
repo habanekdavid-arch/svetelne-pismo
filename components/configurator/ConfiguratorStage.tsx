@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ArrowDown, Plus } from "lucide-react";
+import { ArrowDown, Plus, Upload } from "lucide-react";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import { TooltipProvider, useTip } from "@/components/ui/Tooltip";
 import WallPicker from "@/components/configurator/WallPicker";
@@ -46,6 +46,8 @@ import { useSignSize, formatSignSize, formatArea } from "@/lib/useSignSize";
 import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
 import { registerSnapshotter, capturePreview } from "@/lib/sign-preview";
 import VerifyCodeForm from "@/components/auth/VerifyCodeForm";
+import LogoConsultationForm from "@/components/configurator/LogoConsultationForm";
+import { LOGO_ACCEPT, LOGO_HINT, LOGO_RULE_TEXT, MAX_LOGO_BYTES, isLogoFile, logoSignSize, type LogoAsset } from "@/lib/logo";
 import type { DragTarget, ZoomView } from "@/components/three/LetterScene";
 
 /** The whole framed view — kept here too, so the page does not import the 3D chunk. */
@@ -164,6 +166,19 @@ function Configurator() {
 
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // ── Logo mode ──────────────────────────────────────────────────────────────
+  // A customer's own logo instead of a text. While there is one, everything
+  // about the text — what it says, the font — is gone from the steps; the
+  // size, the lighting, the build and the colours stay exactly as they are,
+  // and they now shape the logo. A logo is never paid for from here: its last
+  // step is a request for a consultation (LogoConsultationForm).
+  const [logo, setLogo] = useState<LogoAsset | null>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [consultOpen, setConsultOpen] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const consultRef = useRef<HTMLDivElement | null>(null);
+
   // The price is shown only to a signed-in customer whose e-mail is
   // confirmed (lib/price-access.ts); before that a blurred placeholder and
   // the next step — sign in, or confirm the e-mail.
@@ -204,7 +219,9 @@ function Configurator() {
   const groupsMade = MATERIAL_GROUPS.filter((g) => buildsFor(variant, g.id).length > 0);
 
   // Height is the only dimension chosen; the build turns it into a thickness.
-  const { minMm: minHeight, maxMm: maxHeight } = groupHeightRange(variant, currentMat.group, config.text);
+  // The price list's rules that read the text read a logo as capitals.
+  const ruleText = logo ? LOGO_RULE_TEXT : config.text;
+  const { minMm: minHeight, maxMm: maxHeight } = groupHeightRange(variant, currentMat.group, ruleText);
   const depthMm = depthMmFor(config.material, config.height);
 
   // The letter every font dot is drawn with: the first one the customer typed.
@@ -228,7 +245,13 @@ function Configurator() {
 
   // How big the sign comes out — and it is not a nicety: the price list bills
   // by the square metre of the letters, so this IS the quote's basis.
-  const signSize = useSignSize(config.text, currentFont?.name ?? "", config.height);
+  // A logo is measured once, when it is traced (lib/logo-trace.ts); only its
+  // height changes after that.
+  const textSize = useSignSize(logo ? "" : config.text, currentFont?.name ?? "", config.height);
+  const signSize = useMemo(
+    () => (logo ? logoSignSize(logo.outline, config.height) : textSize),
+    [logo, config.height, textSize],
+  );
   const signSizeLabel = signSize ? formatSignSize(signSize) : null;
   const price = useMemo(() => calculatePrice(config, signSize), [config, signSize]);
   const breakdown = useMemo(() => priceBreakdown(config, signSize), [config, signSize]);
@@ -246,8 +269,10 @@ function Configurator() {
   const draftSize = useDebouncedValue(signSize, 500);
   useEffect(() => {
     if (!touched) return;
-    syncDraft(draftConfig, draftSize);
-  }, [touched, draftConfig, draftSize, syncDraft]);
+    // A logo is not a cart line — it is asked about, not bought. While one is
+    // on screen the draft leaves the cart, and comes back with the text.
+    syncDraft(logo ? { ...draftConfig, text: "" } : draftConfig, draftSize);
+  }, [touched, draftConfig, draftSize, syncDraft, logo]);
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -269,6 +294,9 @@ function Configurator() {
     if (!pendingConfig) return;
     // A sign saved under the old price list is moved onto the new one.
     setConfig(normalizeConfig(pendingConfig.config));
+    // A cart line is always a text — back from a logo to it.
+    setLogo(null);
+    setConsultOpen(false);
     consumePending();
     // Only when the customer asked for it ("Upraviť" in the cart). The same
     // hand-off also restores the half-configured sign after a refresh, and a
@@ -283,8 +311,9 @@ function Configurator() {
   // the variant decides the builds, and the build decides the fonts, heights
   // and colours. One helper settles the whole set at once instead of each
   // control clamping the others behind the scenes.
-  function reconcile(next: Partial<Config>): Config {
+  function reconcile(next: Partial<Config>, asLogo: boolean = !!logo): Config {
     const merged: Config = { ...config, ...next };
+    const text = asLogo ? LOGO_RULE_TEXT : merged.text;
     const v = variantOf(merged);
     const { signType, lightMode } = variantFields(v);
 
@@ -294,9 +323,9 @@ function Configurator() {
     const group = buildsFor(v, wanted).length > 0
       ? wanted
       : (MATERIAL_GROUPS.find((g) => buildsFor(v, g.id).length > 0)?.id ?? wanted);
-    const range = groupHeightRange(v, group, merged.text);
+    const range = groupHeightRange(v, group, text);
     const height = Math.min(range.maxMm, Math.max(range.minMm, merged.height));
-    const material = autoBuild(v, group, merged.text, height) ?? merged.material;
+    const material = autoBuild(v, group, text, height) ?? merged.material;
     const fonts = materialById(material).fonts;
     const font = fonts.includes(merged.font) ? merged.font : fonts[0];
 
@@ -361,6 +390,59 @@ function Configurator() {
     addToCart(config, { open: false, size: signSize });
     patch({ text: "" });
     textInputRef.current?.focus();
+  }
+
+  /** Turns the customer's file into a logo sign — or says why it cannot. */
+  async function handleLogo(file: File) {
+    if (!isLogoFile(file.name)) {
+      setLogoError(`Logo nahrajte ako ${LOGO_HINT.split(" — ")[0]}. PDF, AI alebo CDR nám pošlite cez kontaktný formulár.`);
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setLogoError(`Súbor je príliš veľký — najviac ${Math.round(MAX_LOGO_BYTES / 1024 / 1024)} MB.`);
+      return;
+    }
+    setLogoError(null);
+    setLogoBusy(true);
+    try {
+      const { traceLogo } = await import("@/lib/logo-trace");
+      const outline = await traceLogo(file);
+      setLogo((prev) => {
+        if (prev) URL.revokeObjectURL(prev.url);
+        return { file, url: URL.createObjectURL(file), outline };
+      });
+      // A sign being edited from the cart stays as it was; the logo is a new one.
+      if (editingId) cancelEdit();
+      setConsultOpen(false);
+      patch(reconcile({}, true));
+    } catch (err) {
+      setLogoError(
+        // Our own messages say what is wrong with the file; anything else is
+        // the browser's, and means nothing to a customer.
+        err instanceof Error && err.name === "LogoTraceError"
+          ? err.message
+          : "Logo sa nepodarilo spracovať. Skúste ho prosím uložiť ako PNG alebo SVG.",
+      );
+    } finally {
+      setLogoBusy(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  }
+
+  /** Back to a text sign — the text typed before is still there. */
+  function clearLogo() {
+    setLogo((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setLogoError(null);
+    setConsultOpen(false);
+    patch(reconcile({}, false));
+  }
+
+  function openConsultation() {
+    setConsultOpen(true);
+    requestAnimationFrame(() => consultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
 
   /** Sign back in the middle, photo back in its frame. */
@@ -429,7 +511,7 @@ function Configurator() {
               className="section-heading mt-3 text-2xl md:text-3xl"
               style={{ color: "var(--color-foreground)" }}
             >
-              Nastav si nápis
+              {logo ? "Nastav si logo" : "Nastav si nápis"}
             </h2>
             <p
               className="mt-2 max-w-lg text-[14px] leading-6 tracking-[0.005em]"
@@ -528,6 +610,7 @@ function Configurator() {
             <LetterScene
               zoom={zoom}
               text={config.text}
+              logo={logo?.outline ?? null}
               font={config.font}
               lightColor={litColor}
               letterColor={config.bodyColor}
@@ -601,9 +684,55 @@ function Configurator() {
               typed, and every dot shows the customer's own first letter. ── */}
           <StepCard
             step={1}
-            title="Text a font"
-            aside={currentFont?.name}
+            title={logo ? "Logo" : "Text a font"}
+            aside={logo ? logo.file.name : currentFont?.name}
           >
+            {/* One file picker for both: uploading the first logo and swapping it. */}
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept={LOGO_ACCEPT}
+              className="sr-only"
+              aria-label="Nahrať logo"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleLogo(f); }}
+            />
+            {logo ? (
+              <>
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL */}
+                  <img
+                    src={logo.url}
+                    alt="Nahrané logo"
+                    className="h-16 w-24 shrink-0 rounded-xl object-contain p-1.5 lg:h-12 lg:w-20"
+                    style={{
+                      background: "repeating-conic-gradient(var(--color-surface) 0% 25%, var(--color-background) 0% 50%) 50% / 12px 12px",
+                      border: "1px solid var(--color-border)",
+                    }}
+                  />
+                  <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={logoBusy}
+                      className="rounded-xl px-3 py-2 text-[13px] font-bold disabled:opacity-50"
+                      style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+                    >
+                      {logoBusy ? "Spracúvam logo…" : "Vymeniť logo"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearLogo}
+                      className="rounded-xl px-3 py-2 text-[13px] font-bold"
+                      style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-muted)" }}
+                    >
+                      Späť na text
+                    </button>
+                  </div>
+                </div>
+                <Hint>Logo sa vyrobí ako jeden tvar — rozmer, svietenie, prevedenie aj farby nastavíte v ďalších krokoch.</Hint>
+              </>
+            ) : (
+            <>
             <textarea
               ref={textInputRef}
               value={config.text}
@@ -629,24 +758,41 @@ function Configurator() {
                 onPick={chooseFont}
               />
             </div>
+            {/* The way into logo mode — small, under the text it replaces. */}
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              disabled={logoBusy}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-[13px] font-bold transition hover:opacity-80 disabled:opacity-50 lg:mt-2.5 lg:py-1.5"
+              style={{ border: "1.5px dashed var(--color-border-strong)", color: "var(--color-foreground)" }}
+            >
+              <Upload size={14} strokeWidth={2.4} />
+              {logoBusy ? "Spracúvam logo…" : "Alebo nahrajte vlastné logo"}
+            </button>
+            </>
+            )}
+            {logoError && (
+              <p role="alert" className="mt-2 text-[12.5px] leading-5 text-red-500">{logoError}</p>
+            )}
           </StepCard>
 
           {/* ── 2 · Size ── */}
           <StepCard
             step={2}
             title="Rozmer"
-            aside={`hrúbka písma ${depthMm} mm`}
+            aside={logo ? `hrúbka ${depthMm} mm` : `hrúbka písma ${depthMm} mm`}
           >
             {/* The letter height is typed in — the only way to set it; the whole
                 nápis, which has to fit the wall, is shown beside it. */}
             <div className="grid grid-cols-2 gap-2">
               <HeightInput
+                label={logo ? "Výška loga" : "Výška písmen"}
                 value={config.height}
                 min={minHeight}
                 max={maxHeight}
                 onChange={(v) => apply({ height: v })}
               />
-              <SizeReadout label="Celý nápis" value={signSizeLabel ?? "…"} />
+              <SizeReadout label={logo ? "Celé logo" : "Celý nápis"} value={signSizeLabel ?? "…"} />
             </div>
           </StepCard>
         </div>
@@ -773,7 +919,7 @@ function Configurator() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
-                Cena s DPH
+                {logo ? "Orientačná cena s DPH" : "Cena s DPH"}
               </div>
               {signedIn ? (
                 <>
@@ -784,9 +930,11 @@ function Configurator() {
                     {formatEur(price)}
                   </div>
                   <div className="mt-1 text-xs" style={{ color: "var(--color-muted-light)" }}>
-                    {atMinimum
-                      ? `Minimálna cena za nápis je ${MIN_PRICE_GROSS} € s DPH.`
-                      : "Cena je vrátane DPH. Doprava sa pripočíta v košíku."}
+                    {logo
+                      ? "Presnú cenu loga potvrdíme po konzultácii — teraz nič neplatíte."
+                      : atMinimum
+                        ? `Minimálna cena za nápis je ${MIN_PRICE_GROSS} € s DPH.`
+                        : "Cena je vrátane DPH. Doprava sa pripočíta v košíku."}
                   </div>
                 </>
               ) : (
@@ -872,15 +1020,17 @@ function Configurator() {
             <div className="grid gap-2 sm:grid-cols-2">
               <TechLine label="Variant" value={variantById(variant).name} />
               <TechLine label="Materiál" value={currentMat.displayName} />
-              <TechLine label="Písmo" value={currentFont?.name ?? "—"} />
-              <TechLine label="Výška písmen" value={`${config.height} mm`} />
+              {logo
+                ? <TechLine label="Logo" value={logo.file.name} />
+                : <TechLine label="Písmo" value={currentFont?.name ?? "—"} />}
+              <TechLine label={logo ? "Výška loga" : "Výška písmen"} value={`${config.height} mm`} />
               <TechLine label="Hrúbka" value={`${depthMm} mm`} />
               {/* The size that has to fit the wall: the whole inscription,
                   spaces and all. It is what the customer measures the façade
                   by — but it is NOT what the quote is worked out from. */}
-              <TechLine label="Celkový rozmer nápisu" value={signSizeLabel ?? "—"} />
+              <TechLine label={logo ? "Celkový rozmer loga" : "Celkový rozmer nápisu"} value={signSizeLabel ?? "—"} />
               <TechLine
-                label={breakdown.volumeCm3 !== null ? "Objem materiálu" : "Účtovaná plocha písmen"}
+                label={breakdown.volumeCm3 !== null ? "Objem materiálu" : logo ? "Účtovaná plocha častí loga" : "Účtovaná plocha písmen"}
                 value={
                   breakdown.volumeCm3 !== null
                     ? `${Math.round(breakdown.volumeCm3)} cm³`
@@ -907,7 +1057,29 @@ function Configurator() {
               for changes: save it back under the same line, or leave it as it
               was. ── */}
           <div className="mt-4 flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-            {editingId ? (
+            {logo ? (
+              // A logo's last step: a consultation, never a payment.
+              <>
+                <button
+                  onClick={clearLogo}
+                  className="btn-press w-full rounded-2xl px-6 py-4 text-sm font-bold sm:w-auto"
+                  style={{
+                    background: "var(--color-background)",
+                    color: "var(--color-foreground)",
+                    border: "2px solid var(--color-foreground)",
+                  }}
+                >
+                  Späť na text
+                </button>
+                <button
+                  onClick={openConsultation}
+                  className="btn-press w-full rounded-2xl px-12 py-4 text-base font-black tracking-wide shadow-[0_10px_24px_-10px_rgba(255,174,0,.9)] sm:w-auto"
+                  style={{ background: "var(--accent)", color: "var(--accent-foreground)", border: "2px solid var(--accent)" }}
+                >
+                  Objednať konzultáciu k logu
+                </button>
+              </>
+            ) : editingId ? (
               <>
                 <button
                   onClick={cancelEdit}
@@ -968,6 +1140,23 @@ function Configurator() {
               </>
             )}
           </div>
+
+          {logo && consultOpen && signSize && (
+            <div
+              ref={consultRef}
+              className="mt-4 rounded-[22px] p-4 sm:p-5"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+            >
+              <p className="text-[15px] font-extrabold" style={{ color: "var(--color-foreground)" }}>
+                Konzultácia k logu
+              </p>
+              <p className="mt-1 mb-4 text-[13px] leading-5" style={{ color: "var(--color-muted)" }}>
+                Každé logo je iné — pozrieme sa na detaily, hrúbky čiar aj svietenie a pošleme vám cenovú ponuku.
+                Kontakt nám nechajte tu.
+              </p>
+              <LogoConsultationForm logo={logo.file} config={config} size={signSize} />
+            </div>
+          )}
         </div>
 
       </div>
@@ -1046,11 +1235,13 @@ function StepCard({
  * — so "4" on the way to "450" is not snapped up to the minimum mid-word.
  */
 function HeightInput({
+  label,
   value,
   min,
   max,
   onChange,
 }: {
+  label: string;
   value: number;
   min: number;
   max: number;
@@ -1075,7 +1266,7 @@ function HeightInput({
           from the price list for the chosen svietenie and prevedenie, and a
           typed value outside it is settled back into it. */}
       <span className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-muted)" }}>
-        <span>Výška písmen</span>
+        <span>{label}</span>
         <span className="normal-case tracking-normal" style={{ color: "var(--color-foreground-soft)" }}>
           od {min} do {max} mm
         </span>
@@ -1088,7 +1279,7 @@ function HeightInput({
           onChange={(e) => setDraft(e.target.value.replace(/[^\d,.]/g, ""))}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") { commit(); (e.target as HTMLInputElement).blur(); } }}
-          aria-label={`Výška písmen v mm, ${min} až ${max}`}
+          aria-label={`${label} v mm, ${min} až ${max}`}
           className="w-full min-w-0 bg-transparent text-[18px] font-black leading-tight tabular-nums outline-none"
           style={{ color: "var(--color-foreground)" }}
         />

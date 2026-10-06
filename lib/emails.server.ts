@@ -4,6 +4,7 @@ import { sendMail, SHOP_INBOX } from "@/lib/mailer.server";
 import { siteOrigin } from "@/lib/stripe";
 import { bankAccount, variableSymbol } from "@/lib/bank";
 import type { Order, OrderGroup } from "@/lib/orders";
+import type { Config } from "@/lib/types";
 import { groupOrderNumber, quoteState } from "@/lib/orders";
 import { EMAIL_LOGO_CID, EMAIL_LOGO_PNG_BASE64 } from "@/lib/email-logo";
 import { INSTALLATION_METHOD, PAYMENT_METHOD_LABEL } from "@/lib/payment-methods";
@@ -513,6 +514,95 @@ export function buildShopContact(msg: {
   };
 }
 
+// ── Logo: a consultation, not an order ───────────────────────────────────────
+
+export type LogoConsultationMail = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  note: string;
+  config: Config;
+  widthMm: number;
+  heightMm: number;
+  /** With VAT, in cents — what the configurator showed; a guide only. */
+  priceCents: number | null;
+  logo: { filename: string; contentType: string; content: Buffer };
+  /** Watermarked preview, base64 JPEG. */
+  preview: string | null;
+};
+
+function logoSpec(m: LogoConsultationMail): [string, string][] {
+  const c = m.config;
+  return [
+    ["Rozmer loga", `${Math.round(m.widthMm)} × ${Math.round(m.heightMm)} mm`],
+    ["Prevedenie", esc(materialById(c.material).displayName)],
+    ["Hrúbka", `${depthMmFor(c.material, c.height)} mm`],
+    ["Svietenie", esc(variantLabel(c))],
+    hasSeparateFace(c.material)
+      ? ["Farby", `čelo ${esc(colorLabel(faceColorOf(c)))}, telo ${esc(colorLabel(c.bodyColor))}`]
+      : ["Farba", esc(colorLabel(c.bodyColor))],
+  ];
+}
+
+function logoPreview(m: LogoConsultationMail): { html: string; attachments: MailAttachment[] } {
+  if (!m.preview) return { html: "", attachments: [] };
+  const cid = `logo-nahlad-${m.id}@rozsvietto`;
+  return {
+    html: `<div style="margin:10px 0 14px">
+      <img src="cid:${cid}" alt="Náhľad loga z konfigurátora" width="512" style="display:block;width:100%;max-width:512px;height:auto;border-radius:12px;border:1px solid #e7e5e4">
+      <div style="font-size:12px;color:#78716c;margin-top:4px">Náhľad z konfigurátora</div>
+    </div>`,
+    attachments: [{ filename: `nahlad-logo-${m.id}.jpg`, content: Buffer.from(m.preview, "base64"), cid, contentType: "image/jpeg" }],
+  };
+}
+
+/** To the shop: who, what, and the logo itself to work from. */
+export function buildShopLogoConsultation(m: LogoConsultationMail): BuiltMail {
+  const preview = logoPreview(m);
+  const price = m.priceCents !== null ? formatEur(m.priceCents / 100) : null;
+  return {
+    to: SHOP_INBOX,
+    replyTo: m.email,
+    subject: `Konzultácia k logu č. ${m.id} — ${m.name}`,
+    html: layout(
+      "Nová žiadosť o konzultáciu k logu",
+      rows([
+        ["Meno", esc(m.name)],
+        ["E-mail", `<a href="mailto:${esc(m.email)}">${esc(m.email)}</a>`],
+        ["Telefón", esc(m.phone)],
+      ]) +
+        rows([...logoSpec(m), ["Orientačná cena", price ? `${price} s DPH (z konfigurátora)` : null]]) +
+        (m.note ? `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fafaf9;border-radius:12px;padding:12px 14px;margin-bottom:12px">${esc(m.note)}</div>` : "") +
+        preview.html +
+        p(`Logo zákazníka je v prílohe (${esc(m.logo.filename)}). Žiadosť nájdete aj v administrácii.`),
+    ),
+    attachments: [
+      ...preview.attachments,
+      { filename: m.logo.filename, content: m.logo.content, contentType: m.logo.contentType },
+    ],
+  };
+}
+
+/** To the customer: what we received and what happens next — nothing to pay. */
+export function buildLogoConsultationReceived(m: LogoConsultationMail, showPrice: boolean): BuiltMail {
+  const preview = logoPreview(m);
+  const price = showPrice && m.priceCents !== null ? formatEur(m.priceCents / 100) : null;
+  return {
+    to: m.email,
+    subject: `Žiadosť o konzultáciu k logu č. ${m.id} — rozsvieťTO`,
+    html: layout(
+      "Žiadosť o konzultáciu k logu sme prijali",
+      p(`Dobrý deň ${esc(m.name)},`) +
+        p("ďakujeme za vaše logo. Pozrieme sa, ako sa dá najlepšie vyrobiť — drobné detaily, hrúbky čiar aj svietenie — a ozveme sa vám s cenovou ponukou. Teraz nič neplatíte.") +
+        rows([...logoSpec(m), ["Orientačná cena", price ? `${price} s DPH — presnú cenu potvrdíme v ponuke` : null]]) +
+        preview.html +
+        p(`Ak chcete niečo doplniť, odpovedzte na tento e-mail alebo zavolajte na ${CONTACT_PHONE}.`),
+    ),
+    attachments: preview.attachments,
+  };
+}
+
 // ── Senders ──────────────────────────────────────────────────────────────────
 
 /** The logo, inside every message (lib/email-logo.ts). */
@@ -543,3 +633,5 @@ export const mailVerifyEmail = (to: string, name: string, link: string, code: st
 export const mailShopNewOrder = async (g: OrderGroup, o: Order[], p?: Previews) => { await send(buildShopNewOrder(g, o, p)); };
 export const mailShopPaid = async (g: OrderGroup, o: Order[]) => { await send(buildShopPaid(g, o)); };
 export const mailShopContact = async (m: Parameters<typeof buildShopContact>[0]) => { await send(buildShopContact(m)); };
+export const mailShopLogoConsultation = async (m: LogoConsultationMail) => { await send(buildShopLogoConsultation(m)); };
+export const mailLogoConsultationReceived = async (m: LogoConsultationMail, showPrice: boolean) => { await send(buildLogoConsultationReceived(m, showPrice)); };

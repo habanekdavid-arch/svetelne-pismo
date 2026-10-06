@@ -9,12 +9,17 @@ import { MATERIALS, OPAL_WHITE, fontOptions, finishForColor, faceKindFor, type F
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   useTTFFont,
-  buildSolidLetterGeometry,
+  buildSolidGeometry,
   buildHaloGlowTexture,
   capHeightLocal,
+  textShapeLines,
+  logoShapeLines,
+  GLYPH_SIZE,
+  type ShapeLines,
   MATERIAL_GROUP,
 } from "@/components/three/letterGeometry";
 import type { SignType, LightModeId, MaterialOption } from "@/lib/types";
+import type { LogoOutline } from "@/lib/logo";
 import { DEFAULT_WALL, wallSurface, wallTint as tintOf, type Wall } from "@/lib/walls";
 import { useWallTexture, usePhotoTexture } from "@/components/three/wallTexture";
 import { mmToUnits } from "@/components/three/scale";
@@ -627,9 +632,37 @@ function LetterVariant({ material, fallback, geometry, ...rest }: LetterVariantP
 // Suspense boundary (see SceneContent) so switching fonts only hides the
 // letters themselves, never the rest of the scene (lights/HDRI/controls).
 
+// What the sign is made of — a text in a font, or the customer's logo — as
+// rows of shapes, and how tall the thing the customer orders the height of
+// is in those shapes' units: a text's capital, a logo's whole height.
+export type SignSource =
+  | { kind: "text"; fontFile: string; text: string }
+  | { kind: "logo"; outline: LogoOutline };
+
+type ShapesRender = (lines: ShapeLines, unitHeight: number) => React.ReactNode;
+
+function TextShapes({ fontFile, text, children }: { fontFile: string; text: string; children: ShapesRender }) {
+  const font = useTTFFont(fontFile);
+  const lines = useMemo(() => textShapeLines(font, text), [font, text]);
+  return <>{children(lines, capHeightLocal(font))}</>;
+}
+
+function LogoShapes({ outline, children }: { outline: LogoOutline; children: ShapesRender }) {
+  const lines = useMemo(() => logoShapeLines(outline), [outline]);
+  return <>{children(lines, GLYPH_SIZE)}</>;
+}
+
+/** Suspends while a text's font loads; a logo is there at once. */
+function SignShapes({ source, children }: { source: SignSource; children: ShapesRender }) {
+  return source.kind === "logo"
+    ? <LogoShapes outline={source.outline}>{children}</LogoShapes>
+    : <TextShapes fontFile={source.fontFile} text={source.text}>{children}</TextShapes>;
+}
+
 type LetterGeometryHostProps = {
-  fontFile: string;
-  text: string;
+  lines: ShapeLines;
+  /** How tall, in the shapes' own units, the part whose height is ordered is. */
+  unitHeight: number;
   /** Ordered letter height — the cap height, in millimetres. */
   heightMm: number;
   /** Depth of the build in world units, already at true scale. */
@@ -649,21 +682,19 @@ type LetterGeometryHostProps = {
 };
 
 function LetterGeometryHost({
-  fontFile, text, heightMm, worldDepth, material, matOpt, baseColor, glowColor, ls, isIlluminated,
+  lines, unitHeight, heightMm, worldDepth, material, matOpt, baseColor, glowColor, ls, isIlluminated,
   faceColor, faceKind, fallbackTriple, onFailedGlyphs, onBounds,
 }: LetterGeometryHostProps) {
-  const font = useTTFFont(fontFile);
-
-  // True scale: the capital of THIS font is made exactly as tall as ordered,
-  // in the same millimetres the brick wall is drawn in (components/three/
-  // scale.ts). The geometry is built at the font's own size and scaled as a
-  // whole, so its depth has to be given in that unscaled space.
-  const signScale = mmToUnits(heightMm) / capHeightLocal(font);
+  // True scale: the capital of THIS font (or the whole logo) is made exactly
+  // as tall as ordered, in the same millimetres the brick wall is drawn in
+  // (components/three/scale.ts). The geometry is built at the font's own size
+  // and scaled as a whole, so its depth has to be given in that unscaled space.
+  const signScale = mmToUnits(heightMm) / unitHeight;
   const localDepth = Math.max(MIN_DEPTH_UNITS, worldDepth / signScale);
 
   const build = useMemo(
-    () => buildSolidLetterGeometry(font, text, localDepth),
-    [font, text, localDepth],
+    () => buildSolidGeometry(lines, localDepth),
+    [lines, localDepth],
   );
 
   // How big the sign is on the wall, so the camera can stand back far enough
@@ -720,8 +751,8 @@ function LetterGeometryHost({
 // centre, so both line up by construction at any scale.
 
 type HaloGlowProps = {
-  fontFile: string;
-  text: string;
+  lines: ShapeLines;
+  unitHeight: number;
   color: THREE.Color;
   gain: number;
   /** Ordered letter height in mm — the glow is scaled exactly like the letters. */
@@ -732,13 +763,12 @@ type HaloGlowProps = {
   z: number;
 };
 
-function HaloGlow({ fontFile, text, color, gain, heightMm, reachMm, y, z }: HaloGlowProps) {
-  const font = useTTFFont(fontFile); // already cached by the letters themselves
-  const scale = mmToUnits(heightMm) / capHeightLocal(font);
+function HaloGlow({ lines, unitHeight, color, gain, heightMm, reachMm, y, z }: HaloGlowProps) {
+  const scale = mmToUnits(heightMm) / unitHeight;
   // The light's reach is a real distance: what LEDs a few centimetres off the
   // wall throw, the same for a 12 cm letter as for a 2 m one.
   const reach = mmToUnits(reachMm) / scale;
-  const build = useMemo(() => buildHaloGlowTexture(font, text, reach), [font, text, reach]);
+  const build = useMemo(() => buildHaloGlowTexture(lines, reach), [lines, reach]);
 
   useEffect(() => () => build.texture?.dispose(), [build]);
 
@@ -903,6 +933,8 @@ function SignPlacement({
 
 type LetterSceneProps = {
   text: string;
+  /** The customer's logo — made instead of the text when there is one. */
+  logo?: LogoOutline | null;
   /** Preview-only: the part of the frame shown, zoomed in with the mouse wheel. */
   zoom?: ZoomView;
   /** Preview-only: the surface the sign is shown against. */
@@ -1144,6 +1176,7 @@ export default function LetterScene(props: LetterSceneProps) {
 
 function SceneContent({
   text,
+  logo,
   wall = DEFAULT_WALL,
   backgroundUrl,
   font,
@@ -1247,6 +1280,12 @@ function SceneContent({
   const debouncedText      = useDebouncedValue(displayText, TEXT_DEBOUNCE_MS);
   const debouncedThickness = useDebouncedValue(thickness, TEXT_DEBOUNCE_MS);
   const debouncedHeight    = useDebouncedValue(height, TEXT_DEBOUNCE_MS);
+  // A logo replaces the text outright; it changes by a file being picked,
+  // not by typing, so it is not debounced.
+  const source = useMemo<SignSource>(
+    () => (logo ? { kind: "logo", outline: logo } : { kind: "text", fontFile: fontOpt.file, text: debouncedText }),
+    [logo, fontOpt.file, debouncedText],
+  );
   // True depth: a 60 mm profile on a 300 mm letter is a fifth of its height.
   const worldDepth = Math.max(MIN_DEPTH_UNITS, mmToUnits(debouncedThickness));
 
@@ -1414,9 +1453,10 @@ function SceneContent({
       {/* ── The glow the wall actually carries ── */}
       {wallGlowOn && (
         <Suspense fallback={null}>
+          <SignShapes source={source}>{(lines, unitHeight) => (
           <HaloGlow
-            fontFile={fontOpt.file}
-            text={debouncedText}
+            lines={lines}
+            unitHeight={unitHeight}
             // The aura is light that got out of the sign, so it is the colour
             // it got out in: through a red face it is red. A halo's light goes
             // backwards and never passes the face — there it is the LED's.
@@ -1427,6 +1467,7 @@ function SceneContent({
             y={0.08}
             z={wallZ + HALO_GLOW_WALL_OFFSET}
           />
+          )}</SignShapes>
         </Suspense>
       )}
 
@@ -1437,9 +1478,10 @@ function SceneContent({
           {/* Own Suspense boundary — switching fonts only hides the letters
               while their TTF loads, never the wall/lights/HDRI. */}
           <Suspense fallback={null}>
+            <SignShapes source={source}>{(lines, unitHeight) => (
             <LetterGeometryHost
-              fontFile={fontOpt.file}
-              text={debouncedText}
+              lines={lines}
+              unitHeight={unitHeight}
               heightMm={debouncedHeight}
               worldDepth={worldDepth}
               material={material}
@@ -1454,6 +1496,7 @@ function SceneContent({
               onFailedGlyphs={onFailedGlyphs}
               onBounds={setSignBounds}
             />
+            )}</SignShapes>
           </Suspense>
         </group>
       </Center>
