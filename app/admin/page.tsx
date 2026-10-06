@@ -13,7 +13,7 @@ import {
   quoteState,
   type OrderStatus,
 } from "@/lib/orders";
-import { fontOptions, MATERIALS, hasSeparateFace, faceColorOf, colorLabel, variantLabel } from "@/lib/options";
+import { fontOptions, MATERIALS, hasSeparateFace, faceColorOf, colorLabel, variantLabel, depthMmFor, materialById } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import AdminOrderActions from "@/components/admin/AdminOrderActions";
 import { integrations } from "@/lib/integrations.server";
@@ -24,6 +24,7 @@ import EyebrowPill from "@/components/ui/EyebrowPill";
 import { Label, DELIVERY_LABEL } from "@/components/admin/OrderBits";
 import AdminNav from "@/components/admin/AdminNav";
 import { listContactMessages } from "@/lib/contact";
+import { listLogoConsultations } from "@/lib/logo-consultations";
 import { formatBytes } from "@/lib/contact-attachments";
 import { previewIds } from "@/lib/order-previews.server";
 
@@ -133,6 +134,10 @@ export default async function AdminPage({
         {/* Buttons that exercise each live service — a test e-mail, the
             database, Stripe and the server's own price calculation. */}
         <SelfTestPanel defaultTo={SHOP_INBOX} />
+
+        {/* Logos sent from the configurator for a consultation — nothing paid,
+            the shop answers each with an offer. */}
+        <LogoConsultationsPanel />
 
         {/* Messages from the contact form — stored even when e-mail is down,
             so this is where nothing gets lost. */}
@@ -364,6 +369,82 @@ function IntegrationsPanel() {
           </li>
         ))}
       </ul>
+    </details>
+  );
+}
+
+async function LogoConsultationsPanel() {
+  const requests = await listLogoConsultations(30).catch(() => null);
+  return (
+    <details
+      open={!!requests && requests.length > 0}
+      className="mb-4 rounded-3xl border p-5"
+      style={{ background: "var(--color-background)", borderColor: "var(--color-border)" }}
+    >
+      <summary className="cursor-pointer text-sm font-extrabold" style={{ color: "var(--color-foreground)" }}>
+        Konzultácie k logu — {requests === null ? "nepodarilo sa načítať" : requests.length === 0 ? "žiadne" : `posledných ${requests.length}`}
+      </summary>
+      {requests && requests.length > 0 && (
+        <ul className="mt-4 space-y-3">
+          {requests.map((r) => {
+            const c = r.config;
+            const colours = hasSeparateFace(c.material)
+              ? `čelo ${colorLabel(faceColorOf(c))}, telo ${colorLabel(c.bodyColor)}`
+              : colorLabel(c.bodyColor);
+            return (
+              <li
+                key={r.id}
+                className="rounded-2xl px-4 py-3 text-sm"
+                style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="font-bold" style={{ color: "var(--color-foreground)" }}>
+                    Logo č. {r.id} — {r.name}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+                    {formatDateTime(r.createdAt)}
+                  </p>
+                </div>
+                <p className="mt-0.5 text-xs" style={{ color: "var(--color-muted)" }}>
+                  <a href={`mailto:${r.email}?subject=${encodeURIComponent(`Ponuka k logu č. ${r.id}`)}`} className="underline">
+                    {r.email}
+                  </a>{" "}
+                  · <a href={`tel:${r.phone}`} className="underline">{r.phone}</a>
+                </p>
+                <p className="mt-2" style={{ color: "var(--color-foreground-soft)" }}>
+                  {r.widthMm} × {r.heightMm} mm · {materialById(c.material).displayName} · hrúbka {depthMmFor(c.material, c.height)} mm ·{" "}
+                  {variantLabel(c).toLocaleLowerCase("sk-SK")} · {colours}
+                  {r.priceCents !== null && <> · orientačne <strong>{formatEur(r.priceCents / 100)}</strong></>}
+                </p>
+                {r.note && (
+                  <p className="mt-2 whitespace-pre-line" style={{ color: "var(--color-foreground-soft)" }}>
+                    {r.note}
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <a
+                    href={`/api/admin/logo-consultation/${r.id}?file=logo`}
+                    className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold hover:underline"
+                    style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+                  >
+                    📎 {r.logoFilename}
+                    <span style={{ color: "var(--color-muted)" }}>{formatBytes(r.logoSize)}</span>
+                  </a>
+                  {r.hasPreview && (
+                    <a
+                      href={`/api/admin/logo-consultation/${r.id}?file=preview`}
+                      className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold hover:underline"
+                      style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+                    >
+                      🖼 Náhľad z konfigurátora
+                    </a>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </details>
   );
 }

@@ -27,6 +27,7 @@ import { FontLoader, type Font } from "three-stdlib";
 import { TTFLoader } from "three/examples/jsm/loaders/TTFLoader.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { signLines } from "@/lib/sign-text";
+import type { LogoContour, LogoOutline } from "@/lib/logo";
 
 export type { Font };
 
@@ -368,12 +369,53 @@ function extrudeShape(shape: THREE.Shape, depth: number, noBevel: boolean): THRE
   return geometry;
 }
 
+// ── What gets extruded: a text's glyphs, or a logo's pieces ─────────────────
+// Both come down to rows of shapes in the same units — a text one row per
+// line, a logo a single row — so the extrusion and the wall glow below are
+// one code path for either.
+
+export type ShapeLines = THREE.Shape[][];
+
+/** The glyph shapes of each line of this text, at GLYPH_SIZE. */
+export function textShapeLines(font: Font, text: string): ShapeLines {
+  return signLines(text).map((line) => repairShapes(font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[]));
+}
+
+function contourPath<T extends THREE.Path>(path: T, c: LogoContour): T {
+  path.moveTo(c.x * GLYPH_SIZE, c.y * GLYPH_SIZE);
+  for (const s of c.segments) {
+    if (s.t === "Q") path.quadraticCurveTo(s.cx * GLYPH_SIZE, s.cy * GLYPH_SIZE, s.x * GLYPH_SIZE, s.y * GLYPH_SIZE);
+    else path.lineTo(s.x * GLYPH_SIZE, s.y * GLYPH_SIZE);
+  }
+  path.closePath();
+  return path;
+}
+
+/**
+ * A logo's pieces as one row of shapes, GLYPH_SIZE tall — so a logo scales
+ * to its ordered height by GLYPH_SIZE the way a text does by its cap height.
+ */
+export function logoShapeLines(outline: LogoOutline): ShapeLines {
+  const shapes = outline.parts.map((part) => {
+    const shape = contourPath(new THREE.Shape(), part.outer);
+    shape.holes = part.holes.map((h) => contourPath(new THREE.Path(), h));
+    return shape;
+  });
+  return [shapes];
+}
+
 export function buildSolidLetterGeometry(
   font: Font,
   text: string,
   depth: number,
 ): SolidLetterBuild {
-  const lines = signLines(text);
+  return buildSolidGeometry(textShapeLines(font, text), depth);
+}
+
+export function buildSolidGeometry(
+  lines: ShapeLines,
+  depth: number,
+): SolidLetterBuild {
   const perGlyph: THREE.BufferGeometry[] = [];
   let failedCount = 0;
   let shapeCount = 0;
@@ -383,8 +425,7 @@ export function buildSolidLetterGeometry(
   // width, so the rows end up centred on each other. three's own newline
   // handling would stack them left-aligned, which on a sign looks like a
   // mistake rather than a choice.
-  lines.forEach((line, index) => {
-    const shapes = repairShapes(font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[]);
+  lines.forEach((shapes, index) => {
     shapeCount += shapes.length;
     const lineGeos: THREE.BufferGeometry[] = [];
 
@@ -517,8 +558,7 @@ function polygon(ctx: CanvasRenderingContext2D, pts: THREE.Vector2[], toPx: (p: 
  *   — not a fixed share of the letter, which on a big sign was a wall of light.
  */
 export function buildHaloGlowTexture(
-  font: Font,
-  text: string,
+  lines: ShapeLines,
   reach: number = HALO_GLOW_MARGIN * GLYPH_SIZE,
 ): HaloGlowBuild {
   if (typeof document === "undefined") return EMPTY_HALO;
@@ -529,8 +569,7 @@ export function buildHaloGlowTexture(
 
   // Laid out exactly like the letters above — same line height, same centring
   // per row — because the glow has to sit behind the sign, not beside it.
-  signLines(text).forEach((line, index) => {
-    const shapes = repairShapes(font.generateShapes(line, GLYPH_SIZE) as THREE.Shape[]);
+  lines.forEach((shapes, index) => {
     const lineOutlines: Outline[] = [];
     const lineBox = new THREE.Box2();
     lineBox.makeEmpty();

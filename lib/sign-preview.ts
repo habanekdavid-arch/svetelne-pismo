@@ -167,3 +167,12 @@ export async function capturePreview(config: Config): Promise<string | null> {
   if (url) remember(config, url);
   return url ?? kept;
 }
+
+/**
+ * Photographs whatever the configurator shows right now, without keeping it —
+ * for a logo, which is never a cart line and so has no settings to key it by.
+ */
+export async function snapshotPreview(): Promise<string | null> {
+  const canvas = current?.canvas();
+  return canvas ? watermark(canvas) : null;
+}
