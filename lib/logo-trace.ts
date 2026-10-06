@@ -6,10 +6,10 @@ import { isPdfLike, logoBoxOutline, type LogoContour, type LogoOutline, type Log
 //
 // Whatever the file is — an SVG, a PNG with transparency, a JPG on a white
 // background — it is painted into a canvas first, and the logo is read off the
-// pixels: what is see-through or the colour of the background is not logo,
-// everything else is. Reading the picture rather than an SVG's own paths is
-// deliberate: a white shape drawn over a black one is a hole to the eye, and
-// only the painted result says so. The silhouette is then traced into lines
+// pixels: what is see-through is not logo, everything else is — white
+// included, because in a PNG, SVG or PDF white is a colour somebody chose.
+// The one exception is a JPG: it cannot be see-through, so the white round a
+// logo saved as JPG is the paper it sits on, and that disappears. The silhouette is then traced into lines
 // and curves (imagetracerjs), one part per separate piece, holes included.
 //
 // A sign has one silhouette, so a logo in several colours becomes one shape.
@@ -94,8 +94,9 @@ const PDF_RENDER_PX = 4096;
 const PDF_WORKER_SRC = "/pdfjs/pdf.worker-legacy-6.4.299.min.mjs";
 
 /**
- * The first page of a PDF as a PNG. Drawn on white, the way it prints: a page
- * that is white round the logo is a logo, one in a colour is a light box.
+ * The first page of a PDF as a PNG — on transparency, so the empty page is
+ * nothing and only what is drawn on it, white shapes included, is the logo.
+ * A page filled with a colour (or with white) comes out as a light box.
  */
 async function renderPdf(file: File): Promise<File> {
   // The "legacy" build: the modern one leans on JavaScript only the newest
@@ -120,7 +121,7 @@ async function renderPdf(file: File): Promise<File> {
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(viewport.width));
     canvas.height = Math.max(1, Math.round(viewport.height));
-    await page.render({ canvas, viewport, background: "#ffffff" }).promise;
+    await page.render({ canvas, viewport, background: "rgba(0,0,0,0)" }).promise;
     const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
     if (!png) throw new LogoTraceError("PDF sa nepodarilo vykresliť.");
     return new File([png], file.name.replace(/\.(pdf|ai)$/i, "") + ".png", { type: "image/png" });
@@ -142,10 +143,11 @@ async function traceLoaded(file: File, img: Picture): Promise<Omit<TracedLogo, "
   const { data } = ctx.getImageData(0, 0, w, h);
   const background = detectBackground(data, w, h);
 
-  // A coloured background makes a light box. The logo cut out on its own is
-  // still offered beside it — unless it cannot be traced, which for a busy
-  // design on a coloured ground is no reason to refuse the box.
-  const coloured = !background.alpha && !isPaperWhite(background.colour);
+  // A background that is really there — any colour, and white too unless the
+  // file is a JPG — makes a light box. The logo cut out on its own is still
+  // offered beside it, unless it cannot be traced, which for a busy design on
+  // a coloured ground is no reason to refuse the box.
+  const coloured = !background.alpha && !(isJpeg(file) && isPaperWhite(background.colour));
   let cut: TracedVersion | null = null;
   try {
     cut = await traceCut(file, img, data, w, h, background);
@@ -411,10 +413,15 @@ function foreground(data: Uint8ClampedArray, w: number, h: number, background: B
   return mask;
 }
 
+/** A JPG — the one format that cannot say "nothing here" except by being white. */
+function isJpeg(file: File): boolean {
+  return file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name);
+}
+
 /**
  * White paper, or close to it — a scan's off-white, a JPEG's slightly grey
- * white. A logo on that is a logo on nothing; anything else is a colour the
- * customer put there.
+ * white. Round a JPG logo that is a logo on nothing; anything else is a
+ * colour the customer put there.
  */
 function isPaperWhite([r, g, b]: [number, number, number]): boolean {
   return Math.min(r, g, b) >= PAPER_WHITE_MIN && Math.max(r, g, b) - Math.min(r, g, b) <= PAPER_WHITE_TINT;
