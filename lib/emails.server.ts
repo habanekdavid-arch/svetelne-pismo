@@ -527,6 +527,8 @@ export type LogoConsultationMail = {
   heightMm: number;
   /** With VAT, in cents — what the configurator showed; a guide only. */
   priceCents: number | null;
+  lightBox: boolean;
+  facePrint: boolean;
   logo: { filename: string; contentType: string; content: Buffer };
   /** Watermarked preview, base64 JPEG. */
   preview: string | null;
@@ -534,14 +536,16 @@ export type LogoConsultationMail = {
 
 function logoSpec(m: LogoConsultationMail): [string, string][] {
   const c = m.config;
+  const face = m.facePrint ? "potlač grafikou z loga" : null;
   return [
+    ["Vyhotovenie", m.lightBox ? "Svetelný box — celý obrázok aj s farebným pozadím" : "Logo vyrezané bez pozadia"],
     ["Rozmer loga", `${Math.round(m.widthMm)} × ${Math.round(m.heightMm)} mm`],
     ["Prevedenie", esc(materialById(c.material).displayName)],
     ["Hrúbka", `${depthMmFor(c.material, c.height)} mm`],
     ["Svietenie", esc(variantLabel(c))],
     hasSeparateFace(c.material)
-      ? ["Farby", `čelo ${esc(colorLabel(faceColorOf(c)))}, telo ${esc(colorLabel(c.bodyColor))}`]
-      : ["Farba", esc(colorLabel(c.bodyColor))],
+      ? ["Farby", `čelo ${face ?? esc(colorLabel(faceColorOf(c)))}, telo ${esc(colorLabel(c.bodyColor))}`]
+      : ["Farba", `${esc(colorLabel(c.bodyColor))}${face ? `, čelo — ${face}` : ""}`],
   ];
 }
 

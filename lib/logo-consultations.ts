@@ -25,6 +25,10 @@ export type LogoConsultation = {
   heightMm: number;
   /** The configurator's price with VAT, in cents — a guide, not an offer. */
   priceCents: number | null;
+  /** Made as a light box: the whole picture, its coloured background included. */
+  lightBox: boolean;
+  /** The face printed with the logo's own artwork. */
+  facePrint: boolean;
   logoFilename: string;
   logoSize: number;
   hasPreview: boolean;
@@ -64,6 +68,9 @@ async function ensureTable(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
       `;
+      // Added after the table first went live — idempotent on every start.
+      await sql`ALTER TABLE logo_consultations ADD COLUMN IF NOT EXISTS light_box BOOLEAN NOT NULL DEFAULT false`;
+      await sql`ALTER TABLE logo_consultations ADD COLUMN IF NOT EXISTS face_print BOOLEAN NOT NULL DEFAULT false`;
     })();
   }
   return tableReady;
@@ -79,6 +86,8 @@ export async function createLogoConsultation(input: {
   widthMm: number;
   heightMm: number;
   priceCents: number | null;
+  lightBox: boolean;
+  facePrint: boolean;
   logo: LogoFile;
   /** The watermarked preview, base64 JPEG. */
   preview: string | null;
@@ -87,11 +96,12 @@ export async function createLogoConsultation(input: {
   const sql = await getDb();
   const rows = (await sql`
     INSERT INTO logo_consultations
-      (user_id, name, email, phone, note, config, width_mm, height_mm, price_cents,
+      (user_id, name, email, phone, note, config, width_mm, height_mm, price_cents, light_box, face_print,
        logo_filename, logo_content_type, logo_size, logo_b64, preview_b64)
     VALUES
       (${input.userId}, ${input.name}, ${input.email}, ${input.phone}, ${input.note},
        ${JSON.stringify(input.config)}, ${Math.round(input.widthMm)}, ${Math.round(input.heightMm)}, ${input.priceCents},
+       ${input.lightBox}, ${input.facePrint},
        ${input.logo.filename}, ${input.logo.contentType}, ${input.logo.content.length},
        ${input.logo.content.toString("base64")}, ${input.preview})
     RETURNING id
@@ -105,7 +115,7 @@ export async function listLogoConsultations(limit = 50): Promise<LogoConsultatio
   // Everything but the files themselves — those are fetched on download.
   const rows = (await sql`
     SELECT id, created_at, name, email, phone, note, config, width_mm, height_mm, price_cents,
-           logo_filename, logo_size, (preview_b64 IS NOT NULL) AS has_preview
+           light_box, face_print, logo_filename, logo_size, (preview_b64 IS NOT NULL) AS has_preview
     FROM logo_consultations
     ORDER BY created_at DESC
     LIMIT ${limit}
@@ -121,6 +131,8 @@ export async function listLogoConsultations(limit = 50): Promise<LogoConsultatio
     widthMm: Number(r.width_mm),
     heightMm: Number(r.height_mm),
     priceCents: r.price_cents === null ? null : Number(r.price_cents),
+    lightBox: Boolean(r.light_box),
+    facePrint: Boolean(r.face_print),
     logoFilename: r.logo_filename,
     logoSize: Number(r.logo_size),
     hasPreview: Boolean(r.has_preview),

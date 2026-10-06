@@ -1,6 +1,6 @@
 "use client";
 
-import type { LogoContour, LogoOutline, LogoPart, LogoSegment } from "@/lib/logo";
+import { logoBoxOutline, type LogoContour, type LogoOutline, type LogoPart, type LogoSegment } from "@/lib/logo";
 
 // The customer's logo file, turned into outlines a sign can be made from.
 //
@@ -12,8 +12,11 @@ import type { LogoContour, LogoOutline, LogoPart, LogoSegment } from "@/lib/logo
 // only the painted result says so. The silhouette is then traced into lines
 // and curves (imagetracerjs), one part per separate piece, holes included.
 //
-// A sign has one silhouette — its colours are the face and the return chosen
-// in the configurator — so a logo in several colours becomes one shape.
+// A sign has one silhouette, so a logo in several colours becomes one shape.
+// Its colours are not lost, though: the logo itself, cropped to exactly the
+// box the outlines were traced in, comes back as a picture for the FACE — a
+// UV print of the design on the front of the sign (LetterScene maps it onto
+// the front caps, whose coordinates are the outline's own).
 
 /** Long side of the picture the logo is traced from. */
 const TRACE_PX = 900;
@@ -28,6 +31,18 @@ const MAX_PARTS = 300;
 const MAX_SEGMENTS = 40_000;
 /** Pieces smaller than this, in logo heights, are dust and not made. */
 const MIN_PART = 0.008;
+/** The face picture: never wider than this… */
+const FACE_MAX_PX = 4096;
+/** …at least this on its long side… */
+const FACE_MIN_LONG_PX = 2048;
+/** …and, where the cap above allows, at least this on its short side. */
+const FACE_MIN_SHORT_PX = 512;
+/** Rings of colour pushed outward from the logo's edge into the background. */
+const FACE_BLEED_PASSES = 6;
+/** A background at least this light in every channel… */
+const PAPER_WHITE_MIN = 215;
+/** …and no more tinted than this is white paper, not a colour. */
+const PAPER_WHITE_TINT = 24;
 
 export class LogoTraceError extends Error {
   name = "LogoTraceError";
@@ -36,22 +51,76 @@ export class LogoTraceError extends Error {
 const NOT_A_LOGO =
   "Toto vyzerá skôr ako fotka než logo — má priveľa drobných častí. Nahrajte prosím logo ako SVG alebo PNG na čistom pozadí.";
 
-export async function traceLogo(file: File): Promise<LogoOutline> {
-  const img = await loadPicture(file);
+/** One way of making the sign from the file: its outline and its face artwork. */
+export type TracedVersion = {
+  outline: LogoOutline;
+  /** The artwork for the face, cropped to the outline's box — PNG. */
+  face: Blob | null;
+};
+
+/**
+ * What a file can be made as. At least one of the two is always there.
+ *
+ *   · `cut`  — the logo cut out on its own, its background left off: what a
+ *     logo on white or on transparency is;
+ *   · `box`  — a light box: the whole picture, background and all, as one
+ *     rectangle with the artwork printed on its face. Offered when the
+ *     background is a real colour — someone who sends their logo on red
+ *     wants the red too.
+ */
+export type TracedLogo = { cut: TracedVersion | null; box: TracedVersion | null };
+
+export async function traceLogo(file: File): Promise<TracedLogo> {
+  const img = await loadPicture(file, TRACE_PX);
+  try {
+    return await traceLoaded(file, img);
+  } finally {
+    img.release();
+  }
+}
+
+async function traceLoaded(file: File, img: Picture): Promise<TracedLogo> {
   const scale = TRACE_PX / Math.max(img.width, img.height);
   const w = Math.max(1, Math.round(img.width * scale));
   const h = Math.max(1, Math.round(img.height * scale));
-
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new LogoTraceError("Prehliadač nevie logo spracovať.");
   ctx.drawImage(img.source, 0, 0, w, h);
-  img.release();
   const { data } = ctx.getImageData(0, 0, w, h);
+  const background = detectBackground(data, w, h);
 
-  const mask = foreground(data, w, h);
+  // A coloured background makes a light box. The logo cut out on its own is
+  // still offered beside it — unless it cannot be traced, which for a busy
+  // design on a coloured ground is no reason to refuse the box.
+  const coloured = !background.alpha && !isPaperWhite(background.colour);
+  let cut: TracedVersion | null = null;
+  try {
+    cut = await traceCut(file, img, data, w, h, background);
+  } catch (err) {
+    if (!coloured) throw err;
+  }
+  const box = coloured
+    ? {
+        outline: logoBoxOutline(img.width / img.height),
+        face: await facePicture(file, img, { x0: 0, y0: 0, x1: 1, y1: 1 }, null).catch(() => null),
+      }
+    : null;
+  return { cut, box };
+}
+
+/** The logo alone, traced off its background. */
+async function traceCut(
+  file: File,
+  img: Picture,
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  background: Background,
+): Promise<TracedVersion> {
+  const mask = foreground(data, w, h, background);
 
   // The logo's own box — the empty margin round it is not part of the sign.
   let minX = w, minY = h, maxX = -1, maxY = -1, ink = 0;
@@ -143,7 +212,7 @@ export async function traceLogo(file: File): Promise<LogoOutline> {
   }
   if (parts.length === 0) throw new LogoTraceError("Logo je príliš drobné alebo tenké — skúste väčší súbor.");
 
-  return {
+  const outline: LogoOutline = {
     parts,
     aspect: cw / ch,
     inkRatio: Math.min(1, Math.max(0.02, ink / (cw * ch))),
@@ -151,23 +220,137 @@ export async function traceLogo(file: File): Promise<LogoOutline> {
     maxPartW,
     maxPartH,
   };
+
+  // The box the outlines span, as a share of the picture — the face is cut
+  // to exactly this, so it lands on the letters and nowhere else.
+  const box = { x0: minX / w, y0: minY / h, x1: (maxX + 1) / w, y1: (maxY + 1) / h };
+  const face = await facePicture(file, img, box, background).catch(() => null);
+  return { outline, face };
 }
 
 /**
- * Which pixels are logo. A picture with real transparency says it itself;
- * an opaque one is read against its background — the colour round its edge.
+ * The logo's artwork at print resolution, cropped to the outlines' box.
+ *
+ * Where the picture is background — round the edge of the logo, inside its
+ * holes — the logo's own colours are pushed outward a few pixels and the rest
+ * filled with its average colour. The face only ever shows what lies inside
+ * the outline, but a texture is sampled between pixels, and a white
+ * background bleeding in would draw a pale rim round every piece.
  */
-function foreground(data: Uint8ClampedArray, w: number, h: number): Uint8Array {
-  const mask = new Uint8Array(w * h);
+async function facePicture(
+  file: File,
+  img: Picture,
+  box: { x0: number; y0: number; x1: number; y1: number },
+  /** What is background, to bleed the logo's colours into — null for a light box, which is all face. */
+  background: Background | null,
+): Promise<Blob | null> {
+  const bw = box.x1 - box.x0;
+  const bh = box.y1 - box.y0;
+  const aspect = (bw * img.width) / (bh * img.height);
+  let fw: number;
+  let fh: number;
+  if (aspect >= 1) {
+    fw = Math.min(FACE_MAX_PX, Math.max(FACE_MIN_LONG_PX, FACE_MIN_SHORT_PX * aspect));
+    fh = fw / aspect;
+  } else {
+    fh = Math.min(FACE_MAX_PX, Math.max(FACE_MIN_LONG_PX, FACE_MIN_SHORT_PX / aspect));
+    fw = fh * aspect;
+  }
+  fw = Math.max(1, Math.round(fw));
+  fh = Math.max(1, Math.round(fh));
+
+  // An SVG is drawn again at the size the crop needs, so the print is sharp;
+  // a bitmap is cut from its own pixels.
+  let source = img;
+  let fresh: Picture | null = null;
+  if (img.vector) {
+    const fullW = fw / bw;
+    const fullH = fh / bh;
+    fresh = await loadPicture(file, Math.min(8192, Math.round(Math.max(fullW, fullH))));
+    source = fresh;
+  }
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = fw;
+    canvas.height = fh;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(
+      source.source,
+      box.x0 * source.width, box.y0 * source.height, bw * source.width, bh * source.height,
+      0, 0, fw, fh,
+    );
+    if (background) {
+      const image = ctx.getImageData(0, 0, fw, fh);
+      bleed(image.data, fw, fh, foreground(image.data, fw, fh, background));
+      ctx.putImageData(image, 0, 0);
+    }
+    return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  } finally {
+    fresh?.release();
+  }
+}
+
+/** Logo colours pushed into the background round them; everything opaque. */
+function bleed(data: Uint8ClampedArray, w: number, h: number, mask: Uint8Array): void {
+  const filled = mask.slice();
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let p = 0; p < w * h; p++) {
+    if (!filled[p]) continue;
+    r += data[p * 4]; g += data[p * 4 + 1]; b += data[p * 4 + 2]; n++;
+    data[p * 4 + 3] = 255;
+  }
+  for (let pass = 0; pass < FACE_BLEED_PASSES; pass++) {
+    const next = filled.slice();
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = y * w + x;
+        if (filled[p]) continue;
+        let sr = 0, sg = 0, sb = 0, k = 0;
+        for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1]) {
+          if (q < 0 || !filled[q]) continue;
+          sr += data[q * 4]; sg += data[q * 4 + 1]; sb += data[q * 4 + 2]; k++;
+        }
+        if (!k) continue;
+        data[p * 4] = sr / k; data[p * 4 + 1] = sg / k; data[p * 4 + 2] = sb / k; data[p * 4 + 3] = 255;
+        next[p] = 1;
+      }
+    }
+    filled.set(next);
+  }
+  const avg = n ? [r / n, g / n, b / n] : [255, 255, 255];
+  for (let p = 0; p < w * h; p++) {
+    if (filled[p]) continue;
+    data[p * 4] = avg[0]; data[p * 4 + 1] = avg[1]; data[p * 4 + 2] = avg[2]; data[p * 4 + 3] = 255;
+  }
+}
+
+/** How the background is told apart: by transparency, or by its colour. */
+type Background = { alpha: true } | { alpha: false; colour: [number, number, number] };
+
+/**
+ * A picture with real transparency says itself what is background; an opaque
+ * one is read against the colour round its edge. Decided once, on the whole
+ * picture — a crop of it has the logo at its edge, not the background.
+ */
+function detectBackground(data: Uint8ClampedArray, w: number, h: number): Background {
   let seeThrough = 0;
   for (let i = 3; i < data.length; i += 4) if (data[i] < 128) seeThrough++;
+  return seeThrough / (w * h) > ALPHA_MODE_SHARE
+    ? { alpha: true }
+    : { alpha: false, colour: borderColour(data, w, h) };
+}
 
-  if (seeThrough / (w * h) > ALPHA_MODE_SHARE) {
+/** Which pixels are logo. */
+function foreground(data: Uint8ClampedArray, w: number, h: number, background: Background): Uint8Array {
+  const mask = new Uint8Array(w * h);
+  if (background.alpha) {
     for (let p = 0; p < w * h; p++) mask[p] = data[p * 4 + 3] >= 128 ? 1 : 0;
     return mask;
   }
 
-  const bg = borderColour(data, w, h);
+  const bg = background.colour;
   const limit = BACKGROUND_DISTANCE * BACKGROUND_DISTANCE;
   for (let p = 0; p < w * h; p++) {
     const dr = data[p * 4] - bg[0];
@@ -176,6 +359,15 @@ function foreground(data: Uint8ClampedArray, w: number, h: number): Uint8Array {
     mask[p] = dr * dr + dg * dg + db * db > limit ? 1 : 0;
   }
   return mask;
+}
+
+/**
+ * White paper, or close to it — a scan's off-white, a JPEG's slightly grey
+ * white. A logo on that is a logo on nothing; anything else is a colour the
+ * customer put there.
+ */
+function isPaperWhite([r, g, b]: [number, number, number]): boolean {
+  return Math.min(r, g, b) >= PAPER_WHITE_MIN && Math.max(r, g, b) - Math.min(r, g, b) <= PAPER_WHITE_TINT;
 }
 
 /** The median colour of the picture's edge — its background, even if the logo touches it. */
@@ -195,14 +387,21 @@ function borderColour(data: Uint8ClampedArray, w: number, h: number): [number, n
   return [median(r), median(g), median(b)];
 }
 
-type Picture = { source: CanvasImageSource; width: number; height: number; release: () => void };
+type Picture = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  /** An SVG — it can be drawn again at any size. */
+  vector: boolean;
+  release: () => void;
+};
 
 /**
  * The file as something a canvas can draw, at its own proportions. An SVG
  * is given an explicit size first: one without width and height has no
  * natural size in some browsers and would paint as nothing.
  */
-async function loadPicture(file: File): Promise<Picture> {
+async function loadPicture(file: File, longSide: number): Promise<Picture> {
   const isSvg = file.type === "image/svg+xml" || /\.svg$/i.test(file.name);
   let blob: Blob = file;
 
@@ -213,9 +412,11 @@ async function loadPicture(file: File): Promise<Picture> {
     const box = (svg.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
     let vw = box.length === 4 ? box[2] : parseFloat(svg.getAttribute("width") ?? "");
     let vh = box.length === 4 ? box[3] : parseFloat(svg.getAttribute("height") ?? "");
-    if (!(vw > 0) || !(vh > 0)) { vw = TRACE_PX; vh = TRACE_PX; }
+    if (!(vw > 0) || !(vh > 0)) { vw = longSide; vh = longSide; }
     if (box.length !== 4) svg.setAttribute("viewBox", `0 0 ${vw} ${vh}`);
-    const k = TRACE_PX / Math.max(vw, vh);
+    // Stretched to the box exactly, so a crop worked out on one size fits another.
+    svg.setAttribute("preserveAspectRatio", "none");
+    const k = longSide / Math.max(vw, vh);
     svg.setAttribute("width", String(Math.round(vw * k)));
     svg.setAttribute("height", String(Math.round(vh * k)));
     blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" });
@@ -242,6 +443,7 @@ async function loadPicture(file: File): Promise<Picture> {
     source: img,
     width: img.naturalWidth,
     height: img.naturalHeight,
+    vector: isSvg,
     release: () => URL.revokeObjectURL(url),
   };
 }

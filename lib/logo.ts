@@ -53,13 +53,49 @@ export type LogoOutline = {
   maxPartH: number;
 };
 
+/** One way of making the sign from a logo file. */
+export type LogoVersion = {
+  outline: LogoOutline;
+  /**
+   * Object URL of the artwork cropped to the outline — what the face shows
+   * when it is printed with the design. Null if it could not be made.
+   */
+  faceUrl: string | null;
+};
+
+/**
+ * How a logo is made: cut out on its own, or — when it came on a coloured
+ * background — as a light box, the whole picture one lit rectangle with the
+ * artwork printed on its face.
+ */
+export type LogoShape = "cut" | "box";
+
 /** The customer's logo as the configurator holds it. */
 export type LogoAsset = {
   file: File;
   /** Object URL of the file, for the thumbnail. */
   url: string;
-  outline: LogoOutline;
+  /** The logo cut out on its own — null when it could not be traced. */
+  cut: LogoVersion | null;
+  /** The light box — only for a logo on a coloured background. */
+  box: LogoVersion | null;
 };
+
+/** A light box's outline: one rectangle, the whole picture. */
+export function logoBoxOutline(aspect: number): LogoOutline {
+  const a = Math.max(0.01, aspect);
+  return {
+    parts: [{
+      outer: { x: 0, y: 0, segments: [{ t: "L", x: a, y: 0 }, { t: "L", x: a, y: 1 }, { t: "L", x: 0, y: 1 }, { t: "L", x: 0, y: 0 }] },
+      holes: [],
+    }],
+    aspect: a,
+    inkRatio: 1,
+    partsArea: a,
+    maxPartW: a,
+    maxPartH: 1,
+  };
+}
 
 /**
  * How big the sign comes out with this logo `heightMm` tall — the same

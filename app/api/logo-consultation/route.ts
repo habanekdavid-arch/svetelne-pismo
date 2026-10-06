@@ -65,6 +65,9 @@ export async function POST(req: Request) {
   const size = readSize(form.get("size"), config.height);
   if (!size) return NextResponse.json({ error: "invalid_size" }, { status: 400 });
 
+  const lightBox = form.get("lightBox") === "1";
+  const facePrint = form.get("facePrint") === "1";
+
   const session = await getUserSession().catch(() => null);
   const showPrice = session ? await isVerified(session.userId).catch(() => false) : false;
   const priceCents = calculatePrice(config, size) * 100;
@@ -84,6 +87,8 @@ export async function POST(req: Request) {
       widthMm: size.widthMm,
       heightMm: size.heightMm,
       priceCents,
+      lightBox,
+      facePrint,
       logo: logoFile,
       preview,
     });
@@ -97,6 +102,8 @@ export async function POST(req: Request) {
     widthMm: size.widthMm,
     heightMm: size.heightMm,
     priceCents,
+    lightBox,
+    facePrint,
     logo: logoFile,
     preview,
   };

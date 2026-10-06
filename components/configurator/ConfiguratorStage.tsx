@@ -47,7 +47,17 @@ import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
 import { registerSnapshotter, capturePreview } from "@/lib/sign-preview";
 import VerifyCodeForm from "@/components/auth/VerifyCodeForm";
 import LogoConsultationForm from "@/components/configurator/LogoConsultationForm";
-import { LOGO_ACCEPT, LOGO_HINT, LOGO_RULE_TEXT, MAX_LOGO_BYTES, isLogoFile, logoSignSize, type LogoAsset } from "@/lib/logo";
+import {
+  LOGO_ACCEPT,
+  LOGO_HINT,
+  LOGO_RULE_TEXT,
+  MAX_LOGO_BYTES,
+  isLogoFile,
+  logoSignSize,
+  type LogoAsset,
+  type LogoShape,
+  type LogoVersion,
+} from "@/lib/logo";
 import type { DragTarget, ZoomView } from "@/components/three/LetterScene";
 
 /** The whole framed view — kept here too, so the page does not import the 3D chunk. */
@@ -92,6 +102,13 @@ const MAX_TEXT_LENGTH = 40;
 function limitLines(value: string): string {
   const lines = value.split("\n");
   return lines.length <= MAX_LINES ? value : lines.slice(0, MAX_LINES).join("\n");
+}
+
+/** Lets go of every object URL a logo holds — the file and its face pictures. */
+function releaseLogo(logo: LogoAsset | null): void {
+  if (!logo) return;
+  URL.revokeObjectURL(logo.url);
+  for (const v of [logo.cut, logo.box]) if (v?.faceUrl) URL.revokeObjectURL(v.faceUrl);
 }
 
 function sameColor(a: string | undefined, b: string | undefined): boolean {
@@ -173,6 +190,13 @@ function Configurator() {
   // and they now shape the logo. A logo is never paid for from here: its last
   // step is a request for a consultation (LogoConsultationForm).
   const [logo, setLogo] = useState<LogoAsset | null>(null);
+  // Cut out on its own, or — for a logo on a coloured background — a light
+  // box; and whether the face carries the logo's own artwork (a UV print) or
+  // one colour from step 5.
+  const [logoShape, setLogoShape] = useState<LogoShape>("cut");
+  const [facePrint, setFacePrint] = useState(true);
+  // A file being dragged over step 1.
+  const [logoDrag, setLogoDrag] = useState(false);
   const [logoBusy, setLogoBusy] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [consultOpen, setConsultOpen] = useState(false);
@@ -219,6 +243,13 @@ function Configurator() {
   const groupsMade = MATERIAL_GROUPS.filter((g) => buildsFor(variant, g.id).length > 0);
 
   // Height is the only dimension chosen; the build turns it into a thickness.
+  // The version of the logo being made, and whether its face is printed.
+  const logoVersion: LogoVersion | null = logo
+    ? (logoShape === "box" ? logo.box : logo.cut) ?? logo.cut ?? logo.box
+    : null;
+  const lightBox = !!logo && logoVersion === logo.box;
+  const printedFace = !!logoVersion?.faceUrl && facePrint;
+
   // The price list's rules that read the text read a logo as capitals.
   const ruleText = logo ? LOGO_RULE_TEXT : config.text;
   const { minMm: minHeight, maxMm: maxHeight } = groupHeightRange(variant, currentMat.group, ruleText);
@@ -249,8 +280,8 @@ function Configurator() {
   // height changes after that.
   const textSize = useSignSize(logo ? "" : config.text, currentFont?.name ?? "", config.height);
   const signSize = useMemo(
-    () => (logo ? logoSignSize(logo.outline, config.height) : textSize),
-    [logo, config.height, textSize],
+    () => (logoVersion ? logoSignSize(logoVersion.outline, config.height) : textSize),
+    [logoVersion, config.height, textSize],
   );
   const signSizeLabel = signSize ? formatSignSize(signSize) : null;
   const price = useMemo(() => calculatePrice(config, signSize), [config, signSize]);
@@ -295,7 +326,10 @@ function Configurator() {
     // A sign saved under the old price list is moved onto the new one.
     setConfig(normalizeConfig(pendingConfig.config));
     // A cart line is always a text — back from a logo to it.
-    setLogo(null);
+    setLogo((prev) => {
+      releaseLogo(prev);
+      return null;
+    });
     setConsultOpen(false);
     consumePending();
     // Only when the customer asked for it ("Upraviť" in the cart). The same
@@ -406,15 +440,25 @@ function Configurator() {
     setLogoBusy(true);
     try {
       const { traceLogo } = await import("@/lib/logo-trace");
-      const outline = await traceLogo(file);
+      const traced = await traceLogo(file);
+      const version = (v: typeof traced.cut): LogoVersion | null =>
+        v ? { outline: v.outline, faceUrl: v.face ? URL.createObjectURL(v.face) : null } : null;
       setLogo((prev) => {
-        if (prev) URL.revokeObjectURL(prev.url);
-        return { file, url: URL.createObjectURL(file), outline };
+        releaseLogo(prev);
+        return { file, url: URL.createObjectURL(file), cut: version(traced.cut), box: version(traced.box) };
       });
+      setLogoShape(traced.box ? "box" : "cut");
+      setFacePrint(true);
       // A sign being edited from the cart stays as it was; the logo is a new one.
       if (editingId) cancelEdit();
       setConsultOpen(false);
-      patch(reconcile({}, true));
+      if (traced.box) {
+        // A light box is a lit sign: shown lit through its printed face, at night.
+        setManualMode("night");
+        patch(reconcile(variantFields("front"), true));
+      } else {
+        patch(reconcile({}, true));
+      }
     } catch (err) {
       setLogoError(
         // Our own messages say what is wrong with the file; anything else is
@@ -432,13 +476,35 @@ function Configurator() {
   /** Back to a text sign — the text typed before is still there. */
   function clearLogo() {
     setLogo((prev) => {
-      if (prev) URL.revokeObjectURL(prev.url);
+      releaseLogo(prev);
       return null;
     });
     setLogoError(null);
     setConsultOpen(false);
     patch(reconcile({}, false));
   }
+
+  // Drag and drop onto step 1: only files count — dragging text around the
+  // text field is still just editing it.
+  const isFileDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+  const logoDropProps = {
+    onDragOver: (e: React.DragEvent<HTMLElement>) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      if (!logoDrag) setLogoDrag(true);
+    },
+    onDragLeave: (e: React.DragEvent<HTMLElement>) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setLogoDrag(false);
+    },
+    onDrop: (e: React.DragEvent<HTMLElement>) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      setLogoDrag(false);
+      const file = e.dataTransfer.files[0];
+      if (file) void handleLogo(file);
+    },
+  };
 
   function openConsultation() {
     setConsultOpen(true);
@@ -610,11 +676,13 @@ function Configurator() {
             <LetterScene
               zoom={zoom}
               text={config.text}
-              logo={logo?.outline ?? null}
+              logo={logoVersion?.outline ?? null}
+              logoFace={printedFace ? logoVersion?.faceUrl : null}
               font={config.font}
               lightColor={litColor}
               letterColor={config.bodyColor}
-              faceColor={currentFaceColor}
+              // A printed face shows the artwork; the light behind it is white.
+              faceColor={printedFace ? "#ffffff" : currentFaceColor}
               thickness={depthMm}
               material={config.material}
               signType={config.signType}
@@ -684,8 +752,11 @@ function Configurator() {
               typed, and every dot shows the customer's own first letter. ── */}
           <StepCard
             step={1}
-            title={logo ? "Logo" : "Text a font"}
+            title={logo ? (lightBox ? "Logo — svetelný box" : "Logo") : "Text a font"}
             aside={logo ? logo.file.name : currentFont?.name}
+            drop={logoDropProps}
+            dropping={logoDrag}
+            dropLabel={logo ? "Pustite sem nové logo" : "Pustite sem svoje logo"}
           >
             {/* One file picker for both: uploading the first logo and swapping it. */}
             <input
@@ -729,7 +800,35 @@ function Configurator() {
                     </button>
                   </div>
                 </div>
-                <Hint>Logo sa vyrobí ako jeden tvar — rozmer, svietenie, prevedenie aj farby nastavíte v ďalších krokoch.</Hint>
+                {/* A logo on a coloured background: a light box, or the logo alone. */}
+                {logo.box && logo.cut && (
+                  <div role="radiogroup" aria-label="Ako vyrobiť logo" className="mt-3 grid grid-cols-2 gap-2 lg:mt-2.5">
+                    {([
+                      ["box", "Svetelný box", "celý obrázok aj s pozadím"],
+                      ["cut", "Len logo", "vyrezané, bez pozadia"],
+                    ] as const).map(([id, label, sub]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="radio"
+                        aria-checked={logoShape === id}
+                        onClick={() => setLogoShape(id)}
+                        className="rounded-xl px-3 py-2 text-left lg:py-1.5"
+                        style={logoShape === id
+                          ? { background: "color-mix(in srgb, var(--accent) 14%, var(--color-background))", border: "1.5px solid var(--accent)" }
+                          : { background: "var(--color-surface)", border: "1.5px solid var(--color-border)" }}
+                      >
+                        <span className="block text-[13px] font-extrabold" style={{ color: "var(--color-foreground)" }}>{label}</span>
+                        <span className="block text-[11.5px]" style={{ color: "var(--color-muted)" }}>{sub}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <Hint>
+                  {lightBox
+                    ? "Logo má farebné pozadie, preto ho vyrobíme ako svetelný box: celá plocha obrázka s potlačou čela, presvietená zvnútra."
+                    : "Logo sa vyrobí ako jeden tvar — rozmer, svietenie, prevedenie aj farby nastavíte v ďalších krokoch."}
+                </Hint>
               </>
             ) : (
             <>
@@ -767,7 +866,7 @@ function Configurator() {
               style={{ border: "1.5px dashed var(--color-border-strong)", color: "var(--color-foreground)" }}
             >
               <Upload size={14} strokeWidth={2.4} />
-              {logoBusy ? "Spracúvam logo…" : "Alebo nahrajte vlastné logo"}
+              {logoBusy ? "Spracúvam logo…" : "Alebo nahrajte či sem pretiahnite vlastné logo"}
             </button>
             </>
             )}
@@ -869,20 +968,57 @@ function Configurator() {
           <StepCard
             step={5}
             title="Farby čela a tela"
-            corner={<FaceReturnSwatch face={currentFaceColor} edge={config.bodyColor} glow={faceGlows} />}
+            corner={
+              <FaceReturnSwatch
+                face={currentFaceColor}
+                faceImage={printedFace ? logoVersion?.faceUrl : null}
+                edge={config.bodyColor}
+                glow={faceGlows}
+              />
+            }
           >
             {/* Two rows of dots, čelo above telo, each on one line; the cube
                 showing the two together sits in the card's corner. */}
             <div className="space-y-2.5">
+              {/* A logo's face can carry its own artwork — printed — or one colour. */}
+              {logoVersion?.faceUrl && (
+                <div className="lg:flex lg:items-center lg:gap-3">
+                  <p className="mb-1.5 text-[13px] leading-tight lg:mb-0 lg:w-[128px] lg:shrink-0 lg:truncate">
+                    <strong style={{ color: "var(--color-foreground)" }}>Potlač</strong>
+                    <span className="font-semibold" style={{ color: "var(--color-muted)" }}>
+                      {" "}— {printedFace ? "z loga" : "žiadna"}
+                    </span>
+                  </p>
+                  <div role="radiogroup" aria-label="Potlač čela" className="flex gap-1.5">
+                    {([[true, "Grafika z loga"], [false, "Jednofarebné čelo"]] as const).map(([on, label]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        role="radio"
+                        aria-checked={facePrint === on}
+                        onClick={() => setFacePrint(on)}
+                        className="rounded-full px-3 py-1 text-[12.5px] font-bold"
+                        style={facePrint === on
+                          ? { background: "var(--color-foreground)", color: "var(--color-background)" }
+                          : { background: "var(--color-surface)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {separateFace ? (
                 <>
-                  <ColorRow
-                    label="Čelo"
-                    hint="predná plocha písmena"
-                    options={faceColors}
-                    value={currentFaceColor}
-                    onPick={(c) => { patch({ faceColor: c.value }); }}
-                  />
+                  {!printedFace && (
+                    <ColorRow
+                      label="Čelo"
+                      hint="predná plocha písmena"
+                      options={faceColors}
+                      value={currentFaceColor}
+                      onPick={(c) => { patch({ faceColor: c.value }); }}
+                    />
+                  )}
                   <ColorRow
                     label="Telo"
                     hint="bok písmena"
@@ -901,7 +1037,13 @@ function Configurator() {
                 />
               )}
             </div>
-            {(variant === "front" || !separateFace) && (
+            {printedFace ? (
+              <Hint>
+                {variant === "front"
+                  ? "Čelo je potlačené grafikou z vášho loga a v noci presvieti v jej farbách."
+                  : "Čelo je potlačené grafikou z vášho loga."}
+              </Hint>
+            ) : (variant === "front" || !separateFace) && (
               <Hint>
                 {separateFace
                   ? "Pri svietení spredu svieti čelo vo svojej farbe."
@@ -1021,7 +1163,7 @@ function Configurator() {
               <TechLine label="Variant" value={variantById(variant).name} />
               <TechLine label="Materiál" value={currentMat.displayName} />
               {logo
-                ? <TechLine label="Logo" value={logo.file.name} />
+                ? <TechLine label={lightBox ? "Svetelný box" : "Logo"} value={logo.file.name} />
                 : <TechLine label="Písmo" value={currentFont?.name ?? "—"} />}
               <TechLine label={logo ? "Výška loga" : "Výška písmen"} value={`${config.height} mm`} />
               <TechLine label="Hrúbka" value={`${depthMm} mm`} />
@@ -1044,8 +1186,8 @@ function Configurator() {
               <TechLine
                 label={separateFace ? "Čelo / telo" : "Farba"}
                 value={separateFace
-                  ? `${colorLabel(currentFaceColor)} / ${colorLabel(config.bodyColor)}`
-                  : colorLabel(config.bodyColor)}
+                  ? `${printedFace ? "potlač z loga" : colorLabel(currentFaceColor)} / ${colorLabel(config.bodyColor)}`
+                  : `${colorLabel(config.bodyColor)}${printedFace ? ", čelo s potlačou" : ""}`}
               />
             </div>
           </div>
@@ -1154,7 +1296,13 @@ function Configurator() {
                 Každé logo je iné — pozrieme sa na detaily, hrúbky čiar aj svietenie a pošleme vám cenovú ponuku.
                 Kontakt nám nechajte tu.
               </p>
-              <LogoConsultationForm logo={logo.file} config={config} size={signSize} />
+              <LogoConsultationForm
+                logo={logo.file}
+                config={config}
+                size={signSize}
+                lightBox={lightBox}
+                facePrint={printedFace}
+              />
             </div>
           )}
         </div>
@@ -1198,6 +1346,9 @@ function StepCard({
   title,
   aside,
   corner,
+  drop,
+  dropping,
+  dropLabel,
   children,
 }: {
   step: number;
@@ -1205,10 +1356,31 @@ function StepCard({
   aside?: string;
   /** Something small drawn in the card's top-right corner (the colour cube). */
   corner?: React.ReactNode;
+  /** Makes the whole card a place to drop a file on. */
+  drop?: Pick<React.HTMLAttributes<HTMLElement>, "onDragOver" | "onDragLeave" | "onDrop">;
+  /** A file is being dragged over it right now. */
+  dropping?: boolean;
+  dropLabel?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="field-card rounded-[24px] p-4 lg:flex lg:flex-1 lg:flex-col lg:justify-center lg:px-4 lg:py-2.5" aria-label={`Krok ${step}: ${title}`}>
+    <section
+      className="field-card relative rounded-[24px] p-4 lg:flex lg:flex-1 lg:flex-col lg:justify-center lg:px-4 lg:py-2.5"
+      aria-label={`Krok ${step}: ${title}`}
+      {...drop}
+    >
+      {dropping && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[24px] text-[15px] font-extrabold"
+          style={{
+            background: "color-mix(in srgb, var(--accent) 16%, var(--color-background) 84%)",
+            border: "2px dashed var(--accent)",
+            color: "var(--color-foreground)",
+          }}
+        >
+          {dropLabel}
+        </div>
+      )}
       <div className="flex items-center gap-2.5">
         <span className="step-badge" aria-hidden="true">{step}</span>
         <h3 className="text-[16px] font-extrabold tracking-[0.005em]" style={{ color: "var(--color-foreground)" }}>
@@ -1601,7 +1773,18 @@ function GroupIcon({ group }: { group: MaterialGroupId }) {
 // A letter-shaped block seen from a slight angle: the face in front, the wall
 // showing as its side band. It is what the two colours look like TOGETHER,
 // which neither row of dots can show on its own.
-function FaceReturnSwatch({ face, edge, glow }: { face: string; edge: string; glow: boolean }) {
+function FaceReturnSwatch({
+  face,
+  faceImage,
+  edge,
+  glow,
+}: {
+  face: string;
+  /** A printed face: the logo's artwork instead of a colour. */
+  faceImage?: string | null;
+  edge: string;
+  glow: boolean;
+}) {
   const id = useId().replace(/:/g, "");
   return (
     <svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true" className="h-11 w-11 shrink-0 overflow-visible">
@@ -1645,6 +1828,19 @@ function FaceReturnSwatch({ face, edge, glow }: { face: string; edge: string; gl
 
       {/* the face — a lit one glows on its own surface, not around it */}
       <rect x="8" y="17" width="31" height="31" rx="2.5" fill={face} />
+      {faceImage && (
+        <>
+          <clipPath id={`${id}-face`}>
+            <rect x="8" y="17" width="31" height="31" rx="2.5" />
+          </clipPath>
+          <image
+            href={faceImage}
+            x="8" y="17" width="31" height="31"
+            preserveAspectRatio="xMidYMid slice"
+            clipPath={`url(#${id}-face)`}
+          />
+        </>
+      )}
       {glow && (
         <rect x="11" y="20" width="25" height="25" rx="2" fill="#fff" opacity=".45" filter={`url(#${id}-glow)`} />
       )}
