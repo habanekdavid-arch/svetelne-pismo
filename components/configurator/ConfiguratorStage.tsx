@@ -429,7 +429,7 @@ function Configurator() {
   /** Turns the customer's file into a logo sign — or says why it cannot. */
   async function handleLogo(file: File) {
     if (!isLogoFile(file.name)) {
-      setLogoError(`Logo nahrajte ako ${LOGO_HINT.split(" — ")[0]}. PDF, AI alebo CDR nám pošlite cez kontaktný formulár.`);
+      setLogoError(`Logo nahrajte ako ${LOGO_HINT.split(" — ")[0]}. CDR alebo EPS nám pošlite cez kontaktný formulár.`);
       return;
     }
     if (file.size > MAX_LOGO_BYTES) {
@@ -445,7 +445,9 @@ function Configurator() {
         v ? { outline: v.outline, faceUrl: v.face ? URL.createObjectURL(v.face) : null } : null;
       setLogo((prev) => {
         releaseLogo(prev);
-        return { file, url: URL.createObjectURL(file), cut: version(traced.cut), box: version(traced.box) };
+        // A PDF has no picture an <img> can show — its drawn page stands in.
+        const url = URL.createObjectURL(traced.rendered ?? file);
+        return { file, url, cut: version(traced.cut), box: version(traced.box) };
       });
       setLogoShape(traced.box ? "box" : "cut");
       setFacePrint(true);
@@ -460,6 +462,7 @@ function Configurator() {
         patch(reconcile({}, true));
       }
     } catch (err) {
+      console.error("[logo] spracovanie zlyhalo:", err);
       setLogoError(
         // Our own messages say what is wrong with the file; anything else is
         // the browser's, and means nothing to a customer.

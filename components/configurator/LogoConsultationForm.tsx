@@ -17,7 +17,7 @@ type Status = "idle" | "sending" | "sent" | "error";
 const ERRORS: Record<string, string> = {
   missing_fields: "Vyplňte prosím meno, e-mail a telefón.",
   invalid_email: "Skontrolujte prosím e-mailovú adresu.",
-  logo_type: "Tento typ súboru loga nevieme prijať — pošlite SVG, PNG, JPG alebo WEBP.",
+  logo_type: "Tento typ súboru loga nevieme prijať — pošlite PDF, SVG, PNG, JPG alebo WEBP.",
   logo_too_big: `Súbor loga je väčší ako ${formatBytes(MAX_LOGO_BYTES)}. Pošlite menší, alebo nám ho pošlite e-mailom na info@4frommedia.sk.`,
 };
 
