@@ -25,10 +25,16 @@ export default function LogoConsultationForm({
   logo,
   config,
   size,
+  lightBox,
+  facePrint,
 }: {
   logo: File;
   config: Config;
   size: SignSize;
+  /** Made as a light box — the whole picture, background and all. */
+  lightBox: boolean;
+  /** The face printed with the logo's own artwork. */
+  facePrint: boolean;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -70,6 +76,8 @@ export default function LogoConsultationForm({
       form.append("website", website);
       form.append("config", JSON.stringify(config));
       form.append("size", JSON.stringify(size));
+      form.append("lightBox", lightBox ? "1" : "0");
+      form.append("facePrint", facePrint ? "1" : "0");
       form.append("logo", logo, logo.name);
       const preview = await snapshotPreview().catch(() => null);
       if (preview) form.append("preview", preview);

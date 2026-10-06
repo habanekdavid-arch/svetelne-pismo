@@ -389,8 +389,8 @@ async function LogoConsultationsPanel() {
           {requests.map((r) => {
             const c = r.config;
             const colours = hasSeparateFace(c.material)
-              ? `čelo ${colorLabel(faceColorOf(c))}, telo ${colorLabel(c.bodyColor)}`
-              : colorLabel(c.bodyColor);
+              ? `čelo ${r.facePrint ? "s potlačou z loga" : colorLabel(faceColorOf(c))}, telo ${colorLabel(c.bodyColor)}`
+              : `${colorLabel(c.bodyColor)}${r.facePrint ? ", čelo s potlačou z loga" : ""}`;
             return (
               <li
                 key={r.id}
@@ -399,7 +399,7 @@ async function LogoConsultationsPanel() {
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="font-bold" style={{ color: "var(--color-foreground)" }}>
-                    Logo č. {r.id} — {r.name}
+                    {r.lightBox ? "Svetelný box" : "Logo"} č. {r.id} — {r.name}
                   </p>
                   <p className="text-xs" style={{ color: "var(--color-muted)" }}>
                     {formatDateTime(r.createdAt)}

@@ -574,13 +574,90 @@ function useTexturedTriple(
 type SolidLetterMeshProps = {
   geometry: THREE.BufferGeometry;
   materials: THREE.MeshPhysicalMaterial[];
+  /** The logo's artwork, printed on the face (see FaceArtwork). */
+  faceMap?: THREE.Texture | null;
 };
 
-function SolidLetterMesh({ geometry, materials }: SolidLetterMeshProps) {
-  return <mesh geometry={geometry} material={materials} castShadow receiveShadow />;
+function SolidLetterMesh({ geometry, materials, faceMap }: SolidLetterMeshProps) {
+  const [side, back, front] = [
+    materials[MATERIAL_GROUP.SIDE],
+    materials[MATERIAL_GROUP.BACK],
+    materials[MATERIAL_GROUP.FRONT],
+  ];
+  // A printed face is the face material with the design on it: the print
+  // takes the place of the face colour, and where the face lets light out
+  // (a front-lit acrylic face) the light comes out through the print, in its
+  // colours — the way a printed shop sign glows at night.
+  const printed = useMemo(() => {
+    if (!faceMap) return null;
+    const m = front.clone();
+    m.map = faceMap;
+    m.color.set(0xffffff);
+    if (m.emissiveIntensity > 0) {
+      m.emissiveMap = faceMap;
+      m.emissiveIntensity *= PRINTED_FACE_GLOW;
+    }
+    m.needsUpdate = true;
+    return m;
+  }, [front, faceMap]);
+  useEffect(() => () => printed?.dispose(), [printed]);
+
+  const list = useMemo(() => {
+    const arr: THREE.MeshPhysicalMaterial[] = [];
+    arr[MATERIAL_GROUP.SIDE] = side;
+    arr[MATERIAL_GROUP.BACK] = back;
+    arr[MATERIAL_GROUP.FRONT] = printed ?? front;
+    return arr;
+  }, [side, back, front, printed]);
+
+  return <mesh geometry={geometry} material={list} castShadow receiveShadow />;
+}
+
+/**
+ * A lit print glows in its own colours, which are already saturated — at the
+ * full strength of a plain white face the bloom would wash them out to white.
+ */
+const PRINTED_FACE_GLOW = 1.1;
+
+/**
+ * Loads the logo's face picture and lays it over the front caps. Those caps
+ * carry the outline's own coordinates as UVs (ExtrudeGeometry's default), and
+ * the outline spans 0…aspect × 0…1 logo heights at GLYPH_SIZE — so scaling
+ * the texture by that box puts every pixel of the design exactly where it
+ * was on the logo.
+ */
+function FaceArtwork({ url, aspect, children }: { url: string; aspect: number; children: (map: THREE.Texture) => React.ReactNode }) {
+  const texture = useTexture(url);
+  const { gl } = useThree();
+  const map = useMemo(() => {
+    const t = texture.clone();
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    t.repeat.set(1 / (aspect * GLYPH_SIZE), 1 / GLYPH_SIZE);
+    t.offset.set(0, 0);
+    t.anisotropy = gl.capabilities.getMaxAnisotropy();
+    t.needsUpdate = true;
+    return t;
+  }, [texture, aspect, gl]);
+  useEffect(() => () => map.dispose(), [map]);
+  return <>{children(map)}</>;
+}
+
+/** The face artwork when there is one; nothing to wait for when there is not. */
+function MaybeFaceArtwork({
+  url,
+  aspect,
+  children,
+}: {
+  url: string | null | undefined;
+  aspect: number;
+  children: (map: THREE.Texture | null) => React.ReactNode;
+}) {
+  return url ? <FaceArtwork url={url} aspect={aspect}>{children}</FaceArtwork> : <>{children(null)}</>;
 }
 
 type TexLetterProps = {
+  faceMap?:      THREE.Texture | null;
   matOpt:        MaterialOption;
   baseColor:     THREE.Color;
   glowColor:     THREE.Color;
@@ -591,7 +668,7 @@ type TexLetterProps = {
   faceKind:      FaceKind;
 };
 
-function ThreeDLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry, faceColor, faceKind }: TexLetterProps) {
+function ThreeDLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geometry, faceColor, faceKind, faceMap }: TexLetterProps) {
   // No colour map (see TexSet.map): the print photo averages a greenish
   // grey (rgb 141,147,128), which turned a yellow print olive and every other
   // colour a shade darker than its swatch. The layer lines are relief — the
@@ -607,7 +684,7 @@ function ThreeDLetters({ matOpt, baseColor, glowColor, ls, isIlluminated, geomet
     faceColor,
     faceKind,
   );
-  return <SolidLetterMesh geometry={geometry} materials={toMaterialArray(triple)} />;
+  return <SolidLetterMesh geometry={geometry} materials={toMaterialArray(triple)} faceMap={faceMap} />;
 }
 
 type LetterVariantProps = TexLetterProps & {
@@ -616,7 +693,7 @@ type LetterVariantProps = TexLetterProps & {
 };
 
 function LetterVariant({ material, fallback, geometry, ...rest }: LetterVariantProps) {
-  const fallbackMesh = <SolidLetterMesh geometry={geometry} materials={fallback} />;
+  const fallbackMesh = <SolidLetterMesh geometry={geometry} materials={fallback} faceMap={rest.faceMap} />;
 
   // Alurol has no texture on purpose: it is a lacquered aluminium band with
   // a smooth, glossy finish, and a brushed-metal map is exactly what it is not.
@@ -676,6 +753,8 @@ type LetterGeometryHostProps = {
   faceColor: THREE.Color;
   faceKind: FaceKind;
   fallbackTriple: MaterialTriple;
+  /** A logo's own artwork, printed on the face. */
+  faceMap?: THREE.Texture | null;
   onFailedGlyphs?: (count: number) => void;
   /** The sign's size on the wall, in world units — for framing the camera. */
   onBounds?: (bounds: { width: number; height: number }) => void;
@@ -683,7 +762,7 @@ type LetterGeometryHostProps = {
 
 function LetterGeometryHost({
   lines, unitHeight, heightMm, worldDepth, material, matOpt, baseColor, glowColor, ls, isIlluminated,
-  faceColor, faceKind, fallbackTriple, onFailedGlyphs, onBounds,
+  faceColor, faceKind, fallbackTriple, faceMap, onFailedGlyphs, onBounds,
 }: LetterGeometryHostProps) {
   // True scale: the capital of THIS font (or the whole logo) is made exactly
   // as tall as ordered, in the same millimetres the brick wall is drawn in
@@ -736,6 +815,7 @@ function LetterGeometryHost({
         geometry={build.geometry}
         faceColor={faceColor}
         faceKind={faceKind}
+        faceMap={faceMap}
       />
     </group>
   );
@@ -935,6 +1015,8 @@ type LetterSceneProps = {
   text: string;
   /** The customer's logo — made instead of the text when there is one. */
   logo?: LogoOutline | null;
+  /** The logo's artwork, printed on its face — when the customer wants it so. */
+  logoFace?: string | null;
   /** Preview-only: the part of the frame shown, zoomed in with the mouse wheel. */
   zoom?: ZoomView;
   /** Preview-only: the surface the sign is shown against. */
@@ -1177,6 +1259,7 @@ export default function LetterScene(props: LetterSceneProps) {
 function SceneContent({
   text,
   logo,
+  logoFace,
   wall = DEFAULT_WALL,
   backgroundUrl,
   font,
@@ -1479,8 +1562,10 @@ function SceneContent({
               while their TTF loads, never the wall/lights/HDRI. */}
           <Suspense fallback={null}>
             <SignShapes source={source}>{(lines, unitHeight) => (
+            <MaybeFaceArtwork url={logo ? logoFace : null} aspect={logo?.aspect ?? 1}>{(faceMap) => (
             <LetterGeometryHost
               lines={lines}
+              faceMap={faceMap}
               unitHeight={unitHeight}
               heightMm={debouncedHeight}
               worldDepth={worldDepth}
@@ -1496,6 +1581,7 @@ function SceneContent({
               onFailedGlyphs={onFailedGlyphs}
               onBounds={setSignBounds}
             />
+            )}</MaybeFaceArtwork>
             )}</SignShapes>
           </Suspense>
         </group>
