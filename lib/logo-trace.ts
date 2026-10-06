@@ -1,6 +1,6 @@
 "use client";
 
-import { logoBoxOutline, type LogoContour, type LogoOutline, type LogoPart, type LogoSegment } from "@/lib/logo";
+import { isPdfLike, logoBoxOutline, type LogoContour, type LogoOutline, type LogoPart, type LogoSegment } from "@/lib/logo";
 
 // The customer's logo file, turned into outlines a sign can be made from.
 //
@@ -68,18 +68,68 @@ export type TracedVersion = {
  *     background is a real colour — someone who sends their logo on red
  *     wants the red too.
  */
-export type TracedLogo = { cut: TracedVersion | null; box: TracedVersion | null };
+export type TracedLogo = {
+  cut: TracedVersion | null;
+  box: TracedVersion | null;
+  /** A file no <img> can show (PDF) drawn as a picture — for the thumbnail. */
+  rendered: Blob | null;
+};
 
 export async function traceLogo(file: File): Promise<TracedLogo> {
-  const img = await loadPicture(file, TRACE_PX);
+  // A PDF is drawn into a picture first, big enough for a sharp face print,
+  // and from there on it is traced like any other picture.
+  const source = isPdfLike(file.name) ? await renderPdf(file) : file;
+  const img = await loadPicture(source, TRACE_PX);
   try {
-    return await traceLoaded(file, img);
+    const traced = await traceLoaded(source, img);
+    return { ...traced, rendered: source === file ? null : source };
   } finally {
     img.release();
   }
 }
 
-async function traceLoaded(file: File, img: Picture): Promise<TracedLogo> {
+/** Long side, in pixels, a PDF's page is drawn at. */
+const PDF_RENDER_PX = 4096;
+/** pdf.js's (legacy) worker, copied into public/ — its version must match the package. */
+const PDF_WORKER_SRC = "/pdfjs/pdf.worker-legacy-6.4.299.min.mjs";
+
+/**
+ * The first page of a PDF as a PNG. Drawn on white, the way it prints: a page
+ * that is white round the logo is a logo, one in a colour is a light box.
+ */
+async function renderPdf(file: File): Promise<File> {
+  // The "legacy" build: the modern one leans on JavaScript only the newest
+  // browsers have (Map.getOrInsertComputed); this one carries polyfills.
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+  const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+  let doc: Awaited<typeof task.promise>;
+  try {
+    doc = await task.promise;
+  } catch {
+    throw new LogoTraceError(
+      /\.ai$/i.test(file.name)
+        ? "Tento súbor AI sa nedá otvoriť — uložte ho prosím v Illustratori ako PDF alebo SVG."
+        : "Súbor PDF sa nepodarilo otvoriť — nie je poškodený alebo zaheslovaný?",
+    );
+  }
+  try {
+    const page = await doc.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: PDF_RENDER_PX / Math.max(base.width, base.height) });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(viewport.width));
+    canvas.height = Math.max(1, Math.round(viewport.height));
+    await page.render({ canvas, viewport, background: "#ffffff" }).promise;
+    const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!png) throw new LogoTraceError("PDF sa nepodarilo vykresliť.");
+    return new File([png], file.name.replace(/\.(pdf|ai)$/i, "") + ".png", { type: "image/png" });
+  } finally {
+    void task.destroy();
+  }
+}
+
+async function traceLoaded(file: File, img: Picture): Promise<Omit<TracedLogo, "rendered">> {
   const scale = TRACE_PX / Math.max(img.width, img.height);
   const w = Math.max(1, Math.round(img.width * scale));
   const h = Math.max(1, Math.round(img.height * scale));

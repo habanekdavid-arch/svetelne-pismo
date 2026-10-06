@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // pdf.js worker, copied from node_modules as it is (lib/logo-trace.ts):
+    "public/pdfjs/**",
   ]),
 ]);
 

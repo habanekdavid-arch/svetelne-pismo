@@ -8,9 +8,14 @@ import type { SignSize } from "@/lib/useSignSize";
 // logo without pulling the 3D chunk into the page. letterGeometry.ts turns
 // the outlines into shapes.
 
-/** Files the configurator can draw and trace — anything the browser can paint. */
-export const LOGO_ACCEPT = ".svg,.png,.jpg,.jpeg,.webp,.gif,image/svg+xml,image/png,image/jpeg,image/webp,image/gif";
-export const LOGO_HINT = "SVG, PNG, JPG alebo WEBP — najlepšie jednofarebné logo na čistom pozadí";
+/**
+ * Files the configurator can draw and trace — anything the browser can paint,
+ * and PDF (its first page, drawn by pdf.js). An .ai file is tried as a PDF
+ * too: Illustrator saves one inside it unless told not to.
+ */
+export const LOGO_ACCEPT =
+  ".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,image/svg+xml,image/png,image/jpeg,image/webp,image/gif,application/pdf";
+export const LOGO_HINT = "PDF, SVG, PNG, JPG alebo WEBP — najlepšie logo na čistom pozadí";
 
 /**
  * The logo file travels with the consultation request, through one Vercel
@@ -19,7 +24,12 @@ export const LOGO_HINT = "SVG, PNG, JPG alebo WEBP — najlepšie jednofarebné 
  */
 export const MAX_LOGO_BYTES = 3 * 1024 * 1024;
 
-const LOGO_EXTENSIONS = ["svg", "png", "jpg", "jpeg", "webp", "gif"];
+const LOGO_EXTENSIONS = ["svg", "png", "jpg", "jpeg", "webp", "gif", "pdf", "ai"];
+
+/** A file the configurator draws through pdf.js. */
+export function isPdfLike(name: string): boolean {
+  return /\.(pdf|ai)$/i.test(name);
+}
 
 export function isLogoFile(name: string): boolean {
   const dot = name.lastIndexOf(".");
