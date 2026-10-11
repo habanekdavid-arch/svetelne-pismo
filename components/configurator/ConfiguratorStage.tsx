@@ -105,7 +105,8 @@ function limitLines(value: string): string {
 }
 
 /**
- * The sign the configurator opens on — and goes back to with "Začať odznova":
+ * The sign the configurator opens on — and, but for the text, goes back to
+ * with "Pôvodné nastavenia":
  * plain black "Váš text", a blank, legible canvas visible the instant the page
  * loads. The customer turns the light on themselves.
  */
@@ -485,24 +486,20 @@ function Configurator() {
 
   /** Back to a text sign — the text typed before is still there. */
   /**
-   * "Začať odznova": the sign back to how the configurator opens — the text,
-   * font, size, lighting, build and colours, no logo, daylight, the whole
-   * view. The wall and the customer's own photo stay: that is where they
-   * picture the sign, not part of it.
+   * "Pôvodné nastavenia": every setting back to how the configurator opens —
+   * font, size, lighting, build and colours, daylight, the whole view. What
+   * the customer brought stays: the text they typed, the logo they uploaded,
+   * and the wall or photo they picture it on.
    */
-  function resetSign() {
-    setLogo((prev) => {
-      releaseLogo(prev);
-      return null;
-    });
-    setLogoShape("cut");
+  function resetSettings() {
+    const start = initialConfig();
     setFacePrint(true);
     setLogoError(null);
-    setConsultOpen(false);
     setManualMode(null);
     setNightPct(DEFAULT_NIGHT_PCT);
     setZoom(FULL_VIEW);
-    setConfig(initialConfig());
+    // faceColor is spelled out: the start has none, and a merge would keep the old one.
+    patch(reconcile({ ...start, faceColor: undefined, text: config.text.trim() ? config.text : start.text }));
   }
 
   function clearLogo() {
@@ -620,13 +617,13 @@ function Configurator() {
 
           <button
             type="button"
-            onClick={resetSign}
-            title="Vráti text, font, rozmer, svietenie, prevedenie aj farby do základného nastavenia"
+            onClick={resetSettings}
+            title="Vráti font, rozmer, svietenie, prevedenie aj farby do pôvodného nastavenia — váš text alebo logo zostane"
             className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition hover:opacity-80"
             style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground-soft)" }}
           >
             <RotateCcw size={13} strokeWidth={2.4} />
-            Začať odznova
+            Pôvodné nastavenia
           </button>
         </div>
 
