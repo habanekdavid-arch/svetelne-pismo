@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ArrowDown, Plus, Upload } from "lucide-react";
+import { ArrowDown, Plus, RotateCcw, Upload } from "lucide-react";
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import { TooltipProvider, useTip } from "@/components/ui/Tooltip";
 import WallPicker from "@/components/configurator/WallPicker";
@@ -102,6 +102,27 @@ const MAX_TEXT_LENGTH = 40;
 function limitLines(value: string): string {
   const lines = value.split("\n");
   return lines.length <= MAX_LINES ? value : lines.slice(0, MAX_LINES).join("\n");
+}
+
+/**
+ * The sign the configurator opens on — and goes back to with "Začať odznova":
+ * plain black "Váš text", a blank, legible canvas visible the instant the page
+ * loads. The customer turns the light on themselves.
+ */
+function initialConfig(): Config {
+  return {
+    text:       "Váš text",
+    font:       CATALOGUE_FONTS[0],
+    material:   DEFAULT_MATERIAL,
+    signType:   "plain",
+    lightMode:  "front",
+    // Inert while the sign is unlit; used once a lit variant is chosen.
+    lightColor: DEFAULT_LIGHT_COLOR,
+    bodyColor:  "#0a0a0a",
+    // Millimetres, and inside what 3D tlač s plexi is made in (120–699 mm).
+    height:     300,
+    rotation:   0, // sign no longer rotates — kept for the Config shape / pricing
+  };
 }
 
 /** Lets go of every object URL a logo holds — the file and its face pictures. */
@@ -209,21 +230,7 @@ function Configurator() {
   const priceAccess = usePriceAccess();
   const signedIn = priceAccess === "ok";
 
-  const [config, setConfig] = useState<Config>({
-    // Plain black "Váš text" on load — a blank, legible canvas, visible the
-    // instant the page loads. The customer turns the light on themselves.
-    text:       "Váš text",
-    font:       CATALOGUE_FONTS[0],
-    material:   DEFAULT_MATERIAL,
-    signType:   "plain",
-    lightMode:  "front",
-    // Inert while the sign is unlit; used once a lit variant is chosen.
-    lightColor: DEFAULT_LIGHT_COLOR,
-    bodyColor:  "#0a0a0a",
-    // Millimetres, and inside what 3D tlač s plexi is made in (120–699 mm).
-    height:     300,
-    rotation:   0, // sign no longer rotates — kept for the Config shape / pricing
-  });
+  const [config, setConfig] = useState<Config>(initialConfig);
 
   // Keep ShowcaseSection in sync with every config change
   useEffect(() => { publishConfig(config); }, [config, publishConfig]);
@@ -477,6 +484,27 @@ function Configurator() {
   }
 
   /** Back to a text sign — the text typed before is still there. */
+  /**
+   * "Začať odznova": the sign back to how the configurator opens — the text,
+   * font, size, lighting, build and colours, no logo, daylight, the whole
+   * view. The wall and the customer's own photo stay: that is where they
+   * picture the sign, not part of it.
+   */
+  function resetSign() {
+    setLogo((prev) => {
+      releaseLogo(prev);
+      return null;
+    });
+    setLogoShape("cut");
+    setFacePrint(true);
+    setLogoError(null);
+    setConsultOpen(false);
+    setManualMode(null);
+    setNightPct(DEFAULT_NIGHT_PCT);
+    setZoom(FULL_VIEW);
+    setConfig(initialConfig());
+  }
+
   function clearLogo() {
     setLogo((prev) => {
       releaseLogo(prev);
@@ -590,6 +618,16 @@ function Configurator() {
             </p>
           </div>
 
+          <button
+            type="button"
+            onClick={resetSign}
+            title="Vráti text, font, rozmer, svietenie, prevedenie aj farby do základného nastavenia"
+            className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition hover:opacity-80"
+            style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground-soft)" }}
+          >
+            <RotateCcw size={13} strokeWidth={2.4} />
+            Začať odznova
+          </button>
         </div>
 
         {/* ── Preview beside the settings ───────────────────────────────────
@@ -865,11 +903,28 @@ function Configurator() {
               type="button"
               onClick={() => logoInputRef.current?.click()}
               disabled={logoBusy}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-[13px] font-bold transition hover:opacity-80 disabled:opacity-50 lg:mt-2.5 lg:py-1.5"
-              style={{ border: "1.5px dashed var(--color-border-strong)", color: "var(--color-foreground)" }}
+              className="mt-3 flex w-full items-center gap-3 rounded-2xl px-4 py-4 text-left transition hover:opacity-80 disabled:opacity-50 lg:mt-2.5 lg:py-3"
+              style={{
+                border: "2px dashed var(--color-border-strong)",
+                background: "color-mix(in srgb, var(--accent) 5%, transparent)",
+                color: "var(--color-foreground)",
+              }}
             >
-              <Upload size={14} strokeWidth={2.4} />
-              {logoBusy ? "Spracúvam logo…" : "Alebo nahrajte či sem pretiahnite vlastné logo"}
+              <span
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+                aria-hidden="true"
+              >
+                <Upload size={18} strokeWidth={2.4} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-extrabold">
+                  {logoBusy ? "Spracúvam logo…" : "Máte logo? Nahrajte ho sem"}
+                </span>
+                <span className="block text-[12px] leading-4" style={{ color: "var(--color-muted)" }}>
+                  Kliknite alebo súbor pretiahnite — {LOGO_HINT.split(" — ")[0]}
+                </span>
+              </span>
             </button>
             </>
             )}
