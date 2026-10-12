@@ -199,9 +199,15 @@ function Configurator() {
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const { setConfig: publishConfig } = useSharedConfig();
   const {
+    items: cartItems, remove: removeFromCart,
     add: addToCart, checkout, syncDraft,
     editingId, applyEdit, cancelEdit, pendingConfig, consumePending,
   } = useCart();
+  // "Nové" asks once before it throws anything away.
+  const [confirmNew, setConfirmNew] = useState(false);
+  // Bumped by "Nové" to build the preview afresh — the view angle and the
+  // wall picker's open tab go back to how the page opened.
+  const [sceneKey, setSceneKey] = useState(0);
 
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -502,6 +508,39 @@ function Configurator() {
     patch(reconcile({ ...start, faceColor: undefined, text: config.text.trim() ? config.text : start.text }));
   }
 
+  /**
+   * "Nové": the configurator exactly as the page opened it — the sample text
+   * instead of the customer's, no logo, the default wall, no photo, the
+   * default view. The sign that was being configured leaves the cart with it
+   * (it was only ever the draft line); signs already put in the cart stay.
+   */
+  function startNew() {
+    setConfirmNew(false);
+    if (editingId) cancelEdit();
+    const draft = cartItems.find((i) => i.draft);
+    if (draft) removeFromCart(draft.id);
+    setLogo((prev) => {
+      releaseLogo(prev);
+      return null;
+    });
+    setLogoShape("cut");
+    setFacePrint(true);
+    setLogoError(null);
+    setLogoDrag(false);
+    setConsultOpen(false);
+    setManualMode(null);
+    setNightPct(DEFAULT_NIGHT_PCT);
+    setZoom(FULL_VIEW);
+    setWall(DEFAULT_WALL);
+    clearBackground();
+    setDragTarget("sign");
+    setConfig(initialConfig());
+    // Untouched again: the sample sign is not something to keep in the cart.
+    setTouched(false);
+    setSceneKey((k) => k + 1);
+    document.getElementById("konfigurator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function clearLogo() {
     setLogo((prev) => {
       releaseLogo(prev);
@@ -615,16 +654,60 @@ function Configurator() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={resetSettings}
-            title="Vráti font, rozmer, svietenie, prevedenie aj farby do pôvodného nastavenia — váš text alebo logo zostane"
-            className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition hover:opacity-80"
-            style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground-soft)" }}
-          >
-            <RotateCcw size={13} strokeWidth={2.4} />
-            Pôvodné nastavenia
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={resetSettings}
+              title="Vráti font, rozmer, svietenie, prevedenie aj farby do pôvodného nastavenia — váš text alebo logo zostane"
+              className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition hover:opacity-80"
+              style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground-soft)" }}
+            >
+              <RotateCcw size={13} strokeWidth={2.4} />
+              Pôvodné nastavenia
+            </button>
+
+            {/* "Nové" throws the sign away — one click to ask, a second to do it. */}
+            {confirmNew ? (
+              <div
+                role="group"
+                aria-label="Začať nový nápis"
+                className="flex items-center gap-1.5 rounded-full py-1 pl-3.5 pr-1"
+                style={{ background: "color-mix(in srgb, var(--accent) 12%, var(--color-background))", border: "1.5px solid var(--accent)" }}
+              >
+                <span className="text-[12.5px] font-bold" style={{ color: "var(--color-foreground)" }}>
+                  Zahodiť rozpracovaný nápis?
+                </span>
+                <button
+                  type="button"
+                  onClick={startNew}
+                  className="rounded-full px-3 py-1 text-[12.5px] font-extrabold"
+                  style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
+                >
+                  Áno, nový
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmNew(false)}
+                  className="rounded-full px-3 py-1 text-[12.5px] font-bold"
+                  style={{ color: "var(--color-foreground-soft)" }}
+                >
+                  Nie
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                // Nothing done yet: nothing to lose, so no question either.
+                onClick={() => (touched || logo || background ? setConfirmNew(true) : startNew())}
+                title="Úplne od začiatku: nový text, bez loga, pôvodná stena aj náhľad. Nápisy v košíku zostanú."
+                className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-extrabold transition hover:opacity-85"
+                style={{ background: "var(--color-foreground)", color: "var(--color-background)", border: "1px solid var(--color-foreground)" }}
+              >
+                <Plus size={13} strokeWidth={2.6} />
+                Nové
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Preview beside the settings ───────────────────────────────────
@@ -712,6 +795,7 @@ function Configurator() {
             )}
 
             <LetterScene
+              key={sceneKey}
               zoom={zoom}
               text={config.text}
               logo={logoVersion?.outline ?? null}
@@ -758,6 +842,7 @@ function Configurator() {
               customer's own photo. */}
           <div className="mt-3">
           <WallPicker
+            key={sceneKey}
             wall={wall}
             onWall={chooseWall}
             photoName={background?.name ?? null}
