@@ -12,10 +12,11 @@ const STATUS_CLASS: Record<OrderStatus, string> = {
   cancelled:   "border-red-500 bg-red-500 text-white",
 };
 
-export default function StatusBadge({ status }: { status: OrderStatus }) {
+/** `label` is the status already translated — customer pages pass it; the admin reads Slovak. */
+export default function StatusBadge({ status, label }: { status: OrderStatus; label?: string }) {
   return (
     <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${STATUS_CLASS[status]}`}>
-      {ORDER_STATUS_LABEL[status]}
+      {label ?? ORDER_STATUS_LABEL[status]}
     </span>
   );
 }

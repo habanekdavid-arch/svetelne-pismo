@@ -2,10 +2,12 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useT } from "@/lib/i18n/client";
 
 // Something on a page threw. Says so plainly, offers to try again, and keeps
 // the rest of the site (header, footer) around it.
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const t = useT();
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -20,11 +22,11 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
           !
         </div>
         <h1 className="mt-5 text-3xl font-extrabold tracking-tight" style={{ color: "var(--color-foreground)" }}>
-          Niečo sa pokazilo
+          {t("Niečo sa pokazilo")}
         </h1>
         <p className="mt-4 text-[15px] leading-7" style={{ color: "var(--color-muted)" }}>
-          Stránku sa nepodarilo načítať. Skúste to znova — ak problém pretrvá, napíšte nám a pomôžeme.
-          {error.digest && <span className="mt-2 block text-xs">Kód chyby: {error.digest}</span>}
+          {t("Stránku sa nepodarilo načítať. Skúste to znova — ak problém pretrvá, napíšte nám a pomôžeme.")}
+          {error.digest && <span className="mt-2 block text-xs">{t("Kód chyby:")} {error.digest}</span>}
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <button
@@ -33,18 +35,18 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
             className="rounded-2xl px-5 py-3 text-sm font-bold"
             style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
           >
-            Skúsiť znova
+            {t("Skúsiť znova")}
           </button>
           <Link
             href="/"
             className="rounded-2xl px-5 py-3 text-sm font-bold"
             style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "1px solid var(--color-border)" }}
           >
-            Na úvod
+            {t("Na úvod")}
           </Link>
         </div>
         <p className="mt-8 text-xs" style={{ color: "var(--color-muted)" }}>
-          Pomoc: <a href="mailto:info@4frommedia.sk" className="font-semibold underline">info@4frommedia.sk</a> ·{" "}
+          {t("Pomoc:")} <a href="mailto:info@4frommedia.sk" className="font-semibold underline">info@4frommedia.sk</a> ·{" "}
           <a href="tel:+421907907097" className="font-semibold underline">+421 907 907 097</a>
         </p>
       </div>

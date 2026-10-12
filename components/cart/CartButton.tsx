@@ -2,6 +2,7 @@
 
 import { ShoppingCart } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
+import { useT } from "@/lib/i18n/client";
 
 // Header cart control. Shape copied from vytlacto3d's Navbar: a square
 // rounded button that picks up an amber border on hover, with the item count
@@ -9,6 +10,7 @@ import { useCart } from "@/lib/cart-context";
 // appears once the cart has something in it.
 
 export default function CartButton() {
+  const t = useT();
   const { count, open } = useCart();
 
   if (count === 0) return null;
@@ -17,7 +19,7 @@ export default function CartButton() {
     <button
       type="button"
       onClick={open}
-      aria-label={`Otvoriť košík (${count})`}
+      aria-label={t("Otvoriť košík ({count})", { count })}
       className="relative flex h-10 w-10 items-center justify-center rounded-xl shadow-sm transition hover:shadow-md"
       style={{
         background: "var(--color-background)",

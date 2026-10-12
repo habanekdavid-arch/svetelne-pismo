@@ -1,6 +1,7 @@
 "use client";
 
 import type { DeliveryAddress } from "@/lib/orders";
+import { useT } from "@/lib/i18n/client";
 
 /** Street, number, town and postcode — for a courier, or for where a sign is mounted. */
 export function AddressFields({
@@ -12,6 +13,7 @@ export function AddressFields({
   onChange: (next: DeliveryAddress) => void;
   error?: string;
 }) {
+  const t = useT();
   const address = value;
   function patchAddress(patch: Partial<DeliveryAddress>) {
     onChange({ ...address, ...patch });
@@ -20,26 +22,26 @@ export function AddressFields({
     <div className="grid grid-cols-3 gap-2">
       <Field
         className="col-span-2"
-        label="Ulica"
+        label={t("Ulica")}
         value={address.street}
         onChange={(v) => patchAddress({ street: v })}
         autoComplete="address-line1"
       />
       <Field
-        label="Číslo"
+        label={t("Číslo")}
         value={address.houseNumber}
         onChange={(v) => patchAddress({ houseNumber: v })}
         autoComplete="address-line2"
       />
       <Field
         className="col-span-2"
-        label="Mesto"
+        label={t("Mesto")}
         value={address.city}
         onChange={(v) => patchAddress({ city: v })}
         autoComplete="address-level2"
       />
       <Field
-        label="PSČ"
+        label={t("PSČ")}
         value={address.zip}
         onChange={(v) => patchAddress({ zip: v })}
         autoComplete="postal-code"

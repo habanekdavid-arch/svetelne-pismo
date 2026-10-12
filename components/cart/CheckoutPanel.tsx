@@ -18,6 +18,8 @@ import VerifyCodeForm from "@/components/auth/VerifyCodeForm";
 import { isInBratislava, isPickup, leadTimeNotice } from "@/lib/shipping";
 import { AddressFields, emptyAddress } from "@/components/checkout/AddressFields";
 import AuthGate, { type SessionUser } from "@/components/checkout/AuthGate";
+import { useT } from "@/lib/i18n/client";
+import { rich } from "@/lib/i18n/rich";
 
 // The whole checkout, inside the cart drawer — laid out the way vytlacto3d's
 // is, as six numbered steps:
@@ -68,6 +70,7 @@ type Props = {
 type Errors = Partial<Record<"name" | "phone" | "billing" | "company" | "address" | "site" | "payment", string>>;
 
 export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Props) {
+  const t = useT();
   const { clear: clearCart, close } = useCart();
   const router = useRouter();
   const configs: Config[] = items.map((i) => i.config);
@@ -183,16 +186,16 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
 
   function validate(): boolean {
     const e: Errors = {};
-    if (!name.trim()) e.name = "Zadajte meno a priezvisko";
-    if (!phone.trim()) e.phone = "Zadajte telefón";
-    if (!isComplete(billing)) e.billing = "Vyplňte celú fakturačnú adresu";
-    if (isCompany && (!profile.companyName.trim() || !profile.ico.trim())) e.company = "Vyplňte názov firmy a IČO";
-    if (carrier?.needsAddress && !isComplete(address)) e.address = "Vyplňte celú adresu";
+    if (!name.trim()) e.name = t("Zadajte meno a priezvisko");
+    if (!phone.trim()) e.phone = t("Zadajte telefón");
+    if (!isComplete(billing)) e.billing = t("Vyplňte celú fakturačnú adresu");
+    if (isCompany && (!profile.companyName.trim() || !profile.ico.trim())) e.company = t("Vyplňte názov firmy a IČO");
+    if (carrier?.needsAddress && !isComplete(address)) e.address = t("Vyplňte celú adresu");
     else if (carrier?.id === "pickup-bratislava" && !isInBratislava(address.city)) {
-      e.address = "Osobne odovzdávame len v Bratislave";
+      e.address = t("Osobne odovzdávame len v Bratislave");
     }
-    if (wantsInstall && !isComplete(site)) e.site = "Vyplňte celú adresu miesta inštalácie";
-    if (paymentMethods.length > 0 && !payment) e.payment = "Vyberte spôsob platby";
+    if (wantsInstall && !isComplete(site)) e.site = t("Vyplňte celú adresu miesta inštalácie");
+    if (paymentMethods.length > 0 && !payment) e.payment = t("Vyberte spôsob platby");
     setErrors(e);
     // Account problems are inside the collapsed summary — open it.
     if (e.name || e.phone || e.billing || e.company) setEditingAccount(true);
@@ -252,7 +255,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         const err = await res.json().catch(() => null);
         if (err?.error === "email_not_verified") {
           setUser((u) => (u ? { ...u, verified: false } : u));
-          setSubmitError("Najprv overte svoj e-mail — zadajte kód, ktorý sme vám poslali.");
+          setSubmitError(t("Najprv overte svoj e-mail — zadajte kód, ktorý sme vám poslali."));
           return;
         }
         throw new Error(String(res.status));
@@ -292,7 +295,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           window.location.href = data.url;
           return;
         }
-        setSubmitError("Objednávku sme uložili, ale platbu sa nepodarilo otvoriť. Nájdete ju v časti „Moje objednávky“.");
+        setSubmitError(t("Objednávku sme uložili, ale platbu sa nepodarilo otvoriť. Nájdete ju v časti „Moje objednávky“."));
         return;
       }
 
@@ -306,42 +309,44 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
 
       clearCart();
       onPlaced({
-        title: "Objednávka odoslaná",
-        text: `Ďakujeme, ${name}! Ozveme sa vám na ${user?.email ?? "váš e-mail"} s potvrdením ceny, termínu a platby.`,
+        title: t("Objednávka odoslaná"),
+        text: t("Ďakujeme, {name}! Ozveme sa vám na {email} s potvrdením ceny, termínu a platby.", { name, email: user?.email ?? t("váš e-mail") }),
       });
     } catch {
-      setSubmitError("Objednávku sa nepodarilo odoslať. Skúste to prosím znova.");
+      setSubmitError(t("Objednávku sa nepodarilo odoslať. Skúste to prosím znova."));
     } finally {
       setSubmitting(false);
     }
   }
 
   const buttonLabel = submitting
-    ? payment === "card" ? "Presmerúvam…" : "Odosielam…"
+    ? payment === "card" ? t("Presmerúvam…") : t("Odosielam…")
     : paymentMethods.length === 0
-        ? "Odoslať objednávku"
+        ? t("Odoslať objednávku")
         : payment === "transfer"
-          ? "Objednať — zaplatiť prevodom"
-          : "Objednať a zaplatiť kartou";
+          ? t("Objednať — zaplatiť prevodom")
+          : t("Objednať a zaplatiť kartou");
 
   const blocked =
     submitting || !terms || !quote || !user || user.verified === false;
 
   const count = items.length;
-  const countLabel = `${count} ${count === 1 ? "nápis" : count < 5 ? "nápisy" : "nápisov"}`;
+  const countLabel = count === 1
+    ? t("{count} nápis", { count })
+    : count < 5 ? t("{count} nápisy", { count }) : t("{count} nápisov", { count });
   const accountReady = !!user && user.verified !== false;
 
   return (
     <div className="space-y-6">
       {/* ── 1. Doručenie ─────────────────────────────────────────────── */}
       <div>
-        <Step n={1}>Doručenie</Step>
+        <Step n={1}>{t("Doručenie")}</Step>
         {!quote ? (
           quoteFailed ? (
             <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              Ceny sa nepodarilo načítať.
+              {t("Ceny sa nepodarilo načítať.")}
               <button type="button" onClick={() => setQuoteTry((n) => n + 1)} className="font-bold underline">
-                Skúsiť znova
+                {t("Skúsiť znova")}
               </button>
             </div>
           ) : (
@@ -355,8 +360,8 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
                 active={method === d.id}
                 onClick={() => setMethod(d.id)}
                 icon={d.id.startsWith("pickup-") ? <HouseIcon /> : <TruckIcon />}
-                title={d.name}
-                sub={d.priceLabel}
+                title={t(d.name)}
+                sub={t(d.priceLabel)}
                 subStrong
                 wide={quote.deliveryMethods.length % 2 === 1 && d === quote.deliveryMethods[quote.deliveryMethods.length - 1]}
               />
@@ -367,7 +372,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         {carrier && (
           <>
             <p className="mt-2 text-xs leading-5" style={{ color: "var(--color-muted)" }}>
-              {carrier.description}
+              {t(carrier.description)}
             </p>
             <div
               className={`mt-2 rounded-2xl border px-3 py-2 text-xs leading-5 ${
@@ -377,7 +382,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
               }`}
               style={isPickup(carrier.id) ? undefined : { borderColor: "var(--color-border)", color: "var(--color-muted)" }}
             >
-              {leadTimeNotice(carrier.id)}
+              {t(leadTimeNotice(carrier.id))}
             </div>
           </>
         )}
@@ -385,10 +390,10 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           <div className="mt-2 rounded-2xl p-3" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
             <Sub>
               {carrier.id === "freight"
-                ? "Adresa doručenia — dopravu dohodneme"
+                ? t("Adresa doručenia — dopravu dohodneme")
                 : carrier.id === "pickup-bratislava"
-                  ? "Kde v Bratislave vám ho odovzdáme"
-                  : "Dodacia adresa"}
+                  ? t("Kde v Bratislave vám ho odovzdáme")
+                  : t("Dodacia adresa")}
             </Sub>
             <AddressFields value={address} onChange={setAddress} error={errors.address} />
           </div>
@@ -398,7 +403,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
       {/* ── 2. Doplniť detaily účtu ──────────────────────────────────── */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <Step n={2} flush>Doplniť detaily účtu</Step>
+          <Step n={2} flush>{t("Doplniť detaily účtu")}</Step>
           {accountReady && !editingAccount && (
             <button
               type="button"
@@ -406,7 +411,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
               className="text-xs font-semibold"
               style={{ color: "var(--color-accent-text)" }}
             >
-              Upraviť
+              {t("Upraviť")}
             </button>
           )}
         </div>
@@ -432,10 +437,10 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
             </div>
             <div style={{ color: "var(--color-muted)" }}>{phone} · {user.email}</div>
             <div style={{ color: "var(--color-muted)" }}>
-              Fakturačná adresa: {billing.street} {billing.houseNumber}, {billing.zip} {billing.city}
+              {t("Fakturačná adresa:")} {billing.street} {billing.houseNumber}, {billing.zip} {billing.city}
             </div>
             {isCompany && profile.ico && (
-              <div style={{ color: "var(--color-muted)" }}>IČO {profile.ico}{profile.dic ? ` · DIČ ${profile.dic}` : ""}{profile.icDph ? ` · IČ DPH ${profile.icDph}` : ""}</div>
+              <div style={{ color: "var(--color-muted)" }}>{t("IČO")} {profile.ico}{profile.dic ? ` · ${t("DIČ")} ${profile.dic}` : ""}{profile.icDph ? ` · ${t("IČ DPH")} ${profile.icDph}` : ""}</div>
             )}
           </div>
         ) : (
@@ -444,39 +449,39 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
             style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
           >
             <p className="text-[11px] leading-4" style={{ color: "var(--color-muted)" }}>
-              Uložíme si ich k vášmu účtu ({user.email}) — pri ďalšej objednávke ich už nevypĺňate.
+              {t("Uložíme si ich k vášmu účtu ({email}) — pri ďalšej objednávke ich už nevypĺňate.", { email: user.email })}
             </p>
             <div className="flex gap-1 rounded-full p-1" style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}>
-              {(["PERSON", "COMPANY"] as const).map((t) => (
+              {(["PERSON", "COMPANY"] as const).map((kind) => (
                 <button
-                  key={t}
+                  key={kind}
                   type="button"
-                  onClick={() => setProfile((p) => ({ ...p, accountType: t }))}
+                  onClick={() => setProfile((p) => ({ ...p, accountType: kind }))}
                   className="flex-1 rounded-full py-1.5 text-[11px] font-bold transition"
                   style={
-                    profile.accountType === t
+                    profile.accountType === kind
                       ? { background: "var(--color-foreground)", color: "var(--color-background)" }
                       : { color: "var(--color-muted)" }
                   }
                 >
-                  {t === "PERSON" ? "Súkromná osoba" : "Firma"}
+                  {kind === "PERSON" ? t("Súkromná osoba") : t("Firma")}
                 </button>
               ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Meno a priezvisko" value={name} onChange={setName} autoComplete="name" error={errors.name} />
-              <Field label="Telefón" value={phone} onChange={setPhone} autoComplete="tel" type="tel" error={errors.phone} />
+              <Field label={t("Meno a priezvisko")} value={name} onChange={setName} autoComplete="name" error={errors.name} />
+              <Field label={t("Telefón")} value={phone} onChange={setPhone} autoComplete="tel" type="tel" error={errors.phone} />
             </div>
             {isCompany && (
               <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-2">
-                  <Field label="Názov firmy" value={profile.companyName} onChange={(v) => setProfile((p) => ({ ...p, companyName: v }))} autoComplete="organization" />
+                  <Field label={t("Názov firmy")} value={profile.companyName} onChange={(v) => setProfile((p) => ({ ...p, companyName: v }))} autoComplete="organization" />
                 </div>
-                <Field label="IČO" value={profile.ico} onChange={(v) => setProfile((p) => ({ ...p, ico: v }))} />
-                <Field label="DIČ" value={profile.dic} onChange={(v) => setProfile((p) => ({ ...p, dic: v }))} />
+                <Field label={t("IČO")} value={profile.ico} onChange={(v) => setProfile((p) => ({ ...p, ico: v }))} />
+                <Field label={t("DIČ")} value={profile.dic} onChange={(v) => setProfile((p) => ({ ...p, dic: v }))} />
                 <div className="col-span-2">
                   <Field
-                    label="IČ DPH (ak ste platca DPH)"
+                    label={t("IČ DPH (ak ste platca DPH)")}
                     value={profile.icDph}
                     onChange={(v) => setProfile((p) => ({ ...p, icDph: v, vatPayer: !!v.trim() }))}
                   />
@@ -486,7 +491,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
             )}
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <Sub>Fakturačná adresa</Sub>
+                <Sub>{t("Fakturačná adresa")}</Sub>
                 {carrier?.needsAddress && isComplete(address) && (
                   <button
                     type="button"
@@ -494,7 +499,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
                     className="mb-2 text-[11px] font-semibold underline"
                     style={{ color: "var(--color-muted)" }}
                   >
-                    Rovnaká ako dodacia
+                    {t("Rovnaká ako dodacia")}
                   </button>
                 )}
               </div>
@@ -507,7 +512,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
       {/* ── 3. Platba — shown before signing in too, so the customer sees
           from the start how they can pay (prevodom alebo kartou). ── */}
       <div>
-        <Step n={3}>Platba</Step>
+        <Step n={3}>{t("Platba")}</Step>
         {paymentMethods.length > 0 ? (
           <>
             <div className="grid grid-cols-2 gap-2">
@@ -517,7 +522,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
                   active={payment === m}
                   onClick={() => setPayment(m)}
                   icon={m === "card" ? <CardBadge /> : <TransferBadge />}
-                  title={m === "card" ? PAYMENT_METHOD_LABEL.card : "Prevod"}
+                  title={m === "card" ? t(PAYMENT_METHOD_LABEL.card) : t("Prevod")}
                   sub={m === "card" ? "Stripe" : "IBAN SK"}
                   tone={m === "transfer" ? "orange" : "accent"}
                   wide={paymentMethods.length === 1}
@@ -526,21 +531,21 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
             </div>
             {payment === "transfer" && (
               <div className="mt-2 rounded-2xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
-                Platobné údaje (IBAN, VS, sumu) uvidíte hneď po objednaní. Výroba začne po prijatí platby.
+                {t("Platobné údaje (IBAN, VS, sumu) uvidíte hneď po objednaní. Výroba začne po prijatí platby.")}
               </div>
             )}
             {errors.payment && <Err>{errors.payment}</Err>}
           </>
         ) : (
           <p className="text-xs leading-5" style={{ color: "var(--color-muted)" }}>
-            Po odoslaní vám potvrdíme cenu, termín a platobné údaje.
+            {t("Po odoslaní vám potvrdíme cenu, termín a platobné údaje.")}
           </p>
         )}
       </div>
 
       {/* ── 4. Dopyt na cenu za inštaláciu ───────────────────────────── */}
       <div>
-        <Step n={4}>Dopyt na cenu za inštaláciu</Step>
+        <Step n={4}>{t("Dopyt na cenu za inštaláciu")}</Step>
         <div
           className="rounded-2xl p-3 transition-colors"
           style={{
@@ -553,34 +558,33 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
             <input type="checkbox" checked={wantsInstall} onChange={(e) => setWantsInstall(e.target.checked)} className="sr-only" />
             <span className="flex-1">
               <span className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--color-foreground)" }}>
-                <WrenchIcon /> Máte záujem aj o inštaláciu?
+                <WrenchIcon /> {t("Máte záujem aj o inštaláciu?")}
               </span>
               <span className="mt-1 block text-[11px] leading-4" style={{ color: "var(--color-muted)" }}>
-                V prípade, že máte záujem aj inštaláciu nápisu, vyplňte prosím údaje o mieste
-                inštalácie a my Vám pošleme cenovú ponuku.
+                {t("V prípade, že máte záujem aj inštaláciu nápisu, vyplňte prosím údaje o mieste inštalácie a my Vám pošleme cenovú ponuku.")}
               </span>
             </span>
           </label>
           {wantsInstall && (
             <div className="mt-3 space-y-2">
-              <Sub>Miesto inštalácie</Sub>
+              <Sub>{t("Miesto inštalácie")}</Sub>
               <AddressFields value={site} onChange={setSite} error={errors.site} />
               <label className="block">
                 <span className="mb-1 block text-[10px] font-black tracking-wide" style={{ color: "var(--color-muted)" }}>
-                  Poznámka (nepovinné)
+                  {t("Poznámka (nepovinné)")}
                 </span>
                 <textarea
                   value={installNote}
                   onChange={(e) => setInstallNote(e.target.value)}
                   rows={2}
                   maxLength={1000}
-                  placeholder="Napr. typ steny alebo fasády, výška umiestnenia, prívod elektriny…"
+                  placeholder={t("Napr. typ steny alebo fasády, výška umiestnenia, prívod elektriny…")}
                   className="w-full resize-none rounded-lg px-3 py-2 text-sm outline-none"
                   style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
                 />
               </label>
               <p className="text-[11px] leading-4" style={{ color: "var(--color-muted)" }}>
-                Teraz platíte len za nápis a dopravu. Inštaláciu vám nacenime zvlášť.
+                {t("Teraz platíte len za nápis a dopravu. Inštaláciu vám nacenime zvlášť.")}
               </p>
             </div>
           )}
@@ -589,7 +593,7 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
 
       {/* ── 5. Súhlas s podmienkami ──────────────────────────────────── */}
       <div>
-        <Step n={5}>Súhlas s podmienkami</Step>
+        <Step n={5}>{t("Súhlas s podmienkami")}</Step>
         <label
           className="flex cursor-pointer items-start gap-3 rounded-2xl p-3 transition-colors"
           style={{
@@ -600,44 +604,47 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
           <CheckBox checked={terms} />
           <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="sr-only" />
           <span className="text-xs leading-5" style={{ color: "var(--color-foreground-soft)" }}>
-            Súhlasím so{" "}
-            <a
-              href="/obchodne-podmienky"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="font-semibold underline"
-              style={{ color: "var(--color-foreground)" }}
-            >
-              všeobecnými obchodnými podmienkami (VOP)
-            </a>
+            {rich(t("Súhlasím so {terms}"), {
+              terms: (
+                <a
+                  href="/obchodne-podmienky"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-semibold underline"
+                  style={{ color: "var(--color-foreground)" }}
+                >
+                  {t("všeobecnými obchodnými podmienkami (VOP)")}
+                </a>
+              ),
+            })}
           </span>
         </label>
       </div>
 
       {/* ── 6. Objednať a zaplatiť ───────────────────────────────────── */}
       <div className="space-y-3">
-        <Step n={6} flush>Objednať a zaplatiť</Step>
+        <Step n={6} flush>{t("Objednať a zaplatiť")}</Step>
         <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: "var(--color-surface)" }}>
           <div className="flex justify-between" style={{ color: "var(--color-muted)" }}>
-            <span>Výroba ({countLabel})</span>
+            <span>{t("Výroba ({count})", { count: countLabel })}</span>
             <span className="font-semibold">{canSeePrice ? formatEur(itemsPrice) : <Blurred />}</span>
           </div>
           <div className="flex justify-between" style={{ color: "var(--color-muted)" }}>
-            <span>Doprava</span>
-            <span className="font-semibold">{carrier ? carrier.priceLabel : "—"}</span>
+            <span>{t("Doprava")}</span>
+            <span className="font-semibold">{carrier ? t(carrier.priceLabel) : "—"}</span>
           </div>
           {wantsInstall && (
             <div className="flex justify-between" style={{ color: "var(--color-muted)" }}>
-              <span>Inštalácia</span>
-              <span className="font-semibold">cenová ponuka zvlášť</span>
+              <span>{t("Inštalácia")}</span>
+              <span className="font-semibold">{t("cenová ponuka zvlášť")}</span>
             </div>
           )}
           <div
             className="mt-2 flex justify-between border-t pt-2 text-base font-extrabold"
             style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
           >
-            <span>{carrier?.price === null ? "Za nápisy s DPH" : "Celkom s DPH"}</span>
+            <span>{carrier?.price === null ? t("Za nápisy s DPH") : t("Celkom s DPH")}</span>
             <span>{canSeePrice ? formatEur(total) : <Blurred />}</span>
           </div>
         </div>
@@ -645,12 +652,12 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
         {submitError && <Err>{submitError}</Err>}
         {!user && user !== undefined && (
           <p className="text-center text-xs" style={{ color: "var(--color-muted)" }}>
-            Na dokončenie objednávky sa prihláste alebo zaregistrujte v kroku 2.
+            {t("Na dokončenie objednávky sa prihláste alebo zaregistrujte v kroku 2.")}
           </p>
         )}
         {user && user.verified === false && (
           <p className="text-center text-xs" style={{ color: "var(--color-muted)" }}>
-            Na dokončenie objednávky overte e-mail kódom v kroku 2.
+            {t("Na dokončenie objednávky overte e-mail kódom v kroku 2.")}
           </p>
         )}
 
@@ -675,15 +682,17 @@ export default function CheckoutPanel({ items, isOpen, onPlaced, onQuoted }: Pro
 // ── Pieces ────────────────────────────────────────────────────────────────────
 
 function Blurred() {
-  return <span aria-label="Cena po prihlásení" className="inline-block select-none blur-[5px]">{PRICE_PLACEHOLDER}</span>;
+  const t = useT();
+  return <span aria-label={t("Cena po prihlásení")} className="inline-block select-none blur-[5px]">{PRICE_PLACEHOLDER}</span>;
 }
 
 /** A new account orders once its e-mail is confirmed — the code from the e-mail, or a new one. */
 function VerifyInline({ email, onVerified }: { email: string; onVerified: () => void }) {
+  const t = useT();
   return (
     <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
       <p>
-        Na objednanie treba overiť e-mail. Zadajte kód, ktorý sme poslali na <strong>{email}</strong>.
+        {rich(t("Na objednanie treba overiť e-mail. Zadajte kód, ktorý sme poslali na {email}."), { email: <strong>{email}</strong> })}
       </p>
       <VerifyCodeForm compact onVerified={onVerified} />
     </div>

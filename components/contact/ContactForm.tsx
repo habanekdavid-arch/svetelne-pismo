@@ -9,6 +9,8 @@ import {
   formatBytes,
   isAllowedAttachment,
 } from "@/lib/contact-attachments";
+import { tk } from "@/lib/i18n/config";
+import { useT } from "@/lib/i18n/client";
 
 // The contact form — on the home page under the FAQ and on /kontakt. The
 // message is stored first (app/api/contact → contact_messages, listed in the
@@ -17,13 +19,16 @@ import {
 
 type Status = "idle" | "sending" | "sent" | "error";
 
+// Translated where shown; {size} and {count} are filled in then.
 const SERVER_ERRORS: Record<string, string> = {
-  file_type: "Tento typ súboru nevieme prijať",
-  files_too_big: `Prílohy spolu presahujú ${formatBytes(MAX_ATTACHMENTS_BYTES)}. Väčšie súbory nám pošlite e-mailom na info@4frommedia.sk.`,
-  too_many_files: `Priložiť sa dá najviac ${MAX_ATTACHMENTS} súborov.`,
+  file_type: tk("Tento typ súboru nevieme prijať"),
+  files_too_big: tk("Prílohy spolu presahujú {size}. Väčšie súbory nám pošlite e-mailom na info@4frommedia.sk."),
+  too_many_files: tk("Priložiť sa dá najviac {count} súborov."),
 };
 
 export default function ContactForm() {
+  const t = useT();
+  const limits = { size: formatBytes(MAX_ATTACHMENTS_BYTES), count: MAX_ATTACHMENTS };
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -39,11 +44,11 @@ export default function ContactForm() {
     for (const f of Array.from(list)) {
       if (next.some((n) => n.name === f.name && n.size === f.size)) continue;
       if (!isAllowedAttachment(f.name)) {
-        problems.push(`${f.name} — tento typ súboru nevieme prijať.`);
+        problems.push(t("{name} — tento typ súboru nevieme prijať.", { name: f.name }));
       } else if (next.length >= MAX_ATTACHMENTS) {
-        problems.push(`Najviac ${MAX_ATTACHMENTS} súborov — ${f.name} sa už nepridal.`);
+        problems.push(t("Najviac {count} súborov — {name} sa už nepridal.", { count: MAX_ATTACHMENTS, name: f.name }));
       } else if (next.reduce((s, n) => s + n.size, 0) + f.size > MAX_ATTACHMENTS_BYTES) {
-        problems.push(`${f.name} (${formatBytes(f.size)}) — prílohy spolu môžu mať najviac ${formatBytes(MAX_ATTACHMENTS_BYTES)}.`);
+        problems.push(t("{name} ({size}) — prílohy spolu môžu mať najviac {max}.", { name: f.name, size: formatBytes(f.size), max: limits.size }));
       } else {
         next.push(f);
       }
@@ -79,9 +84,9 @@ export default function ContactForm() {
       const res = await fetch("/api/contact", { method: "POST", body: data });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string; file?: string } | null;
-        const known = body?.error ? SERVER_ERRORS[body.error] : undefined;
+        const known = body?.error && SERVER_ERRORS[body.error] ? t(SERVER_ERRORS[body.error], limits) : undefined;
         if (known) setError(body?.file ? `${known}: ${body.file}.` : known);
-        else if (res.status === 413) setError(SERVER_ERRORS.files_too_big);
+        else if (res.status === 413) setError(t(SERVER_ERRORS.files_too_big, limits));
         throw new Error(String(res.status));
       }
       setStatus("sent");
@@ -105,13 +110,13 @@ export default function ContactForm() {
         aria-hidden="true"
       />
 
-      <Field label="Meno *" name="name" />
-      <Field label="E-mail *" name="email" type="email" />
-      <Field label="Predmet *" name="subject" full />
+      <Field label={t("Meno *")} name="name" />
+      <Field label={t("E-mail *")} name="email" type="email" />
+      <Field label={t("Predmet *")} name="subject" full />
 
       <div className="sm:col-span-2">
         <label htmlFor="contact-message" className="text-sm font-semibold" style={{ color: "var(--color-foreground-soft)" }}>
-          Správa *
+          {t("Správa *")}
         </label>
         <textarea
           id="contact-message"
@@ -124,7 +129,7 @@ export default function ContactForm() {
 
       <div className="sm:col-span-2">
         <span className="text-sm font-semibold" style={{ color: "var(--color-foreground-soft)" }}>
-          Prílohy
+          {t("Prílohy")}
         </span>
         <label
           htmlFor="contact-files"
@@ -136,12 +141,12 @@ export default function ContactForm() {
             addFiles(e.dataTransfer.files);
           }}
         >
-          <span className="font-semibold">📎 Pridať súbory</span>
+          <span className="font-semibold">📎 {t("Pridať súbory")}</span>
           <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-            alebo ich sem pretiahnite — {ATTACHMENT_HINT}
+            {t("alebo ich sem pretiahnite — {hint}", { hint: t(ATTACHMENT_HINT) })}
           </span>
           <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-            najviac {MAX_ATTACHMENTS} súborov, spolu do {formatBytes(MAX_ATTACHMENTS_BYTES)}
+            {t("najviac {count} súborov, spolu do {size}", limits)}
           </span>
         </label>
         <input
@@ -169,7 +174,7 @@ export default function ContactForm() {
                   <button
                     type="button"
                     onClick={() => removeFile(i)}
-                    aria-label={`Odstrániť ${f.name}`}
+                    aria-label={t("Odstrániť {name}", { name: f.name })}
                     className="rounded-lg px-2 text-base leading-none hover:opacity-70"
                   >
                     ×
@@ -178,7 +183,7 @@ export default function ContactForm() {
               </li>
             ))}
             <li className="text-right text-xs" style={{ color: "var(--color-muted)" }}>
-              spolu {formatBytes(total)} z {formatBytes(MAX_ATTACHMENTS_BYTES)}
+              {t("spolu {total} z {size}", { total: formatBytes(total), size: limits.size })}
             </li>
           </ul>
         )}
@@ -197,13 +202,13 @@ export default function ContactForm() {
           className="rounded-2xl px-8 py-3 text-sm font-bold shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#FFAE00]/30 disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
           style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
         >
-          {status === "sending" ? "Odosielam…" : "Odoslať správu"}
+          {status === "sending" ? t("Odosielam…") : t("Odoslať správu")}
         </button>
 
         <p aria-live="polite" className="text-center text-sm" style={{ color: "var(--color-muted)" }}>
-          {status === "sent" && "Ďakujeme, správu sme dostali. Ozveme sa čo najskôr."}
+          {status === "sent" && t("Ďakujeme, správu sme dostali. Ozveme sa čo najskôr.")}
           {status === "error" &&
-            (error || "Správu sa nepodarilo odoslať. Skúste to prosím znova, alebo nám napíšte na info@4frommedia.sk.")}
+            (error || t("Správu sa nepodarilo odoslať. Skúste to prosím znova, alebo nám napíšte na info@4frommedia.sk."))}
         </p>
       </div>
     </form>

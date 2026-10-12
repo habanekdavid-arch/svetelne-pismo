@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { blogPosts } from "@/lib/blog-data";
+import { getT } from "@/lib/i18n/server";
 
 function CategoryIcon({ category }: { category: string }) {
   switch (category) {
@@ -56,7 +57,8 @@ function CategoryIcon({ category }: { category: string }) {
   }
 }
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  const { t } = await getT();
   return (
     <main>
       {/* Hero */}
@@ -66,21 +68,21 @@ export default function BlogPage() {
             className="reveal mb-4 text-[10px] font-black tracking-[0.35em]"
             style={{ color: "var(--color-muted)" }}
           >
-            Blog
+            {t("Blog")}
           </p>
           <h1
             className="reveal delay-1 main-heading text-4xl md:text-6xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            Všetko o svetelných
+            {t("Všetko o svetelných")}
             <br />
-            nápisoch
+            {t("nápisoch")}
           </h1>
           <p
             className="reveal delay-2 mx-auto mt-5 max-w-md text-sm leading-6"
             style={{ color: "var(--color-muted)" }}
           >
-            Návody, porovnania materiálov, tipy pre podnikateľov aj inšpirácia pre váš ďalší projekt.
+            {t("Návody, porovnania materiálov, tipy pre podnikateľov aj inšpirácia pre váš ďalší projekt.")}
           </p>
         </div>
       </section>
@@ -107,7 +109,7 @@ export default function BlogPage() {
                     {post.image ? (
                       <Image
                         src={post.image}
-                        alt={post.title}
+                        alt={t(post.title)}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -137,13 +139,13 @@ export default function BlogPage() {
                           color: "var(--color-yellow)",
                         }}
                       >
-                        {post.category}
+                        {t(post.category)}
                       </span>
                       <span
                         className="text-[11px]"
                         style={{ color: "var(--color-muted)" }}
                       >
-                        {post.readMin} min čítania
+                        {t("{min} min čítania", { min: post.readMin })}
                       </span>
                     </div>
 
@@ -154,21 +156,21 @@ export default function BlogPage() {
                         color: "var(--color-foreground)",
                       }}
                     >
-                      {post.title}
+                      {t(post.title)}
                     </h2>
 
                     <p
                       className="mt-2 flex-1 text-[13px] leading-5"
                       style={{ color: "var(--color-muted)" }}
                     >
-                      {post.desc}
+                      {t(post.desc)}
                     </p>
 
                     <div
                       className="mt-4 flex items-center gap-1 text-[12px] font-black tracking-wide transition-opacity group-hover:opacity-60"
                       style={{ color: "var(--color-yellow)" }}
                     >
-                      Čítať viac
+                      {t("Čítať viac")}
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M5 12h14M12 5l7 7-7 7" />
                       </svg>

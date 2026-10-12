@@ -7,6 +7,7 @@ import { onSessionChange } from "@/lib/session-client";
 import { useCart } from "@/lib/cart-context";
 import { accountDetailsComplete } from "@/lib/account-details";
 import { VERIFIED_EVENT } from "@/components/auth/VerifyCodeForm";
+import { useT } from "@/lib/i18n/client";
 
 // A small, quiet card in the corner: a signed-in, verified customer whose
 // account has no name, phone or billing address yet is asked to fill them in.
@@ -17,6 +18,7 @@ import { VERIFIED_EVENT } from "@/components/auth/VerifyCodeForm";
 const DISMISS_KEY = "rozsvietto-details-later";
 
 export default function AccountDetailsReminder() {
+  const t = useT();
   const pathname = usePathname();
   const { isOpen: cartOpen } = useCart();
   const [show, setShow] = useState(false);
@@ -65,7 +67,7 @@ export default function AccountDetailsReminder() {
       <button
         type="button"
         onClick={dismiss}
-        aria-label="Zavrieť"
+        aria-label={t("Zavrieť")}
         className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-base transition hover:opacity-70"
         style={{ color: "var(--color-muted)" }}
       >
@@ -81,10 +83,10 @@ export default function AccountDetailsReminder() {
         </span>
         <div>
           <p className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-            Doplňte si detaily účtu
+            {t("Doplňte si detaily účtu")}
           </p>
           <p className="mt-1 text-xs leading-5" style={{ color: "var(--color-muted)" }}>
-            Meno, telefón a fakturačnú adresu. Objednávka vám potom zaberie len pár klikov.
+            {t("Meno, telefón a fakturačnú adresu. Objednávka vám potom zaberie len pár klikov.")}
           </p>
           <Link
             href="/ucet?upravit=1"
@@ -92,7 +94,7 @@ export default function AccountDetailsReminder() {
             className="mt-3 inline-block rounded-full px-4 py-1.5 text-xs font-bold"
             style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
           >
-            Doplniť detaily účtu
+            {t("Doplniť detaily účtu")}
           </Link>
         </div>
       </div>

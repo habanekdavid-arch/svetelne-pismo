@@ -5,8 +5,9 @@ import { notifySessionChange } from "@/lib/session-client";
 import { missingAccountDetails } from "@/lib/account-details";
 import { Pencil } from "lucide-react";
 import type { Address, UserProfile } from "@/lib/profile";
-import { AccountSection } from "@/components/account/AccountShell";
+import { AccountSection } from "@/components/account/AccountSection";
 import DataTile from "@/components/account/DataTile";
+import { useT } from "@/lib/i18n/client";
 
 // The details collected at registration, shown back to the customer and
 // editable in place. Read-only until "Upraviť" is pressed, so the page opens
@@ -25,6 +26,7 @@ export default function AccountDetails({
   ordersCount: number;
   startEditing?: boolean;
 }) {
+  const t = useT();
   const [saved, setSaved] = useState<UserProfile>(initial);
   const [draft, setDraft] = useState<UserProfile>(initial);
   const [savedName, setSavedName] = useState(name);
@@ -53,8 +55,7 @@ export default function AccountDetails({
         const body = await res.json().catch(() => null);
         setError(
           body?.error === "missing_company"
-            ? "Pri firemnom účte vyplňte názov firmy a IČO."
-            : "Údaje sa nepodarilo uložiť. Skúste to prosím znova.",
+            ? t("Pri firemnom účte vyplňte názov firmy a IČO.") : t("Údaje sa nepodarilo uložiť. Skúste to prosím znova."),
         );
         return;
       }
@@ -65,7 +66,7 @@ export default function AccountDetails({
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 3000);
     } catch {
-      setError("Údaje sa nepodarilo uložiť. Skúste to prosím znova.");
+      setError(t("Údaje sa nepodarilo uložiť. Skúste to prosím znova."));
     } finally {
       setSaving(false);
     }
@@ -79,77 +80,76 @@ export default function AccountDetails({
       <div className="space-y-5">
         {justSaved && (
           <p className="text-sm font-semibold" style={{ color: "var(--color-accent-text)" }}>
-            Údaje sú uložené.
+            {t("Údaje sú uložené.")}
           </p>
         )}
 
         {missing.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <span>
-              <strong>Doplňte detaily účtu</strong> — meno, telefón a fakturačnú adresu. Pri objednávke
-              ich potom už nebudete vypĺňať.
+              <strong>{t("Doplňte detaily účtu")}</strong> — {t("meno, telefón a fakturačnú adresu. Pri objednávke ich potom už nebudete vypĺňať.")}
             </span>
             <button
               type="button"
               onClick={() => { setDraft(saved); setDraftName(savedName); setEditing(true); }}
               className="rounded-full bg-black px-4 py-1.5 text-xs font-bold text-white"
             >
-              Doplniť
+              {t("Doplniť")}
             </button>
           </div>
         )}
 
-        <AccountSection title="Osobné údaje">
+        <AccountSection title={t("Osobné údaje")}>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-            <DataTile label="Meno a priezvisko" value={savedName} />
-            <DataTile label="E-mail" value={email} />
-            <DataTile label="Telefón" value={saved.phone} />
-            <DataTile label="Typ účtu">
+            <DataTile label={t("Meno a priezvisko")} value={savedName} />
+            <DataTile label={t("E-mail")} value={email} />
+            <DataTile label={t("Telefón")} value={saved.phone} />
+            <DataTile label={t("Typ účtu")}>
               <span className={saved.accountType === "COMPANY" ? "badge-info" : "badge-ok"}>
-                {saved.accountType === "COMPANY" ? "Firma" : "Súkromná osoba"}
+                {saved.accountType === "COMPANY" ? t("Firma") : t("Súkromná osoba")}
               </span>
             </DataTile>
-            <DataTile label="Počet objednávok" value={String(ordersCount)} />
+            <DataTile label={t("Počet objednávok")} value={String(ordersCount)} />
           </div>
         </AccountSection>
 
         {/* Len pre firmy a živnostníkov — súkromná osoba tu nemá čo vypĺňať. */}
         {hasCompany && (
-          <AccountSection title="Firemné údaje">
+          <AccountSection title={t("Firemné údaje")}>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-              {saved.companyName && <DataTile label="Názov firmy" value={saved.companyName} />}
-              <DataTile label="IČO" value={saved.ico} />
-              <DataTile label="DIČ" value={saved.dic} />
-              {saved.vatPayer && <DataTile label="IČ DPH" value={saved.icDph} />}
-              <DataTile label="Platca DPH">
+              {saved.companyName && <DataTile label={t("Názov firmy")} value={saved.companyName} />}
+              <DataTile label={t("IČO")} value={saved.ico} />
+              <DataTile label={t("DIČ")} value={saved.dic} />
+              {saved.vatPayer && <DataTile label={t("IČ DPH")} value={saved.icDph} />}
+              <DataTile label={t("Platca DPH")}>
                 <span className={saved.vatPayer ? "badge-ok" : "badge-info"}>
-                  {saved.vatPayer ? "Áno" : "Nie"}
+                  {saved.vatPayer ? t("Áno") : t("Nie")}
                 </span>
               </DataTile>
-              <DataTile label="Živnostník / SZČO">
+              <DataTile label={t("Živnostník / SZČO")}>
                 <span className={saved.soleTrader ? "badge-ok" : "badge-info"}>
-                  {saved.soleTrader ? "Áno" : "Nie"}
+                  {saved.soleTrader ? t("Áno") : t("Nie")}
                 </span>
               </DataTile>
             </div>
           </AccountSection>
         )}
 
-        <AccountSection title="Doručovacia adresa">
+        <AccountSection title={t("Doručovacia adresa")}>
           <AddressTiles address={saved.shipping} />
         </AccountSection>
 
         {/* Fakturačná sa ukáže, až keď sa naozaj líši od doručovacej — inak by
             to boli štyri prázdne dlaždice s pomlčkami. */}
         {billingFilled && (
-          <AccountSection title="Fakturačná adresa">
+          <AccountSection title={t("Fakturačná adresa")}>
             <AddressTiles address={saved.billing} />
           </AccountSection>
         )}
 
         <AccountSection
-          title="Upraviť moje údaje"
-          subtitle="Fakturačná a dodacia adresa sa predvyplní pri ďalšej objednávke."
+          title={t("Upraviť moje údaje")}
+          subtitle={t("Fakturačná a dodacia adresa sa predvyplní pri ďalšej objednávke.")}
         >
           <div className="mt-4">
             <button
@@ -168,7 +168,7 @@ export default function AccountDetails({
               >
                 <Pencil size={14} strokeWidth={2.5} style={{ color: "var(--accent)" }} />
               </span>
-              Upraviť údaje
+              {t("Upraviť údaje")}
             </button>
           </div>
         </AccountSection>
@@ -178,18 +178,18 @@ export default function AccountDetails({
 
   return (
     <AccountSection
-      title="Upraviť moje údaje"
-      subtitle="Fakturačná a dodacia adresa sa predvyplní pri ďalšej objednávke."
+      title={t("Upraviť moje údaje")}
+      subtitle={t("Fakturačná a dodacia adresa sa predvyplní pri ďalšej objednávke.")}
     >
     <form onSubmit={handleSave} className="mt-6 space-y-6">
       <section>
         <h3 className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-          Kontakt
+          {t("Kontakt")}
         </h3>
         <div className="mt-3 grid gap-4 md:grid-cols-2">
           <label className="block">
             <div className="mb-2 text-sm font-semibold" style={{ color: "var(--color-foreground-soft)" }}>
-              Typ účtu
+              {t("Typ účtu")}
             </div>
             <select
               value={draft.accountType}
@@ -201,37 +201,37 @@ export default function AccountDetails({
                 color: "var(--color-foreground)",
               }}
             >
-              <option value="PERSON">Súkromná osoba</option>
-              <option value="COMPANY">Firma</option>
+              <option value="PERSON">{t("Súkromná osoba")}</option>
+              <option value="COMPANY">{t("Firma")}</option>
             </select>
           </label>
-          <Field label="Meno a priezvisko" value={draftName} onChange={setDraftName} />
-          <Field label="Telefón" value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
+          <Field label={t("Meno a priezvisko")} value={draftName} onChange={setDraftName} />
+          <Field label={t("Telefón")} value={draft.phone} onChange={(v) => setDraft({ ...draft, phone: v })} />
         </div>
       </section>
 
       <section>
         <h3 className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-          Firemné údaje
+          {t("Firemné údaje")}
         </h3>
         <div className="mt-3 grid gap-4 md:grid-cols-2">
           {isCompany && (
-            <Field label="Názov firmy" value={draft.companyName} onChange={(v) => setDraft({ ...draft, companyName: v })} />
+            <Field label={t("Názov firmy")} value={draft.companyName} onChange={(v) => setDraft({ ...draft, companyName: v })} />
           )}
-          <Field label="IČO" value={draft.ico} onChange={(v) => setDraft({ ...draft, ico: v })} />
-          <Field label="DIČ" value={draft.dic} onChange={(v) => setDraft({ ...draft, dic: v })} />
+          <Field label={t("IČO")} value={draft.ico} onChange={(v) => setDraft({ ...draft, ico: v })} />
+          <Field label={t("DIČ")} value={draft.dic} onChange={(v) => setDraft({ ...draft, dic: v })} />
           {draft.vatPayer && (
-            <Field label="IČ DPH" value={draft.icDph} onChange={(v) => setDraft({ ...draft, icDph: v })} />
+            <Field label={t("IČ DPH")} value={draft.icDph} onChange={(v) => setDraft({ ...draft, icDph: v })} />
           )}
         </div>
         <div className="mt-3 flex flex-wrap gap-4">
           <Check
-            label="Som platca DPH"
+            label={t("Som platca DPH")}
             checked={draft.vatPayer}
             onChange={(v) => setDraft({ ...draft, vatPayer: v })}
           />
           <Check
-            label="Som živnostník / SZČO"
+            label={t("Som živnostník / SZČO")}
             checked={draft.soleTrader}
             onChange={(v) => setDraft({ ...draft, soleTrader: v })}
           />
@@ -240,7 +240,7 @@ export default function AccountDetails({
 
       <section>
         <h3 className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-          Fakturačná adresa
+          {t("Fakturačná adresa")}
         </h3>
         <AddressFields value={draft.billing} onChange={(billing) => setDraft({ ...draft, billing })} />
       </section>
@@ -248,7 +248,7 @@ export default function AccountDetails({
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-            Doručovacia adresa
+            {t("Doručovacia adresa")}
           </h3>
           <button
             type="button"
@@ -260,7 +260,7 @@ export default function AccountDetails({
               color: "var(--color-foreground-soft)",
             }}
           >
-            Skopírovať z fakturačnej
+            {t("Skopírovať z fakturačnej")}
           </button>
         </div>
         <AddressFields value={draft.shipping} onChange={(shipping) => setDraft({ ...draft, shipping })} />
@@ -275,7 +275,7 @@ export default function AccountDetails({
           className="rounded-2xl px-5 py-3 text-sm font-bold transition hover:opacity-90 disabled:opacity-50"
           style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
         >
-          {saving ? "Ukladám…" : "Uložiť zmeny"}
+          {saving ? t("Ukladám…") : t("Uložiť zmeny")}
         </button>
         <button
           type="button"
@@ -287,7 +287,7 @@ export default function AccountDetails({
           className="rounded-2xl px-5 py-3 text-sm font-semibold transition hover:opacity-80"
           style={{ border: "1px solid var(--color-border)", color: "var(--color-foreground-soft)" }}
         >
-          Zrušiť
+          {t("Zrušiť")}
         </button>
       </div>
     </form>
@@ -297,24 +297,26 @@ export default function AccountDetails({
 
 /** Štyri dlaždice jednej adresy — rovnaké poradie ako v objednávkovom formulári. */
 function AddressTiles({ address }: { address: Address }) {
+  const t = useT();
   return (
     <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-      <DataTile label="Ulica a číslo" value={address.street} />
-      <DataTile label="Mesto" value={address.city} />
-      <DataTile label="PSČ" value={address.zip} />
-      <DataTile label="Krajina" value={address.country} />
+      <DataTile label={t("Ulica a číslo")} value={address.street} />
+      <DataTile label={t("Mesto")} value={address.city} />
+      <DataTile label={t("PSČ")} value={address.zip} />
+      <DataTile label={t("Krajina")} value={address.country} />
     </div>
   );
 }
 
 function AddressFields({ value, onChange }: { value: Address; onChange: (a: Address) => void }) {
+  const t = useT();
   const set = (key: keyof Address) => (v: string) => onChange({ ...value, [key]: v });
   return (
     <div className="mt-3 grid gap-4 md:grid-cols-2">
-      <Field label="Ulica a číslo" value={value.street} onChange={set("street")} />
-      <Field label="Mesto" value={value.city} onChange={set("city")} />
-      <Field label="PSČ" value={value.zip} onChange={set("zip")} />
-      <Field label="Krajina" value={value.country} onChange={set("country")} />
+      <Field label={t("Ulica a číslo")} value={value.street} onChange={set("street")} />
+      <Field label={t("Mesto")} value={value.city} onChange={set("city")} />
+      <Field label={t("PSČ")} value={value.zip} onChange={set("zip")} />
+      <Field label={t("Krajina")} value={value.country} onChange={set("country")} />
     </div>
   );
 }

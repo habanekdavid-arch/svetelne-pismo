@@ -1,6 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import CookieSettingsButton from "@/components/layout/CookieSettingsButton";
+import { getT } from "@/lib/i18n/server";
+import { tk } from "@/lib/i18n/config";
 
 // Footer built to the shape of vytlacto3d's: three columns — brand, contact,
 // the workshop behind it — a gradient hairline instead of a drawn border, a
@@ -12,12 +14,13 @@ import CookieSettingsButton from "@/components/layout/CookieSettingsButton";
 // here would be a dead end.
 
 const LEGAL_LINKS = [
-  { label: "GDPR", href: "/gdpr" },
-  { label: "Obchodné podmienky", href: "/obchodne-podmienky" },
-  { label: "Kontakt", href: "/kontakt" },
+  { label: tk("GDPR"), href: "/gdpr" },
+  { label: tk("Obchodné podmienky"), href: "/obchodne-podmienky" },
+  { label: tk("Kontakt"), href: "/kontakt" },
 ] as const;
 
-export default function Footer() {
+export default async function Footer() {
+  const { t } = await getT();
   return (
     <footer className="mt-20 shadow-v3d-footer" style={{ background: "var(--color-background)" }}>
 
@@ -37,14 +40,13 @@ export default function Footer() {
             />
           </Link>
           <p className="mt-4 max-w-sm text-sm leading-6" style={{ color: "var(--color-muted)" }}>
-            Online konfigurátor a výroba svetelných nápisov. Napíšte text,
-            nastavte rozmer, svietenie a materiál — po prihlásení uvidíte aj cenu.
+            {t("Online konfigurátor a výroba svetelných nápisov. Napíšte text, nastavte rozmer, svietenie a materiál — po prihlásení uvidíte aj cenu.")}
           </p>
         </div>
 
         {/* Contact */}
         <div>
-          <FooterHeading>Kontakt</FooterHeading>
+          <FooterHeading>{t("Kontakt")}</FooterHeading>
           <div className="mt-4 space-y-2 text-sm" style={{ color: "var(--color-muted)" }}>
             <div>
               E-mail:{" "}
@@ -53,7 +55,7 @@ export default function Footer() {
               </a>
             </div>
             <div>
-              Tel:{" "}
+              {t("Tel:")}{" "}
               <a href="tel:+421907907097" className="transition hover:underline hover:opacity-80">
                 +421 907 907 097
               </a>
@@ -63,12 +65,12 @@ export default function Footer() {
 
         {/* Workshop */}
         <div>
-          <FooterHeading>Výroba</FooterHeading>
+          <FooterHeading>{t("Výroba")}</FooterHeading>
           <address className="mt-4 space-y-1 text-sm not-italic" style={{ color: "var(--color-muted)" }}>
             <div>4from media, s.r.o.</div>
             <div>M. Hodžu 393/5</div>
             <div>971 01 Prievidza</div>
-            <div>E-mail: info@4frommedia.sk</div>
+            <div>{t("E-mail:")} info@4frommedia.sk</div>
           </address>
         </div>
       </div>
@@ -88,7 +90,7 @@ export default function Footer() {
         style={{ color: "var(--color-muted)" }}
       >
         <div>
-          © {new Date().getFullYear()} rozsvieťTO • Projekt spoločnosti{" "}
+          © {new Date().getFullYear()} rozsvieťTO • {t("Projekt spoločnosti")}{" "}
           <a
             href="https://www.4frommedia.sk"
             target="_blank"
@@ -100,10 +102,10 @@ export default function Footer() {
           </a>
         </div>
 
-        <nav aria-label="Právne dokumenty" className="flex flex-wrap gap-x-6 gap-y-2">
+        <nav aria-label={t("Právne dokumenty")} className="flex flex-wrap gap-x-6 gap-y-2">
           {LEGAL_LINKS.map((link) => (
             <Link key={link.href} href={link.href} className="transition hover:opacity-70">
-              {link.label}
+              {t(link.label)}
             </Link>
           ))}
           <CookieSettingsButton />
@@ -120,7 +122,7 @@ export default function Footer() {
             className="flex items-center gap-1.5 text-xs transition hover:opacity-80"
             style={{ color: "var(--color-muted-light)" }}
           >
-            <span>Vytvoril</span>
+            <span>{t("Vytvoril")}</span>
             <Image src="/dnabs-logo.svg" alt="" width={14} height={14} unoptimized className="h-3.5 w-3.5" />
             <span className="font-semibold">DNABS</span>
           </a>

@@ -8,6 +8,7 @@ import { MATERIALS, fontOptions, faceColorOf } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import { usePriceAccess, PRICE_PLACEHOLDER } from "@/lib/price-access";
 import CheckoutPanel, { type PlacedNotice } from "@/components/cart/CheckoutPanel";
+import { useT } from "@/lib/i18n/client";
 
 // Cart drawer, built to the shape of vytlacto3d's: a dimmed backdrop, a panel
 // pinned to the right edge at most 440px wide, a slim header with the cart
@@ -31,6 +32,7 @@ function CartGlyph({ size = 18 }: { size?: number }) {
 }
 
 export default function CartSidebar() {
+  const t = useT();
   const { items, total, isOpen, close, remove, beginEdit, editingId } = useCart();
   const canSeePrice = usePriceAccess() === "ok";
   // "Thank you" for an order that stayed on this page — kept until the drawer
@@ -47,8 +49,8 @@ export default function CartSidebar() {
     : total;
   useEffect(() => {
     if (isOpen) return;
-    const t = setTimeout(() => setPlaced(null), 300); // after the slide-out
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setPlaced(null), 300); // after the slide-out
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   return (
@@ -66,7 +68,7 @@ export default function CartSidebar() {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Košík"
+        aria-label={t("Košík")}
         aria-hidden={!isOpen}
         className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-[440px] flex-col shadow-v3d-modal transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
@@ -80,12 +82,12 @@ export default function CartSidebar() {
         >
           <div className="flex items-center gap-2" style={{ color: "var(--color-foreground)" }}>
             <CartGlyph />
-            <span className="text-base font-extrabold">Košík</span>
+            <span className="text-base font-extrabold">{t("Košík")}</span>
           </div>
           <button
             type="button"
             onClick={close}
-            aria-label="Zavrieť košík"
+            aria-label={t("Zavrieť košík")}
             className="flex h-8 w-8 items-center justify-center rounded-full transition hover:opacity-70"
             style={{ color: "var(--color-muted)" }}
           >
@@ -111,7 +113,7 @@ export default function CartSidebar() {
                 style={{ borderBottom: "1px solid var(--color-border)" }}
               >
                 <div className="text-sm font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                  Nápisy
+                  {t("Nápisy")}
                   <span
                     className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-bold"
                     style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
@@ -130,15 +132,15 @@ export default function CartSidebar() {
                     <line x1="5" y1="1" x2="5" y2="9" />
                     <line x1="1" y1="5" x2="9" y2="5" />
                   </svg>
-                  Pridať nápis
+                  {t("Pridať nápis")}
                 </Link>
               </div>
 
               {items.length === 0 ? (
                 <div className="px-5 py-8 text-center text-sm" style={{ color: "var(--color-muted)" }}>
-                  Zatiaľ žiadne nápisy.
+                  {t("Zatiaľ žiadne nápisy.")}
                   <br />
-                  Nastavte si nápis v konfigurátore.
+                  {t("Nastavte si nápis v konfigurátore.")}
                 </div>
               ) : (
                 <ul>
@@ -161,21 +163,21 @@ export default function CartSidebar() {
 
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-xs font-semibold" style={{ color: "var(--color-foreground)" }}>
-                              {oneLine(item.config.text) || "Váš text"}
+                              {oneLine(item.config.text) || t("Váš text")}
                             </div>
                             <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>
-                              {[font?.name, mat?.displayName].filter(Boolean).join(" · ")} · {describeConfig(item.config)}
+                              {[font?.name, mat ? t(mat.displayName) : null].filter(Boolean).join(" · ")} · {describeConfig(item.config, t)}
                             </div>
                             {editingId === item.id ? (
                               <div className="text-[11px] font-bold" style={{ color: "var(--color-accent-text)" }}>
-                                Práve upravujete v konfigurátore
+                                {t("Práve upravujete v konfigurátore")}
                               </div>
                             ) : item.draft ? (
                               /* Uložilo sa sem samo, ako sa nápis skladal —
                                  nech je jasné, ktorý riadok je ten otvorený
                                  v konfigurátore a prečo sa mení sám. */
                               <div className="text-[11px] font-bold" style={{ color: "var(--color-accent-text)" }}>
-                                Rozpracované v konfigurátore
+                                {t("Rozpracované v konfigurátore")}
                               </div>
                             ) : null}
                             {/* The one part of the spec a line of text can't
@@ -198,8 +200,8 @@ export default function CartSidebar() {
                           <button
                             type="button"
                             onClick={() => beginEdit(item.id)}
-                            title="Upraviť"
-                            aria-label={`Upraviť ${item.config.text || "nápis"}`}
+                            title={t("Upraviť")}
+                            aria-label={t("Upraviť {name}", { name: item.config.text || t("nápis") })}
                             className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition hover:opacity-70"
                             style={{ color: editingId === item.id ? "var(--accent)" : "var(--color-muted)" }}
                           >
@@ -213,8 +215,8 @@ export default function CartSidebar() {
                           <button
                             type="button"
                             onClick={() => remove(item.id)}
-                            title="Odstrániť"
-                            aria-label={`Odobrať ${item.config.text || "nápis"} z košíka`}
+                            title={t("Odstrániť")}
+                            aria-label={t("Odobrať {name} z košíka", { name: item.config.text || t("nápis") })}
                             className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition hover:bg-red-50 hover:text-red-500"
                             style={{ color: "var(--color-muted)" }}
                           >
@@ -236,7 +238,7 @@ export default function CartSidebar() {
 
               {items.length > 0 && (
                 <div className="flex items-center justify-between px-5 py-4 text-sm" style={{ borderTop: "1px solid var(--color-border)" }}>
-                  <span style={{ color: "var(--color-muted)" }}>Výroba celkom (s DPH)</span>
+                  <span style={{ color: "var(--color-muted)" }}>{t("Výroba celkom (s DPH)")}</span>
                   <span className="font-extrabold" style={{ color: "var(--color-foreground)" }}><Price show={canSeePrice} value={shownTotal} /></span>
                 </div>
               )}
@@ -267,7 +269,7 @@ export default function CartSidebar() {
                   className="mt-5 inline-block rounded-2xl px-5 py-3 text-xs font-extrabold"
                   style={{ background: "var(--color-foreground)", color: "var(--color-background)" }}
                 >
-                  Moje objednávky
+                  {t("Moje objednávky")}
                 </Link>
               </div>
             ) : items.length > 0 ? (
@@ -277,7 +279,7 @@ export default function CartSidebar() {
                 className="rounded-2xl px-5 py-8 text-center text-sm"
                 style={{ border: "2px dashed var(--color-border)", color: "var(--color-muted)" }}
               >
-                Pridajte nápis v konfigurátore a objaví sa tu.
+                {t("Pridajte nápis v konfigurátore a objaví sa tu.")}
               </div>
             )}
           </div>
@@ -289,9 +291,10 @@ export default function CartSidebar() {
 
 /** A price, or — before sign-in and a confirmed e-mail — a blurred stand-in. */
 function Price({ show, value }: { show: boolean; value: number }) {
+  const t = useT();
   if (show) return <>{formatEur(value)}</>;
   return (
-    <span aria-label="Cena po prihlásení" className="inline-block select-none blur-[5px]">
+    <span aria-label={t("Cena po prihlásení")} className="inline-block select-none blur-[5px]">
       {PRICE_PLACEHOLDER}
     </span>
   );

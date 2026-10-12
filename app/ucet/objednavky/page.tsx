@@ -8,13 +8,17 @@ import {
   listGroupsByIds,
   listOrdersForUser,
   orderCountLabel,
+  ORDER_STATUS_LABEL,
   QUOTE_STATE_LABEL,
   quoteState,
 } from "@/lib/orders";
 import { fontOptions, MATERIALS, depthMmFor, faceColorOf, variantLabel } from "@/lib/options";
 import { formatEur } from "@/lib/vat";
 import StatusBadge from "@/components/orders/StatusBadge";
-import AccountShell, { AccountSection } from "@/components/account/AccountShell";
+import AccountShell from "@/components/account/AccountShell";
+import { AccountSection } from "@/components/account/AccountSection";
+import { getT } from "@/lib/i18n/server";
+import { rich } from "@/lib/i18n/rich";
 
 export const metadata: Metadata = {
   title: "Moje objednávky | rozsvieťTO",
@@ -23,6 +27,7 @@ export const metadata: Metadata = {
 // No middleware involved — same pattern as app/admin/page.tsx: read our own
 // session cookie (lib/user-auth.ts) and redirect here if it's missing.
 export default async function AccountOrdersPage() {
+  const { t } = await getT();
   const session = await getUserSession();
   if (!session) redirect("/prihlasenie");
 
@@ -32,15 +37,15 @@ export default async function AccountOrdersPage() {
   const groups = await listGroupsByIds(orders.map((o) => o.groupId ?? ""));
 
   return (
-    <AccountShell title="Moje objednávky" description="Tu nájdete svoje objednávky, ich stav a históriu.">
+    <AccountShell title={t("Moje objednávky")} description={t("Tu nájdete svoje objednávky, ich stav a históriu.")}>
       <AccountSection
-        title="História objednávok"
+        title={t("História objednávok")}
         badge={
           <div
             className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
             style={{ background: "var(--color-surface)", color: "var(--color-muted)" }}
           >
-            {orderCountLabel(orders.length)}
+            {orderCountLabel(orders.length, t)}
           </div>
         }
       >
@@ -53,15 +58,17 @@ export default async function AccountOrdersPage() {
               color: "var(--color-muted)",
             }}
           >
-            Zatiaľ tu nevidíte žiadne objednávky.{" "}
-            <Link
-              href="/#konfigurator"
-              className="font-semibold underline underline-offset-2"
-              style={{ color: "var(--color-foreground)" }}
-            >
-              Navrhnite si nápis
-            </Link>
-            .
+            {rich(t("Zatiaľ tu nevidíte žiadne objednávky. {link}."), {
+              link: (
+                <Link
+                  href="/#konfigurator"
+                  className="font-semibold underline underline-offset-2"
+                  style={{ color: "var(--color-foreground)" }}
+                >
+                  {t("Navrhnite si nápis")}
+                </Link>
+              ),
+            })}
           </div>
         ) : (
           <div className="mt-6 space-y-3">
@@ -82,16 +89,16 @@ export default async function AccountOrdersPage() {
                           aria-hidden="true"
                         />
                         <p className="truncate text-base font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                          {oneLine(o.config.text) || "Váš text"}
+                          {oneLine(o.config.text) || t("Váš text")}
                         </p>
                       </div>
                       <p className="mt-1 text-[13px]" style={{ color: "var(--color-muted)" }}>
-                        {font?.name ?? o.config.font} · {material?.displayName ?? o.config.material} ·{" "}
-                        {variantLabel(o.config)} ·{" "}
+                        {font?.name ?? o.config.font} · {material ? t(material.displayName) : o.config.material} ·{" "}
+                        {t(variantLabel(o.config))} ·{" "}
                         {o.config.height} mm / {depthMmFor(o.config.material, o.config.height)} mm
                       </p>
                       <p className="mt-1.5 text-xs" style={{ color: "var(--color-muted)" }}>
-                        Objednávka {o.number} · {formatDateTime(o.createdAt)}
+                        {t("Objednávka {number}", { number: o.number })} · {formatDateTime(o.createdAt)}
                       </p>
                     </div>
 
@@ -100,14 +107,14 @@ export default async function AccountOrdersPage() {
                         {formatEur(o.price)}
                       </p>
                       <div className="mt-1.5">
-                        <StatusBadge status={o.status} />
+                        <StatusBadge status={o.status} label={t(ORDER_STATUS_LABEL[o.status])} />
                       </div>
                       {quote && (
                         <p
                           className="mt-1.5 text-xs font-bold"
                           style={{ color: quote === "sent" ? "#ea580c" : "var(--color-accent-text)" }}
                         >
-                          {QUOTE_STATE_LABEL[quote]}
+                          {t(QUOTE_STATE_LABEL[quote])}
                         </p>
                       )}
                       {o.groupId && (
@@ -115,7 +122,7 @@ export default async function AccountOrdersPage() {
                           className="mt-1.5 inline-block text-xs font-semibold underline underline-offset-2"
                           style={{ color: "var(--color-foreground)" }}
                         >
-                          {quote === "sent" ? "Zobraziť predfaktúru" : "Detail objednávky"} →
+                          {quote === "sent" ? t("Zobraziť predfaktúru") : t("Detail objednávky")} →
                         </span>
                       )}
                     </div>

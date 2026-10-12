@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import StatusPage from "@/components/layout/StatusPage";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   title: "Overenie e-mailu | rozsvieťTO",
@@ -8,20 +9,21 @@ export const metadata: Metadata = {
 
 // Where the link in the verification e-mail lands (app/api/auth/verify).
 export default async function VerifyResultPage({ searchParams }: { searchParams: Promise<{ stav?: string }> }) {
+  const { t } = await getT();
   const { stav } = await searchParams;
   if (stav === "ok") {
     return (
       <StatusPage
         tone="ok"
         badge="✓"
-        eyebrow="Overenie e-mailu"
-        title="E-mail je overený"
+        eyebrow={t("Overenie e-mailu")}
+        title={t("E-mail je overený")}
         actions={[
-          { href: "/#konfigurator", label: "Pokračovať v konfigurátore", primary: true },
-          { href: "/ucet", label: "Môj účet" },
+          { href: "/#konfigurator", label: t("Pokračovať v konfigurátore"), primary: true },
+          { href: "/ucet", label: t("Môj účet") },
         ]}
       >
-        <p>Ďakujeme. Teraz uvidíte ceny nápisov a môžete objednávať.</p>
+        <p>{t("Ďakujeme. Teraz uvidíte ceny nápisov a môžete objednávať.")}</p>
       </StatusPage>
     );
   }
@@ -29,16 +31,15 @@ export default async function VerifyResultPage({ searchParams }: { searchParams:
     <StatusPage
       tone="warn"
       badge="!"
-      eyebrow="Overenie e-mailu"
-      title="Odkaz nie je platný"
+      eyebrow={t("Overenie e-mailu")}
+      title={t("Odkaz nie je platný")}
       actions={[
-        { href: "/prihlasenie?spat=%2Fucet", label: "Prihlásiť sa", primary: true },
-        { href: "/", label: "Na úvod" },
+        { href: "/prihlasenie?spat=%2Fucet", label: t("Prihlásiť sa"), primary: true },
+        { href: "/", label: t("Na úvod") },
       ]}
     >
       <p>
-        Overovací odkaz je neplatný alebo mu vypršala platnosť. Prihláste sa — pod hlavičkou stránky
-        zadáte 6-miestny kód z e-mailu, alebo si pošlete nový.
+        {t("Overovací odkaz je neplatný alebo mu vypršala platnosť. Prihláste sa — pod hlavičkou stránky zadáte 6-miestny kód z e-mailu, alebo si pošlete nový.")}
       </p>
     </StatusPage>
   );

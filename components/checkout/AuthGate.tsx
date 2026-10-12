@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Lock } from "lucide-react";
+import { useT } from "@/lib/i18n/client";
 
 /** `verified` is false for a new account whose e-mail is not confirmed yet. */
 export type SessionUser = { name: string; email: string; verified?: boolean };
@@ -11,6 +12,7 @@ export type SessionUser = { name: string; email: string; verified?: boolean };
 // navigation away from the cart, no Clerk modal.
 
 export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: SessionUser) => void }) {
+  const t = useT();
   const [mode, setMode] = useState<"login" | "register">("register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,15 +31,15 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) {
-        if (body?.error === "email_taken") setError("Tento e-mail už má vytvorený účet.");
-        else if (body?.error === "weak_password") setError("Heslo musí mať aspoň 8 znakov.");
-        else if (mode === "login") setError("Nesprávny e-mail alebo heslo.");
-        else setError("Skontrolujte údaje a skúste znova.");
+        if (body?.error === "email_taken") setError(t("Tento e-mail už má vytvorený účet."));
+        else if (body?.error === "weak_password") setError(t("Heslo musí mať aspoň 8 znakov."));
+        else if (mode === "login") setError(t("Nesprávny e-mail alebo heslo."));
+        else setError(t("Skontrolujte údaje a skúste znova."));
         return;
       }
       onAuthenticated(body.user as SessionUser);
     } catch {
-      setError("Niečo sa pokazilo. Skúste to prosím znova.");
+      setError(t("Niečo sa pokazilo. Skúste to prosím znova."));
     } finally {
       setSubmitting(false);
     }
@@ -53,8 +55,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
           <Lock size={16} />
         </span>
         <p className="text-sm leading-6" style={{ color: "var(--color-muted)" }}>
-          Prihláste sa alebo si vytvorte účet — stačí e-mail a heslo.
-          Po overení e-mailu kódom uvidíte ceny a doplníte detaily účtu.
+          {t("Prihláste sa alebo si vytvorte účet — stačí e-mail a heslo. Po overení e-mailu kódom uvidíte ceny a doplníte detaily účtu.")}
         </p>
       </div>
 
@@ -72,7 +73,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
                 : { color: "var(--color-muted)" }
             }
           >
-            {m === "login" ? "Prihlásiť sa" : "Vytvoriť účet"}
+            {m === "login" ? t("Prihlásiť sa") : t("Vytvoriť účet")}
           </button>
         ))}
       </div>
@@ -82,7 +83,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="jan@email.sk"
+          placeholder={t("jan@email.sk")}
           autoComplete="username"
           required
           className="w-full rounded-lg px-4 py-3 text-sm outline-none"
@@ -92,7 +93,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Heslo"
+          placeholder={t("Heslo")}
           autoComplete={mode === "login" ? "current-password" : "new-password"}
           minLength={mode === "register" ? 8 : undefined}
           required
@@ -103,7 +104,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
         {error && <p className="text-[12px] text-red-400">{error}</p>}
         {mode === "login" && (
           <a href="/zabudnute-heslo" className="block text-right text-[11px] font-semibold underline underline-offset-2" style={{ color: "var(--color-muted)" }}>
-            Zabudli ste heslo?
+            {t("Zabudli ste heslo?")}
           </a>
         )}
 
@@ -114,8 +115,8 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
           style={{ background: "var(--accent)", color: "#000" }}
         >
           {submitting
-            ? "Chvíľu…"
-            : mode === "login" ? "Prihlásiť sa" : "Vytvoriť účet"}
+            ? t("Chvíľu…")
+            : mode === "login" ? t("Prihlásiť sa") : t("Vytvoriť účet")}
         </button>
       </form>
     </div>

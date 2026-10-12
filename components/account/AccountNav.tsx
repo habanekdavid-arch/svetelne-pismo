@@ -4,16 +4,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { notifySessionChange } from "@/lib/session-client";
+import { tk } from "@/lib/i18n/config";
+import { useT } from "@/lib/i18n/client";
 
 // Sidebar of the customer area. The active item is decided by an exact path
 // match, not by prefix: "/ucet" is a prefix of "/ucet/objednavky", so a prefix
 // test would light up both links at once.
 const ITEMS = [
-  { href: "/ucet", label: "Môj účet" },
-  { href: "/ucet/objednavky", label: "Moje objednávky" },
+  { href: "/ucet", label: tk("Môj účet") },
+  { href: "/ucet/objednavky", label: tk("Moje objednávky") },
 ] as const;
 
 export default function AccountNav() {
+  const t = useT();
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -49,7 +52,7 @@ export default function AccountNav() {
                   }
             }
           >
-            {item.label}
+            {t(item.label)}
           </Link>
         );
       })}
@@ -61,7 +64,7 @@ export default function AccountNav() {
         className="mt-2 rounded-2xl px-4 py-3 text-left text-sm transition hover:opacity-80 disabled:opacity-50"
         style={{ border: "1px solid var(--color-border)", color: "var(--color-foreground-soft)" }}
       >
-        {loggingOut ? "Odhlasujem…" : "Odhlásiť sa"}
+        {loggingOut ? t("Odhlasujem…") : t("Odhlásiť sa")}
       </button>
     </nav>
   );

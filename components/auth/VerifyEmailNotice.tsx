@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { onSessionChange } from "@/lib/session-client";
 import VerifyCodeForm, { VERIFIED_EVENT } from "@/components/auth/VerifyCodeForm";
+import { useT } from "@/lib/i18n/client";
+import { rich } from "@/lib/i18n/rich";
 
 // E-mail verification as a pop-up. A signed-in customer whose address is not
 // confirmed yet gets a window asking for the 6-digit code from the e-mail
@@ -14,6 +16,7 @@ import VerifyCodeForm, { VERIFIED_EVENT } from "@/components/auth/VerifyCodeForm
 const SNOOZE_KEY = "rozsvietto-verify-later";
 
 export default function VerifyEmailNotice() {
+  const t = useT();
   const params = useSearchParams();
   const router = useRouter();
   const result = params.get("overenie");
@@ -69,15 +72,15 @@ export default function VerifyEmailNotice() {
 
   if (thanks) {
     return (
-      <Modal onClose={() => setThanks(false)} label="E-mail je overený">
+      <Modal onClose={() => setThanks(false)} label={t("E-mail je overený")}>
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl font-black text-green-700" aria-hidden="true">
           ✓
         </div>
         <h2 className="mt-4 text-2xl font-extrabold tracking-tight" style={{ color: "var(--color-foreground)" }}>
-          Ďakujeme za overenie!
+          {t("Ďakujeme za overenie!")}
         </h2>
         <p className="mt-3 text-[15px] leading-7" style={{ color: "var(--color-muted)" }}>
-          Váš e-mail je overený. Od teraz už vidíte ceny nápisov a môžete objednávať.
+          {t("Váš e-mail je overený. Od teraz už vidíte ceny nápisov a môžete objednávať.")}
         </p>
         <button
           type="button"
@@ -90,7 +93,7 @@ export default function VerifyEmailNotice() {
           className="mt-6 rounded-2xl px-6 py-3 text-sm font-bold"
           style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
         >
-          Pozrieť ceny
+          {t("Pozrieť ceny")}
         </button>
       </Modal>
     );
@@ -100,7 +103,7 @@ export default function VerifyEmailNotice() {
     if (result === "neplatne") {
       return (
         <Bar>
-          Overovací odkaz je neplatný alebo mu vypršala platnosť. Prihláste sa a pošlite si nový kód.
+          {t("Overovací odkaz je neplatný alebo mu vypršala platnosť. Prihláste sa a pošlite si nový kód.")}
         </Bar>
       );
     }
@@ -109,22 +112,23 @@ export default function VerifyEmailNotice() {
 
   if (open) {
     return (
-      <Modal onClose={later} label="Overte svoj e-mail">
+      <Modal onClose={later} label={t("Overte svoj e-mail")}>
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-2xl" aria-hidden="true">
           ✉
         </div>
         <h2 className="mt-4 text-2xl font-extrabold tracking-tight" style={{ color: "var(--color-foreground)" }}>
-          Overte svoj e-mail
+          {t("Overte svoj e-mail")}
         </h2>
         <p className="mt-3 text-[15px] leading-7" style={{ color: "var(--color-muted)" }}>
-          Na <strong style={{ color: "var(--color-foreground)" }}>{pending.email}</strong> sme poslali 6-miestny
-          kód. Zadajte ho sem — potom uvidíte ceny a môžete objednávať.
+          {rich(t("Na {email} sme poslali 6-miestny kód. Zadajte ho sem — potom uvidíte ceny a môžete objednávať."), {
+            email: <strong style={{ color: "var(--color-foreground)" }}>{pending.email}</strong>,
+          })}
         </p>
         <div className="mt-5 flex justify-center text-left">
           <VerifyCodeForm compact />
         </div>
         <p className="mt-4 text-xs" style={{ color: "var(--color-muted)" }}>
-          Nevidíte e-mail? Pozrite aj priečinok nevyžiadanej pošty.
+          {t("Nevidíte e-mail? Pozrite aj priečinok nevyžiadanej pošty.")}
         </p>
         <button
           type="button"
@@ -132,7 +136,7 @@ export default function VerifyEmailNotice() {
           className="mt-4 text-xs font-semibold underline"
           style={{ color: "var(--color-muted)" }}
         >
-          Neskôr
+          {t("Neskôr")}
         </button>
       </Modal>
     );
@@ -141,20 +145,21 @@ export default function VerifyEmailNotice() {
   return (
     <Bar>
       <span>
-        Váš e-mail ešte nie je overený — ceny uvidíte po overení.
+        {t("Váš e-mail ešte nie je overený — ceny uvidíte po overení.")}
       </span>
       <button
         type="button"
         onClick={() => setOpen(true)}
         className="rounded-full bg-black px-3 py-1.5 text-xs font-bold text-white"
       >
-        Zadať kód
+        {t("Zadať kód")}
       </button>
     </Bar>
   );
 }
 
 function Modal({ children, onClose, label }: { children: React.ReactNode; onClose: () => void; label: string }) {
+  const t = useT();
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
@@ -170,7 +175,7 @@ function Modal({ children, onClose, label }: { children: React.ReactNode; onClos
         <button
           type="button"
           onClick={onClose}
-          aria-label="Zavrieť"
+          aria-label={t("Zavrieť")}
           className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-lg transition hover:opacity-70"
           style={{ color: "var(--color-muted)" }}
         >

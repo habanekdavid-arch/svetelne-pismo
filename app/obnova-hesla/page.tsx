@@ -3,10 +3,13 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useT } from "@/lib/i18n/client";
+import { rich } from "@/lib/i18n/rich";
 
 // Where the reset e-mail's link lands: the token is in the query string, the
 // customer picks a new password (app/api/auth/reset).
 export default function ResetPasswordPage() {
+  const t = useT();
   return (
     <main className="min-h-screen px-4 py-12" style={{ background: "var(--color-surface)" }}>
       <div
@@ -15,10 +18,10 @@ export default function ResetPasswordPage() {
       >
         <div className="mb-6">
           <div className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
-            Zákaznícka zóna
+            {t("Zákaznícka zóna")}
           </div>
           <h1 className="mt-2 text-3xl font-extrabold tracking-tight" style={{ color: "var(--color-foreground)" }}>
-            Nové heslo
+            {t("Nové heslo")}
           </h1>
         </div>
         <Suspense fallback={null}>
@@ -30,6 +33,7 @@ export default function ResetPasswordPage() {
 }
 
 function ResetForm() {
+  const t = useT();
   const token = useSearchParams().get("token") ?? "";
   const [password, setPassword] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "done" | "invalid" | "weak" | "error">("idle");
@@ -55,8 +59,9 @@ function ResetForm() {
   if (state === "done") {
     return (
       <p className="text-sm leading-6" style={{ color: "var(--color-foreground)" }}>
-        Heslo je zmenené.{" "}
-        <Link href="/prihlasenie" className="font-semibold underline underline-offset-4">Prihláste sa</Link> s novým heslom.
+        {rich(t("Heslo je zmenené. {link} s novým heslom."), {
+          link: <Link href="/prihlasenie" className="font-semibold underline underline-offset-4">{t("Prihláste sa")}</Link>,
+        })}
       </p>
     );
   }
@@ -68,7 +73,7 @@ function ResetForm() {
         required
         minLength={8}
         autoComplete="new-password"
-        placeholder="Nové heslo (aspoň 8 znakov)"
+        placeholder={t("Nové heslo (aspoň 8 znakov)")}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         className="w-full rounded-2xl px-4 py-3 text-sm outline-none transition focus:border-[#FFAE00]"
@@ -78,23 +83,23 @@ function ResetForm() {
           color: "var(--color-foreground)",
         }}
       />
-      {state === "weak" && <p className="text-[13px] text-red-500">Heslo musí mať aspoň 8 znakov.</p>}
+      {state === "weak" && <p className="text-[13px] text-red-500">{t("Heslo musí mať aspoň 8 znakov.")}</p>}
       {state === "invalid" && (
         <p className="text-[13px] text-red-500">
-          Odkaz už neplatí (vypršal alebo bol použitý).{" "}
-          <Link href="/zabudnute-heslo" className="underline">Vyžiadajte si nový.</Link>
+          {t("Odkaz už neplatí (vypršal alebo bol použitý).")}{" "}
+          <Link href="/zabudnute-heslo" className="underline">{t("Vyžiadajte si nový.")}</Link>
         </p>
       )}
-      {state === "error" && <p className="text-[13px] text-red-500">Nepodarilo sa uložiť. Skúste to prosím znova.</p>}
+      {state === "error" && <p className="text-[13px] text-red-500">{t("Nepodarilo sa uložiť. Skúste to prosím znova.")}</p>}
       <button
         type="submit"
         disabled={state === "saving" || !token}
         className="w-full rounded-2xl px-4 py-3 text-sm font-semibold transition hover:opacity-90 disabled:opacity-50"
         style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
       >
-        {state === "saving" ? "Ukladám…" : "Uložiť nové heslo"}
+        {state === "saving" ? t("Ukladám…") : t("Uložiť nové heslo")}
       </button>
-      {!token && <p className="text-[13px] text-red-500">Chýba odkaz z e-mailu.</p>}
+      {!token && <p className="text-[13px] text-red-500">{t("Chýba odkaz z e-mailu.")}</p>}
     </form>
   );
 }

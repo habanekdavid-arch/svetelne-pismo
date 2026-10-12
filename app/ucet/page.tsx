@@ -5,12 +5,14 @@ import { getUserProfile, EMPTY_PROFILE } from "@/lib/profile";
 import { listOrdersForUser } from "@/lib/orders";
 import AccountShell from "@/components/account/AccountShell";
 import AccountDetails from "@/components/account/AccountDetails";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   title: "Môj účet | rozsvieťTO",
 };
 
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ upravit?: string }> }) {
+  const { t } = await getT();
   const session = await getUserSession();
   if (!session) redirect("/prihlasenie");
 
@@ -22,8 +24,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
   return (
     <AccountShell
-      title="Môj účet"
-      description="Tu nájdete svoje údaje, objednávky, ich stav a históriu."
+      title={t("Môj účet")}
+      description={t("Tu nájdete svoje údaje, objednávky, ich stav a históriu.")}
     >
       {/* Sekcie si kreslí AccountDetails sám — v zobrazovacom režime sú to
           dlaždice s údajmi, po stlačení „Upraviť" jeden formulár. */}

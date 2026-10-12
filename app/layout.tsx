@@ -13,6 +13,9 @@ import FourFromFloatingButton from "@/components/layout/FourFromFloatingButton";
 import VerifyEmailNotice from "@/components/auth/VerifyEmailNotice";
 import AccountDetailsReminder from "@/components/account/AccountDetailsReminder";
 import { Suspense } from "react";
+import { LocaleProvider } from "@/lib/i18n/client";
+import { getLocale } from "@/lib/i18n/server";
+import { dictionaryFor } from "@/lib/i18n/messages";
 
 const centuryGothic = localFont({
   src: [
@@ -51,13 +54,16 @@ export const metadata: Metadata = {
   verification: { google: "hZXx031MDVjId5fbByhAM1EkZmquyg9FxEAhInTCpXM" },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // The visitor's language (lib/i18n): its dictionary goes to the client
+  // components through LocaleProvider, Server Components read it with getT().
+  const locale = await getLocale();
   return (
-    <html lang="sk">
+    <html lang={locale}>
       {/* Body chrome mirrors vytlacto3d's <body>: a min-height flex column with
           the content area flexing, so short pages push the footer to the
           bottom of the viewport instead of leaving it mid-screen. */}
@@ -66,6 +72,7 @@ export default function RootLayout({
       >
         {/* CartProvider wraps Header too — the header's cart badge and the
             drawer both read the same state. */}
+        <LocaleProvider locale={locale} dict={dictionaryFor(locale)}>
         <CartProvider>
           <Header />
           {/* "Overte svoj e-mail" for a new account, and how clicking the link
@@ -86,6 +93,7 @@ export default function RootLayout({
         </CartProvider>
         <ScrollReveal />
         <CookieConsent />
+        </LocaleProvider>
         <TagManager />
       </body>
     </html>

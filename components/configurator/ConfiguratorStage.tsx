@@ -8,6 +8,7 @@ import { TooltipProvider, useTip } from "@/components/ui/Tooltip";
 import WallPicker from "@/components/configurator/WallPicker";
 import { DEFAULT_WALL, MAX_BACKGROUND_BYTES, type Wall } from "@/lib/walls";
 import { MAX_LINES } from "@/lib/sign-text";
+import { useT } from "@/lib/i18n/client";
 import type { ColorOption, Config, MaterialGroupId, VariantId } from "@/lib/types";
 import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
@@ -110,9 +111,9 @@ function limitLines(value: string): string {
  * plain black "Váš text", a blank, legible canvas visible the instant the page
  * loads. The customer turns the light on themselves.
  */
-function initialConfig(): Config {
+function initialConfig(sampleText: string): Config {
   return {
-    text:       "Váš text",
+    text:       sampleText,
     font:       CATALOGUE_FONTS[0],
     material:   DEFAULT_MATERIAL,
     signType:   "plain",
@@ -210,6 +211,7 @@ function Configurator() {
   const [sceneKey, setSceneKey] = useState(0);
 
   const textInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const t = useT();
 
   // ── Logo mode ──────────────────────────────────────────────────────────────
   // A customer's own logo instead of a text. While there is one, everything
@@ -237,7 +239,7 @@ function Configurator() {
   const priceAccess = usePriceAccess();
   const signedIn = priceAccess === "ok";
 
-  const [config, setConfig] = useState<Config>(initialConfig);
+  const [config, setConfig] = useState<Config>(() => initialConfig(t("Váš text")));
 
   // Keep ShowcaseSection in sync with every config change
   useEffect(() => { publishConfig(config); }, [config, publishConfig]);
@@ -310,6 +312,16 @@ function Configurator() {
   // a half-configured sign survive a refresh. Debounced, so typing does not
   // rewrite the cart per keystroke.
   const [touched, setTouched] = useState(false);
+
+  // The sample sign speaks the visitor's language: switching language before
+  // typing anything swaps "Váš text" for its translation.
+  const sampleText = t("Váš text");
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (touched) return;
+    setConfig((c) => (c.text === sampleText ? c : { ...c, text: sampleText }));
+  }, [sampleText, touched]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   const draftConfig = useDebouncedValue(config, 500);
   const draftSize = useDebouncedValue(signSize, 500);
   useEffect(() => {
@@ -443,11 +455,11 @@ function Configurator() {
   /** Turns the customer's file into a logo sign — or says why it cannot. */
   async function handleLogo(file: File) {
     if (!isLogoFile(file.name)) {
-      setLogoError(`Logo nahrajte ako ${LOGO_HINT.split(" — ")[0]}. CDR alebo EPS nám pošlite cez kontaktný formulár.`);
+      setLogoError(t("Logo nahrajte ako {formats}. CDR alebo EPS nám pošlite cez kontaktný formulár.", { formats: t(LOGO_HINT.split(" — ")[0]) }));
       return;
     }
     if (file.size > MAX_LOGO_BYTES) {
-      setLogoError(`Súbor je príliš veľký — najviac ${Math.round(MAX_LOGO_BYTES / 1024 / 1024)} MB.`);
+      setLogoError(t("Súbor je príliš veľký — najviac {size} MB.", { size: Math.round(MAX_LOGO_BYTES / 1024 / 1024) }));
       return;
     }
     setLogoError(null);
@@ -481,8 +493,8 @@ function Configurator() {
         // Our own messages say what is wrong with the file; anything else is
         // the browser's, and means nothing to a customer.
         err instanceof Error && err.name === "LogoTraceError"
-          ? err.message
-          : "Logo sa nepodarilo spracovať. Skúste ho prosím uložiť ako PNG alebo SVG.",
+          ? t(err.message)
+          : t("Logo sa nepodarilo spracovať. Skúste ho prosím uložiť ako PNG alebo SVG."),
       );
     } finally {
       setLogoBusy(false);
@@ -498,7 +510,7 @@ function Configurator() {
    * and the wall or photo they picture it on.
    */
   function resetSettings() {
-    const start = initialConfig();
+    const start = initialConfig(t("Váš text"));
     setFacePrint(true);
     setLogoError(null);
     setManualMode(null);
@@ -534,7 +546,7 @@ function Configurator() {
     setWall(DEFAULT_WALL);
     clearBackground();
     setDragTarget("sign");
-    setConfig(initialConfig());
+    setConfig(initialConfig(t("Váš text")));
     // Untouched again: the sample sign is not something to keep in the cart.
     setTouched(false);
     setSceneKey((k) => k + 1);
@@ -598,11 +610,11 @@ function Configurator() {
 
   function handleBackground(file: File) {
     if (!file.type.startsWith("image/")) {
-      setBackgroundError("Vyberte prosím obrázok (JPG, PNG alebo WEBP).");
+      setBackgroundError(t("Vyberte prosím obrázok (JPG, PNG alebo WEBP)."));
       return;
     }
     if (file.size > MAX_BACKGROUND_BYTES) {
-      setBackgroundError(`Obrázok je príliš veľký — maximum je ${Math.round(MAX_BACKGROUND_BYTES / 1024 / 1024)} MB.`);
+      setBackgroundError(t("Obrázok je príliš veľký — maximum je {size} MB.", { size: Math.round(MAX_BACKGROUND_BYTES / 1024 / 1024) }));
       return;
     }
     setBackgroundError(null);
@@ -639,18 +651,18 @@ function Configurator() {
         {/* ── Panel header ───────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <EyebrowPill>5 krokov</EyebrowPill>
+            <EyebrowPill>{t("5 krokov")}</EyebrowPill>
             <h2
               className="section-heading mt-3 text-2xl md:text-3xl"
               style={{ color: "var(--color-foreground)" }}
             >
-              {logo ? "Nastav si logo" : "Nastav si nápis"}
+              {logo ? t("Nastav si logo") : t("Nastav si nápis")}
             </h2>
             <p
               className="mt-2 max-w-lg text-[14px] leading-6 tracking-[0.005em]"
               style={{ color: "var(--color-muted)" }}
             >
-              Náhľad aj cena sa menia okamžite. Celý názov voľby uvidíte po prejdení myšou.
+              {t("Náhľad aj cena sa menia okamžite. Celý názov voľby uvidíte po prejdení myšou.")}
             </p>
           </div>
 
@@ -658,24 +670,24 @@ function Configurator() {
             <button
               type="button"
               onClick={resetSettings}
-              title="Vráti font, rozmer, svietenie, prevedenie aj farby do pôvodného nastavenia — váš text alebo logo zostane"
+              title={t("Vráti font, rozmer, svietenie, prevedenie aj farby do pôvodného nastavenia — váš text alebo logo zostane")}
               className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-bold transition hover:opacity-80"
               style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground-soft)" }}
             >
               <RotateCcw size={13} strokeWidth={2.4} />
-              Pôvodné nastavenia
+              {t("Pôvodné nastavenia")}
             </button>
 
             {/* "Nové" throws the sign away — one click to ask, a second to do it. */}
             {confirmNew ? (
               <div
                 role="group"
-                aria-label="Začať nový nápis"
+                aria-label={t("Začať nový nápis")}
                 className="flex items-center gap-1.5 rounded-full py-1 pl-3.5 pr-1"
                 style={{ background: "color-mix(in srgb, var(--accent) 12%, var(--color-background))", border: "1.5px solid var(--accent)" }}
               >
                 <span className="text-[12.5px] font-bold" style={{ color: "var(--color-foreground)" }}>
-                  Zahodiť rozpracovaný nápis?
+                  {t("Zahodiť rozpracovaný nápis?")}
                 </span>
                 <button
                   type="button"
@@ -683,7 +695,7 @@ function Configurator() {
                   className="rounded-full px-3 py-1 text-[12.5px] font-extrabold"
                   style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
                 >
-                  Áno, nový
+                  {t("Áno, nový")}
                 </button>
                 <button
                   type="button"
@@ -691,7 +703,7 @@ function Configurator() {
                   className="rounded-full px-3 py-1 text-[12.5px] font-bold"
                   style={{ color: "var(--color-foreground-soft)" }}
                 >
-                  Nie
+                  {t("Nie")}
                 </button>
               </div>
             ) : (
@@ -699,12 +711,12 @@ function Configurator() {
                 type="button"
                 // Nothing done yet: nothing to lose, so no question either.
                 onClick={() => (touched || logo || background ? setConfirmNew(true) : startNew())}
-                title="Úplne od začiatku: nový text, bez loga, pôvodná stena aj náhľad. Nápisy v košíku zostanú."
+                title={t("Úplne od začiatku: nový text, bez loga, pôvodná stena aj náhľad. Nápisy v košíku zostanú.")}
                 className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12.5px] font-extrabold transition hover:opacity-85"
                 style={{ background: "var(--color-foreground)", color: "var(--color-background)", border: "1px solid var(--color-foreground)" }}
               >
                 <Plus size={13} strokeWidth={2.6} />
-                Nové
+                {t("Nové")}
               </button>
             )}
           </div>
@@ -723,7 +735,7 @@ function Configurator() {
         >
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-[14px] font-extrabold" style={{ color: "var(--color-foreground)" }}>
-              Náhľad
+              {t("Náhľad")}
             </p>
             <div
               className="flex items-center rounded-full p-1 transition-opacity duration-300"
@@ -744,7 +756,7 @@ function Configurator() {
                       : { color: "var(--color-muted)" }
                   }
                 >
-                  {mode === "day" ? "☀ Deň" : "☾ Noc"}
+                  {mode === "day" ? `☀ ${t("Deň")}` : `☾ ${t("Noc")}`}
                 </button>
               ))}
             </div>
@@ -753,7 +765,7 @@ function Configurator() {
           {isNight && isIlluminated && (
             <label className="mb-3 flex items-center gap-3 rounded-full px-3 py-1.5" style={{ background: "var(--color-surface)" }}>
               <span className="shrink-0 text-[12px] font-bold" style={{ color: "var(--color-muted)" }}>
-                Intenzita noci
+                {t("Intenzita noci")}
               </span>
               <input
                 type="range"
@@ -762,7 +774,7 @@ function Configurator() {
                 step={5}
                 value={nightPct}
                 onChange={(e) => setNightPct(Number(e.target.value))}
-                aria-label="Intenzita noci v percentách"
+                aria-label={t("Intenzita noci v percentách")}
                 className="h-1.5 min-w-0 flex-1 cursor-pointer"
                 style={{ accentColor: "var(--accent)" }}
               />
@@ -833,7 +845,7 @@ function Configurator() {
                 className="absolute bottom-3 right-3 z-10 rounded-full px-3 py-1.5 text-[12px] font-bold shadow-md"
                 style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
               >
-                Celý nápis
+                {logo ? t("Celé logo") : t("Celý nápis")}
               </button>
             )}
           </div>
@@ -875,11 +887,11 @@ function Configurator() {
               typed, and every dot shows the customer's own first letter. ── */}
           <StepCard
             step={1}
-            title={logo ? (lightBox ? "Logo — svetelný box" : "Logo") : "Text a font"}
+            title={logo ? (lightBox ? t("Logo — svetelný box") : t("Logo")) : t("Text a font")}
             aside={logo ? logo.file.name : currentFont?.name}
             drop={logoDropProps}
             dropping={logoDrag}
-            dropLabel={logo ? "Pustite sem nové logo" : "Pustite sem svoje logo"}
+            dropLabel={logo ? t("Pustite sem nové logo") : t("Pustite sem svoje logo")}
           >
             {/* One file picker for both: uploading the first logo and swapping it. */}
             <input
@@ -887,7 +899,7 @@ function Configurator() {
               type="file"
               accept={LOGO_ACCEPT}
               className="sr-only"
-              aria-label="Nahrať logo"
+              aria-label={t("Nahrať logo")}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleLogo(f); }}
             />
             {logo ? (
@@ -896,7 +908,7 @@ function Configurator() {
                   {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL */}
                   <img
                     src={logo.url}
-                    alt="Nahrané logo"
+                    alt={t("Nahrané logo")}
                     className="h-16 w-24 shrink-0 rounded-xl object-contain p-1.5 lg:h-12 lg:w-20"
                     style={{
                       background: "repeating-conic-gradient(var(--color-surface) 0% 25%, var(--color-background) 0% 50%) 50% / 12px 12px",
@@ -911,7 +923,7 @@ function Configurator() {
                       className="rounded-xl px-3 py-2 text-[13px] font-bold disabled:opacity-50"
                       style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
                     >
-                      {logoBusy ? "Spracúvam logo…" : "Vymeniť logo"}
+                      {logoBusy ? t("Spracúvam logo…") : t("Vymeniť logo")}
                     </button>
                     <button
                       type="button"
@@ -919,16 +931,16 @@ function Configurator() {
                       className="rounded-xl px-3 py-2 text-[13px] font-bold"
                       style={{ background: "var(--color-background)", border: "1px solid var(--color-border)", color: "var(--color-muted)" }}
                     >
-                      Späť na text
+                      {t("Späť na text")}
                     </button>
                   </div>
                 </div>
                 {/* A logo on a coloured background: a light box, or the logo alone. */}
                 {logo.box && logo.cut && (
-                  <div role="radiogroup" aria-label="Ako vyrobiť logo" className="mt-3 grid grid-cols-2 gap-2 lg:mt-2.5">
+                  <div role="radiogroup" aria-label={t("Ako vyrobiť logo")} className="mt-3 grid grid-cols-2 gap-2 lg:mt-2.5">
                     {([
-                      ["box", "Svetelný box", "celý obrázok aj s pozadím"],
-                      ["cut", "Len logo", "vyrezané, bez pozadia"],
+                      ["box", t("Svetelný box"), t("celý obrázok aj s pozadím")],
+                      ["cut", t("Len logo"), t("vyrezané, bez pozadia")],
                     ] as const).map(([id, label, sub]) => (
                       <button
                         key={id}
@@ -949,8 +961,8 @@ function Configurator() {
                 )}
                 <Hint>
                   {lightBox
-                    ? "Logo má farebné pozadie, preto ho vyrobíme ako svetelný box: celá plocha obrázka s potlačou čela, presvietená zvnútra."
-                    : "Logo sa vyrobí ako jeden tvar — rozmer, svietenie, prevedenie aj farby nastavíte v ďalších krokoch."}
+                    ? t("Logo má farebné pozadie, preto ho vyrobíme ako svetelný box: celá plocha obrázka s potlačou čela, presvietená zvnútra.")
+                    : t("Logo sa vyrobí ako jeden tvar — rozmer, svietenie, prevedenie aj farby nastavíte v ďalších krokoch.")}
                 </Hint>
               </>
             ) : (
@@ -969,8 +981,8 @@ function Configurator() {
                 border: "1px solid var(--color-border)",
                 fontFamily: currentFont?.name,
               }}
-              placeholder="Napíšte váš text… (Enter = druhý riadok)"
-              aria-label="Text na nápis"
+              placeholder={t("Napíšte váš text… (Enter = druhý riadok)")}
+              aria-label={t("Text na nápis")}
             />
             <div className="mt-3 lg:mt-2.5">
               <FontDots
@@ -1001,10 +1013,10 @@ function Configurator() {
               </span>
               <span className="min-w-0">
                 <span className="block text-[14px] font-extrabold">
-                  {logoBusy ? "Spracúvam logo…" : "Máte logo? Nahrajte ho sem"}
+                  {logoBusy ? t("Spracúvam logo…") : t("Máte logo? Nahrajte ho sem")}
                 </span>
                 <span className="block text-[12px] leading-4" style={{ color: "var(--color-muted)" }}>
-                  Kliknite alebo súbor pretiahnite — {LOGO_HINT.split(" — ")[0]}
+                  {t("Kliknite alebo súbor pretiahnite — {formats}", { formats: t(LOGO_HINT.split(" — ")[0]) })}
                 </span>
               </span>
             </button>
@@ -1018,20 +1030,20 @@ function Configurator() {
           {/* ── 2 · Size ── */}
           <StepCard
             step={2}
-            title="Rozmer"
-            aside={logo ? `hrúbka ${depthMm} mm` : `hrúbka písma ${depthMm} mm`}
+            title={t("Rozmer")}
+            aside={logo ? t("hrúbka {mm} mm", { mm: depthMm }) : t("hrúbka písma {mm} mm", { mm: depthMm })}
           >
             {/* The letter height is typed in — the only way to set it; the whole
                 nápis, which has to fit the wall, is shown beside it. */}
             <div className="grid grid-cols-2 gap-2">
               <HeightInput
-                label={logo ? "Výška loga" : "Výška písmen"}
+                label={logo ? t("Výška loga") : t("Výška písmen")}
                 value={config.height}
                 min={minHeight}
                 max={maxHeight}
                 onChange={(v) => apply({ height: v })}
               />
-              <SizeReadout label={logo ? "Celé logo" : "Celý nápis"} value={signSizeLabel ?? "…"} />
+              <SizeReadout label={logo ? t("Celé logo") : t("Celý nápis")} value={signSizeLabel ?? "…"} />
             </div>
           </StepCard>
         </div>
@@ -1040,16 +1052,16 @@ function Configurator() {
           {/* ── 3 · Variant ── */}
           <StepCard
             step={3}
-            title="Svietenie"
+            title={t("Svietenie")}
           >
-            <div role="radiogroup" aria-label="Svietenie" className="grid grid-cols-3 gap-2">
+            <div role="radiogroup" aria-label={t("Svietenie")} className="grid grid-cols-3 gap-2">
               {VARIANTS.map((v) => (
                 <OptionTile
                   key={v.id}
                   active={variant === v.id}
-                  label={v.shortName}
-                  tip={v.name}
-                  tipSub={v.description}
+                  label={t(v.shortName)}
+                  tip={t(v.name)}
+                  tipSub={t(v.description)}
                   onClick={() => chooseVariant(v.id)}
                 >
                   <VariantGlyph
@@ -1066,8 +1078,8 @@ function Configurator() {
             {isIlluminated && (
               <div className="lg:hidden"><Hint>
                 {variant === "front"
-                  ? "Svieti bielym svetlom cez čelo — nápis svieti vo farbe čela."
-                  : "Svieti bielym svetlom dozadu na stenu."}
+                  ? t("Svieti bielym svetlom cez čelo — nápis svieti vo farbe čela.")
+                  : t("Svieti bielym svetlom dozadu na stenu.")}
               </Hint></div>
             )}
           </StepCard>
@@ -1075,14 +1087,14 @@ function Configurator() {
           {/* ── 4 · Material ── */}
           <StepCard
             step={4}
-            title="Prevedenie"
-            aside={currentMat.displayName}
+            title={t("Prevedenie")}
+            aside={t(currentMat.displayName)}
           >
             {/* Only what this variant is made in — Plexi is not shown at all
                 for a halo sign, rather than shown and switched off. */}
             <div
               role="radiogroup"
-              aria-label="Prevedenie"
+              aria-label={t("Prevedenie")}
               className={`grid gap-2 ${groupsMade.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
             >
               {groupsMade.map((g) => {
@@ -1091,9 +1103,9 @@ function Configurator() {
                   <OptionTile
                     key={g.id}
                     active={currentMat.group === g.id}
-                    label={g.name}
-                    tip={g.name}
-                    tipSub={builds.map((b) => b.displayName).join(" · ")}
+                    label={t(g.name)}
+                    tip={t(g.name)}
+                    tipSub={builds.map((b) => t(b.displayName)).join(" · ")}
                     onClick={() => chooseGroup(g.id)}
                   >
                     <GroupIcon group={g.id} />
@@ -1107,7 +1119,7 @@ function Configurator() {
           {/* ── 5 · Colours — last, once the build has decided which exist ── */}
           <StepCard
             step={5}
-            title="Farby čela a tela"
+            title={t("Farby čela a tela")}
             corner={
               <FaceReturnSwatch
                 face={currentFaceColor}
@@ -1124,13 +1136,13 @@ function Configurator() {
               {logoVersion?.faceUrl && (
                 <div className="lg:flex lg:items-center lg:gap-3">
                   <p className="mb-1.5 text-[13px] leading-tight lg:mb-0 lg:w-[128px] lg:shrink-0 lg:truncate">
-                    <strong style={{ color: "var(--color-foreground)" }}>Potlač</strong>
+                    <strong style={{ color: "var(--color-foreground)" }}>{t("Potlač")}</strong>
                     <span className="font-semibold" style={{ color: "var(--color-muted)" }}>
-                      {" "}— {printedFace ? "z loga" : "žiadna"}
+                      {" "}— {printedFace ? t("z loga") : t("žiadna")}
                     </span>
                   </p>
-                  <div role="radiogroup" aria-label="Potlač čela" className="flex gap-1.5">
-                    {([[true, "Grafika z loga"], [false, "Jednofarebné čelo"]] as const).map(([on, label]) => (
+                  <div role="radiogroup" aria-label={t("Potlač čela")} className="flex gap-1.5">
+                    {([[true, t("Grafika z loga")], [false, t("Jednofarebné čelo")]] as const).map(([on, label]) => (
                       <button
                         key={label}
                         type="button"
@@ -1152,16 +1164,16 @@ function Configurator() {
                 <>
                   {!printedFace && (
                     <ColorRow
-                      label="Čelo"
-                      hint="predná plocha písmena"
+                      label={t("Čelo")}
+                      hint={t("predná plocha písmena")}
                       options={faceColors}
                       value={currentFaceColor}
                       onPick={(c) => { patch({ faceColor: c.value }); }}
                     />
                   )}
                   <ColorRow
-                    label="Telo"
-                    hint="bok písmena"
+                    label={t("Telo")}
+                    hint={t("bok písmena")}
                     options={bodyColors}
                     value={config.bodyColor}
                     onPick={(c) => { patch({ bodyColor: c.value }); }}
@@ -1169,8 +1181,8 @@ function Configurator() {
                 </>
               ) : (
                 <ColorRow
-                  label="Farba"
-                  hint="celé písmeno, hrany svietia bielo"
+                  label={t("Farba")}
+                  hint={t("celé písmeno, hrany svietia bielo")}
                   options={bodyColors}
                   value={config.bodyColor}
                   onPick={(c) => { patch({ bodyColor: c.value }); }}
@@ -1180,14 +1192,14 @@ function Configurator() {
             {printedFace ? (
               <Hint>
                 {variant === "front"
-                  ? "Čelo je potlačené grafikou z vášho loga a v noci presvieti v jej farbách."
-                  : "Čelo je potlačené grafikou z vášho loga."}
+                  ? t("Čelo je potlačené grafikou z vášho loga a v noci presvieti v jej farbách.")
+                  : t("Čelo je potlačené grafikou z vášho loga.")}
               </Hint>
             ) : (variant === "front" || !separateFace) && (
               <Hint>
                 {separateFace
-                  ? "Pri svietení spredu svieti čelo vo svojej farbe."
-                  : "30 mm plexi: čelo svieti vo zvolenej farbe, hrany písmena svietia bielo."}
+                  ? t("Pri svietení spredu svieti čelo vo svojej farbe.")
+                  : t("30 mm plexi: čelo svieti vo zvolenej farbe, hrany písmena svietia bielo.")}
               </Hint>
             )}
           </StepCard>
@@ -1201,7 +1213,7 @@ function Configurator() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
-                {logo ? "Orientačná cena s DPH" : "Cena s DPH"}
+                {logo ? t("Orientačná cena s DPH") : t("Cena s DPH")}
               </div>
               {signedIn ? (
                 <>
@@ -1213,10 +1225,10 @@ function Configurator() {
                   </div>
                   <div className="mt-1 text-xs" style={{ color: "var(--color-muted-light)" }}>
                     {logo
-                      ? "Presnú cenu loga potvrdíme po konzultácii — teraz nič neplatíte."
+                      ? t("Presnú cenu loga potvrdíme po konzultácii — teraz nič neplatíte.")
                       : atMinimum
-                        ? `Minimálna cena za nápis je ${MIN_PRICE_GROSS} € s DPH.`
-                        : "Cena je vrátane DPH. Doprava sa pripočíta v košíku."}
+                        ? t("Minimálna cena za nápis je {min} € s DPH.", { min: MIN_PRICE_GROSS })
+                        : t("Cena je vrátane DPH. Doprava sa pripočíta v košíku.")}
                   </div>
                 </>
               ) : (
@@ -1233,10 +1245,10 @@ function Configurator() {
                   {priceAccess === "unverified" && (
                     <div className="max-w-md">
                       <p className="text-sm font-bold" style={{ color: "var(--color-foreground)" }}>
-                        Cenu uvidíte po overení e-mailu.
+                        {t("Cenu uvidíte po overení e-mailu.")}
                       </p>
                       <p className="mt-0.5 mb-2 text-xs" style={{ color: "var(--color-muted)" }}>
-                        Zadajte 6-miestny kód z e-mailu, ktorý sme vám poslali po registrácii.
+                        {t("Zadajte 6-miestny kód z e-mailu, ktorý sme vám poslali po registrácii.")}
                       </p>
                       <VerifyCodeForm compact />
                     </div>
@@ -1250,12 +1262,12 @@ function Configurator() {
                         className="inline-block rounded-full px-4 py-2 text-sm font-extrabold"
                         style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
                       >
-                        Zaregistrujte sa a zobrazte cenu
+                        {t("Zaregistrujte sa a zobrazte cenu")}
                       </a>
                       <p className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>
-                        Stačí e-mail a heslo — zaberie to minútu. Už máte účet?{" "}
+                        {t("Stačí e-mail a heslo — zaberie to minútu. Už máte účet?")}{" "}
                         <a href="/prihlasenie?spat=%2F%23konfigurator" className="font-semibold underline">
-                          Prihláste sa
+                          {t("Prihláste sa")}
                         </a>
                       </p>
                     </div>
@@ -1274,20 +1286,20 @@ function Configurator() {
               className="cursor-pointer select-none rounded-2xl px-4 py-3 text-[13px] font-bold"
               style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
             >
-              Rozpis ceny a technické detaily
+              {t("Rozpis ceny a technické detaily")}
             </summary>
           <div
             className="mt-3 rounded-well p-4"
             style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
           >
             <div className="mb-3 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-              Rozpis DPH
+              {t("Rozpis DPH")}
             </div>
             <div className="space-y-2">
-              <PriceLine label="Základ bez DPH" value={formatEur(netFromGross(price))} />
-              <PriceLine label={`DPH ${Math.round(VAT_RATE * 100)} %`} value={formatEur(vatFromGross(price))} />
+              <PriceLine label={t("Základ bez DPH")} value={formatEur(netFromGross(price))} />
+              <PriceLine label={t("DPH {rate} %", { rate: Math.round(VAT_RATE * 100) })} value={formatEur(vatFromGross(price))} />
               <div className="my-1 border-t" style={{ borderColor: "var(--color-border)" }} />
-              <PriceLine label="Cena s DPH" value={formatEur(price)} bold />
+              <PriceLine label={t("Cena s DPH")} value={formatEur(price)} bold />
             </div>
           </div>
 
@@ -1297,22 +1309,22 @@ function Configurator() {
             style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
           >
             <div className="mb-3 text-xs font-bold tracking-wide" style={{ color: "var(--color-muted)" }}>
-              Technické detaily
+              {t("Technické detaily")}
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              <TechLine label="Variant" value={variantById(variant).name} />
-              <TechLine label="Materiál" value={currentMat.displayName} />
+              <TechLine label={t("Variant")} value={t(variantById(variant).name)} />
+              <TechLine label={t("Materiál")} value={t(currentMat.displayName)} />
               {logo
-                ? <TechLine label={lightBox ? "Svetelný box" : "Logo"} value={logo.file.name} />
-                : <TechLine label="Písmo" value={currentFont?.name ?? "—"} />}
-              <TechLine label={logo ? "Výška loga" : "Výška písmen"} value={`${config.height} mm`} />
-              <TechLine label="Hrúbka" value={`${depthMm} mm`} />
+                ? <TechLine label={lightBox ? t("Svetelný box") : t("Logo")} value={logo.file.name} />
+                : <TechLine label={t("Písmo")} value={currentFont?.name ?? "—"} />}
+              <TechLine label={logo ? t("Výška loga") : t("Výška písmen")} value={`${config.height} mm`} />
+              <TechLine label={t("Hrúbka")} value={`${depthMm} mm`} />
               {/* The size that has to fit the wall: the whole inscription,
                   spaces and all. It is what the customer measures the façade
                   by — but it is NOT what the quote is worked out from. */}
-              <TechLine label={logo ? "Celkový rozmer loga" : "Celkový rozmer nápisu"} value={signSizeLabel ?? "—"} />
+              <TechLine label={logo ? t("Celkový rozmer loga") : t("Celkový rozmer nápisu")} value={signSizeLabel ?? "—"} />
               <TechLine
-                label={breakdown.volumeCm3 !== null ? "Objem materiálu" : logo ? "Účtovaná plocha častí loga" : "Účtovaná plocha písmen"}
+                label={breakdown.volumeCm3 !== null ? t("Objem materiálu") : logo ? t("Účtovaná plocha častí loga") : t("Účtovaná plocha písmen")}
                 value={
                   breakdown.volumeCm3 !== null
                     ? `${Math.round(breakdown.volumeCm3)} cm³`
@@ -1320,14 +1332,14 @@ function Configurator() {
                 }
               />
               <TechLine
-                label="Jednotková cena"
+                label={t("Jednotková cena")}
                 value={`${formatAmount(breakdown.unit)} ${breakdown.unitLabel}`}
               />
               <TechLine
-                label={separateFace ? "Čelo / telo" : "Farba"}
+                label={separateFace ? t("Čelo / telo") : t("Farba")}
                 value={separateFace
-                  ? `${printedFace ? "potlač z loga" : colorLabel(currentFaceColor)} / ${colorLabel(config.bodyColor)}`
-                  : `${colorLabel(config.bodyColor)}${printedFace ? ", čelo s potlačou" : ""}`}
+                  ? `${printedFace ? t("potlač z loga") : t(colorLabel(currentFaceColor))} / ${t(colorLabel(config.bodyColor))}`
+                  : `${t(colorLabel(config.bodyColor))}${printedFace ? t(", čelo s potlačou") : ""}`}
               />
             </div>
           </div>
@@ -1351,14 +1363,14 @@ function Configurator() {
                     border: "2px solid var(--color-foreground)",
                   }}
                 >
-                  Späť na text
+                  {t("Späť na text")}
                 </button>
                 <button
                   onClick={openConsultation}
                   className="btn-press w-full rounded-2xl px-12 py-4 text-base font-black tracking-wide shadow-[0_10px_24px_-10px_rgba(255,174,0,.9)] sm:w-auto"
                   style={{ background: "var(--accent)", color: "var(--accent-foreground)", border: "2px solid var(--accent)" }}
                 >
-                  Objednať konzultáciu k logu
+                  {t("Objednať konzultáciu k logu")}
                 </button>
               </>
             ) : editingId ? (
@@ -1372,14 +1384,14 @@ function Configurator() {
                     border: "2px solid var(--color-foreground)",
                   }}
                 >
-                  Zrušiť úpravu
+                  {t("Zrušiť úpravu")}
                 </button>
                 <button
                   onClick={() => { void capturePreview(config); applyEdit(config, signSize); }}
                   className="btn-press w-full rounded-2xl px-12 py-4 text-base font-black tracking-wide shadow-[0_10px_24px_-10px_rgba(255,174,0,.9)] sm:w-auto"
                   style={{ background: "var(--accent)", color: "var(--accent-foreground)", border: "2px solid var(--accent)" }}
                 >
-                  Uložiť do košíka
+                  {t("Uložiť do košíka")}
                 </button>
               </>
             ) : (
@@ -1394,7 +1406,7 @@ function Configurator() {
                   }}
                 >
                   <Plus size={15} strokeWidth={2.5} />
-                  Ďalší nápis
+                  {t("Ďalší nápis")}
                 </button>
 
                 <button
@@ -1406,7 +1418,7 @@ function Configurator() {
                     border: "2px solid var(--color-foreground)",
                   }}
                 >
-                  Pridať do košíka
+                  {t("Pridať do košíka")}
                 </button>
 
                 {/* Objednať opens the cart rather than a checkout of its own: the
@@ -1417,7 +1429,7 @@ function Configurator() {
                   className="btn-press w-full rounded-2xl px-12 py-4 text-base font-black tracking-wide shadow-[0_10px_24px_-10px_rgba(255,174,0,.9)] sm:w-auto"
                   style={{ background: "var(--accent)", color: "var(--accent-foreground)", border: "2px solid var(--accent)" }}
                 >
-                  Objednať
+                  {t("Objednať")}
                 </button>
               </>
             )}
@@ -1430,11 +1442,10 @@ function Configurator() {
               style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
             >
               <p className="text-[15px] font-extrabold" style={{ color: "var(--color-foreground)" }}>
-                Konzultácia k logu
+                {t("Konzultácia k logu")}
               </p>
               <p className="mt-1 mb-4 text-[13px] leading-5" style={{ color: "var(--color-muted)" }}>
-                Každé logo je iné — pozrieme sa na detaily, hrúbky čiar aj svietenie a pošleme vám cenovú ponuku.
-                Kontakt nám nechajte tu.
+                {t("Každé logo je iné — pozrieme sa na detaily, hrúbky čiar aj svietenie a pošleme vám cenovú ponuku. Kontakt nám nechajte tu.")}
               </p>
               <LogoConsultationForm
                 logo={logo.file}
@@ -1456,7 +1467,7 @@ function Configurator() {
         className="main-heading mt-10 text-center text-lg md:text-xl"
         style={{ color: "var(--color-primary)" }}
       >
-        Poď si s nami vytvoriť tvoj svetelný text
+        {t("Poď si s nami vytvoriť tvoj svetelný text")}
       </p>
 
       {/* ── Arrow to the most relevant realization ──────────────────────── */}
@@ -1465,7 +1476,7 @@ function Configurator() {
         className="mt-6 flex flex-col items-center gap-1.5 text-center transition hover:opacity-70"
       >
         <span className="text-[12px] font-medium tracking-wide" style={{ color: "var(--color-muted)" }}>
-          Pozri si realizáciu, ktorá sa najviac podobá tvojmu výberu
+          {t("Pozri si realizáciu, ktorá sa najviac podobá tvojmu výberu")}
         </span>
         <ArrowDown size={16} className="animate-bounce" style={{ color: "var(--accent)" }} />
       </a>
@@ -1503,10 +1514,11 @@ function StepCard({
   dropLabel?: string;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <section
       className="field-card relative rounded-[24px] p-4 lg:flex lg:flex-1 lg:flex-col lg:justify-center lg:px-4 lg:py-2.5"
-      aria-label={`Krok ${step}: ${title}`}
+      aria-label={t("Krok {step}: {title}", { step, title })}
       {...drop}
     >
       {dropping && (
@@ -1559,6 +1571,7 @@ function HeightInput({
   max: number;
   onChange: (v: number) => void;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState<string | null>(null);
   function commit() {
     if (draft === null) return;
@@ -1580,7 +1593,7 @@ function HeightInput({
       <span className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11.5px] font-bold uppercase tracking-[0.06em]" style={{ color: "var(--color-muted)" }}>
         <span>{label}</span>
         <span className="normal-case tracking-normal" style={{ color: "var(--color-foreground-soft)" }}>
-          od {min} do {max} mm
+          {t("od {min} do {max} mm", { min, max })}
         </span>
       </span>
       <span className="mt-0.5 flex items-baseline gap-1">
@@ -1591,7 +1604,7 @@ function HeightInput({
           onChange={(e) => setDraft(e.target.value.replace(/[^\d,.]/g, ""))}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") { commit(); (e.target as HTMLInputElement).blur(); } }}
-          aria-label={`${label} v mm, ${min} až ${max}`}
+          aria-label={t("{label} v mm, {min} až {max}", { label, min, max })}
           className="w-full min-w-0 bg-transparent text-[18px] font-black leading-tight tabular-nums outline-none"
           style={{ color: "var(--color-foreground)" }}
         />
@@ -1727,13 +1740,14 @@ function ColorRow({
   value: string;
   onPick: (c: ColorOption) => void;
 }) {
+  const t = useT();
   const chosen = options.find((c) => sameColor(c.value, value));
   return (
     // Wide screens: the name sits to the left of its dots, one line per row.
     <div className="lg:flex lg:items-center lg:gap-3">
       <p className="mb-1.5 text-[13px] leading-tight lg:mb-0 lg:w-[128px] lg:shrink-0 lg:truncate" title={hint}>
         <strong style={{ color: "var(--color-foreground)" }}>{label}</strong>
-        <span className="font-semibold" style={{ color: "var(--color-muted)" }}> — {chosen?.label ?? "vlastná"}</span>
+        <span className="font-semibold" style={{ color: "var(--color-muted)" }}> — {chosen ? t(chosen.label) : t("vlastná")}</span>
       </p>
       <div role="radiogroup" aria-label={`${label} — ${hint}`} className="flex gap-1.5">
         {options.map((c) => (
@@ -1743,7 +1757,7 @@ function ColorRow({
             metallic={c.finish === "metallic"}
             clear={c.id === "clear"}
             active={sameColor(c.value, value)}
-            label={c.label}
+            label={t(c.label)}
             onClick={() => onPick(c)}
           />
         ))}
@@ -1769,14 +1783,15 @@ function FontDots({
   onPick: (fontId: string) => void;
 }) {
   const tip = useTip();
+  const t = useT();
   // Only the fonts this build is made in — anything else is simply not shown.
   const fonts = CATALOGUE_FONTS.filter((id) => availableIn.includes(id));
   return (
-    <div role="radiogroup" aria-label="Font" className="flex flex-wrap gap-1.5">
+    <div role="radiogroup" aria-label={t("Font")} className="flex flex-wrap gap-1.5">
       {fonts.map((id) => {
         const font = fontById(id)!;
         const active = value === id;
-        const sub = font.script ? "písané písmo" : undefined;
+        const sub = font.script ? t("písané písmo") : undefined;
         return (
           <button
             key={id}
