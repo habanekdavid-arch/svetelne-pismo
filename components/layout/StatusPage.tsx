@@ -1,12 +1,15 @@
 import Link from "next/link";
+import { getT } from "@/lib/i18n/server";
+import { rich } from "@/lib/i18n/rich";
 
 // One look for every "something happened" page — not found, an error, an
 // unfinished order, a confirmed e-mail: a centred card with a round badge,
-// a heading, a sentence or two and the way on.
+// a heading, a sentence or two and the way on. The caller passes its texts
+// already translated; the help line at the bottom is translated here.
 
 type Action = { href: string; label: string; primary?: boolean; external?: boolean };
 
-export default function StatusPage({
+export default async function StatusPage({
   tone = "info",
   badge,
   eyebrow,
@@ -21,6 +24,7 @@ export default function StatusPage({
   children?: React.ReactNode;
   actions?: Action[];
 }) {
+  const { t } = await getT();
   const ring = {
     ok: { bg: "#dcfce7", fg: "#166534" },
     warn: { bg: "#fef3c7", fg: "#92400e" },
@@ -88,10 +92,10 @@ export default function StatusPage({
           </div>
         )}
         <p className="mt-8 text-xs" style={{ color: "var(--color-muted)" }}>
-          Potrebujete pomôcť? Napíšte na{" "}
-          <a href="mailto:info@4frommedia.sk" className="font-semibold underline">info@4frommedia.sk</a>{" "}
-          alebo zavolajte na{" "}
-          <a href="tel:+421907907097" className="font-semibold underline">+421 907 907 097</a>.
+          {rich(t("Potrebujete pomôcť? Napíšte na {email} alebo zavolajte na {phone}."), {
+            email: <a href="mailto:info@4frommedia.sk" className="font-semibold underline">info@4frommedia.sk</a>,
+            phone: <a href="tel:+421907907097" className="font-semibold underline">+421 907 907 097</a>,
+          })}
         </p>
       </div>
     </main>

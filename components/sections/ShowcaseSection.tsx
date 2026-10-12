@@ -8,6 +8,7 @@ import { matchRealization } from "@/lib/matchRealization";
 import type { Realization } from "@/data/realizations";
 import type { Config } from "@/lib/types";
 import EyebrowPill from "@/components/ui/EyebrowPill";
+import { useT } from "@/lib/i18n/client";
 
 // ── Default config used before the configurator publishes its first state ─────
 const DEFAULT_CONFIG: Pick<Config, "signType" | "material" | "lightMode"> = {
@@ -19,6 +20,7 @@ const DEFAULT_CONFIG: Pick<Config, "signType" | "material" | "lightMode"> = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ShowcaseSection() {
+  const t = useT();
   const { config } = useSharedConfig();
   const [visible, setVisible] = useState(true);
 
@@ -37,8 +39,8 @@ export default function ShowcaseSection() {
     if (prevIdRef.current === best.id) return;
     prevIdRef.current = best.id;
     setVisible(false);
-    const t = setTimeout(() => setVisible(true), 180);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setVisible(true), 180);
+    return () => clearTimeout(timer);
   }, [best.id]);
 
   return (
@@ -52,23 +54,23 @@ export default function ShowcaseSection() {
         {/* ── Heading ─────────────────────────────────────────────────────── */}
         <div className="mx-auto mb-12 max-w-2xl text-center">
           <div className="mb-4 flex justify-center">
-            <EyebrowPill>Realizácie</EyebrowPill>
+            <EyebrowPill>{t("Realizácie")}</EyebrowPill>
           </div>
           <h2
             className="section-heading text-4xl sm:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            Pozri si, ako tvoj text
+            {t("Pozri si, ako tvoj text")}
             <br />
-            vyzerá v praxi
+            {t("vyzerá v praxi")}
           </h2>
           <p
             className="mx-auto mt-4 max-w-lg leading-7"
             style={{ color: "var(--color-muted)" }}
           >
             {isFallback
-              ? "Ukážka z nášho portfólia — zvoľ v konfigurátore svietenie a prevedenie a ukážeme ti najbližšiu realizáciu."
-              : "Podľa tvojho výberu sme z nášho portfólia vybrali realizáciu, ktorá sa mu najviac podobá."}
+              ? t("Ukážka z nášho portfólia — zvoľ v konfigurátore svietenie a prevedenie a ukážeme ti najbližšiu realizáciu.")
+              : t("Podľa tvojho výberu sme z nášho portfólia vybrali realizáciu, ktorá sa mu najviac podobá.")}
           </p>
         </div>
 
@@ -100,6 +102,7 @@ export default function ShowcaseSection() {
 // ── Main card ─────────────────────────────────────────────────────────────────
 
 function MainCard({ realization: r }: { realization: Realization }) {
+  const t = useT();
   return (
     <a
       href={r.url}
@@ -107,13 +110,13 @@ function MainCard({ realization: r }: { realization: Realization }) {
       rel="noopener noreferrer"
       className="group relative block overflow-hidden rounded-panel shadow-v3d-panel transition duration-300 hover:-translate-y-1"
       style={{ background: "var(--color-background)" }}
-      aria-label={`Otvoriť realizáciu: ${r.title}`}
+      aria-label={t("Otvoriť realizáciu: {title}", { title: t(r.title) })}
     >
       {/* Image */}
       <div className="relative aspect-[16/7] w-full overflow-hidden">
         <Image
           src={r.image}
-          alt={r.title}
+          alt={t(r.title)}
           fill
           sizes="(max-width: 768px) 100vw, 1280px"
           className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
@@ -130,7 +133,7 @@ function MainCard({ realization: r }: { realization: Realization }) {
         />
         {/* Badges */}
         <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-          <Badge>{r.category}</Badge>
+          <Badge>{t(r.category)}</Badge>
           <Badge variant="dim">{r.year}</Badge>
         </div>
       </div>
@@ -148,7 +151,7 @@ function MainCard({ realization: r }: { realization: Realization }) {
             className="mt-1 text-2xl font-extrabold tracking-tight"
             style={{ color: "var(--color-foreground)" }}
           >
-            {r.title}
+            {t(r.title)}
           </h3>
         </div>
 
@@ -159,7 +162,7 @@ function MainCard({ realization: r }: { realization: Realization }) {
             color: "var(--color-background)",
           }}
         >
-          Pozrieť realizáciu
+          {t("Pozrieť realizáciu")}
         </span>
       </div>
     </a>
@@ -169,19 +172,20 @@ function MainCard({ realization: r }: { realization: Realization }) {
 // ── Alternative card ──────────────────────────────────────────────────────────
 
 function AltCard({ realization: r }: { realization: Realization }) {
+  const t = useT();
   return (
     <a
       href={r.url}
       target="_blank"
       rel="noopener noreferrer"
       className="field-card group flex gap-4 overflow-hidden rounded-field p-3"
-      aria-label={`Otvoriť realizáciu: ${r.title}`}
+      aria-label={t("Otvoriť realizáciu: {title}", { title: t(r.title) })}
     >
       {/* Thumbnail */}
       <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg">
         <Image
           src={r.image}
-          alt={r.title}
+          alt={t(r.title)}
           fill
           sizes="96px"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -195,13 +199,13 @@ function AltCard({ realization: r }: { realization: Realization }) {
           className="text-[9px] font-black tracking-wide"
           style={{ color: "var(--color-muted)" }}
         >
-          {r.category} · {r.year}
+          {t(r.category)} · {r.year}
         </p>
         <p
           className="mt-0.5 truncate text-sm font-black leading-snug"
           style={{ color: "var(--color-foreground)" }}
         >
-          {r.title}
+          {t(r.title)}
         </p>
         <p
           className="mt-0.5 truncate text-[11px]"

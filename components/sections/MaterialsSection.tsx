@@ -1,5 +1,6 @@
 import EyebrowPill from "@/components/ui/EyebrowPill";
 import { MATERIALS } from "@/lib/options";
+import { getT } from "@/lib/i18n/server";
 
 // Glyphs are FILLED, not stroked — solid white shapes sitting on the same
 // solid amber badge the HowItWorks steps use, so the two sections read as one
@@ -55,7 +56,8 @@ const ICONS: Record<string, React.ReactNode> = {
   "plexi-uv":      <TagIcon />,
 };
 
-export default function MaterialsSection() {
+export default async function MaterialsSection() {
+  const { t } = await getT();
   return (
     <section id="materialy" className="px-6 py-20 md:py-28" style={{ background: "var(--color-background)" }}>
       <div className="mx-auto max-w-7xl">
@@ -63,19 +65,19 @@ export default function MaterialsSection() {
         {/* Heading */}
         <div className="mx-auto mb-14 max-w-2xl text-center">
           <div className="mb-4 flex justify-center">
-            <EyebrowPill>Materiály</EyebrowPill>
+            <EyebrowPill>{t("Materiály")}</EyebrowPill>
           </div>
           <h2
             className="section-heading text-4xl sm:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            Z čoho môže byť vaše písmo
+            {t("Z čoho môže byť vaše písmo")}
           </h2>
           <p
             className="mx-auto mt-4 max-w-md leading-7"
             style={{ color: "var(--color-muted)" }}
           >
-            Hliník, plast a plexi — šesť prevedení z cenníka. Každé vyrábame len v tých variantoch svietenia, pre ktoré je stavané.
+            {t("Hliník, plast a plexi — šesť prevedení z cenníka. Každé vyrábame len v tých variantoch svietenia, pre ktoré je stavané.")}
           </p>
         </div>
 
@@ -103,14 +105,14 @@ export default function MaterialsSection() {
                 className="mb-1 text-xs font-bold"
                 style={{ color: "var(--color-accent-text)" }}
               >
-                {mat.tagline}
+                {t(mat.tagline)}
               </p>
 
               <h3
                 className="text-lg font-extrabold tracking-tight"
                 style={{ color: "var(--color-foreground)" }}
               >
-                {mat.displayName}
+                {t(mat.displayName)}
               </h3>
 
               {/* min-h reserves three lines so the bullet lists start at the
@@ -120,7 +122,7 @@ export default function MaterialsSection() {
                 className="mt-2 min-h-21 text-sm leading-7"
                 style={{ color: "var(--color-muted)" }}
               >
-                {mat.subtitle}
+                {t(mat.subtitle)}
               </p>
 
               {/* Variants as a bulleted list — markers fill amber in sequence
@@ -133,7 +135,7 @@ export default function MaterialsSection() {
                       aria-hidden="true"
                     />
                     <span className="text-[13px] leading-5" style={{ color: "var(--color-foreground-soft)" }}>
-                      {b}
+                      {t(b)}
                     </span>
                   </li>
                 ))}

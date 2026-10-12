@@ -336,11 +336,11 @@ export function useCart() {
 
 // One-line spec of a configured sign, shared by the cart drawer, the order
 // modal and the order history so they never drift apart.
-export function describeConfig(config: Config): string {
+export function describeConfig(config: Config, t: (text: string, vars?: Record<string, string | number>) => string = (s) => s): string {
   const parts = [
     `${config.height} mm`,
-    `hrúbka ${depthMmFor(config.material, config.height)} mm`,
-    variantById(variantOf(config)).name.toLocaleLowerCase("sk-SK"),
+    t("hrúbka {mm} mm", { mm: depthMmFor(config.material, config.height) }),
+    t(variantById(variantOf(config)).name).toLocaleLowerCase(),
   ];
   return parts.join(" · ");
 }

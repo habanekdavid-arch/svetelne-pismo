@@ -1,5 +1,6 @@
 "use client";
 
+import { tk } from "@/lib/i18n/config";
 import { isPdfLike, logoBoxOutline, type LogoContour, type LogoOutline, type LogoPart, type LogoSegment } from "@/lib/logo";
 
 // The customer's logo file, turned into outlines a sign can be made from.
@@ -48,8 +49,8 @@ export class LogoTraceError extends Error {
   name = "LogoTraceError";
 }
 
-const NOT_A_LOGO =
-  "Toto vyzerá skôr ako fotka než logo — má priveľa drobných častí. Nahrajte prosím logo ako SVG alebo PNG na čistom pozadí.";
+const NOT_A_LOGO = tk(
+  "Toto vyzerá skôr ako fotka než logo — má priveľa drobných častí. Nahrajte prosím logo ako SVG alebo PNG na čistom pozadí.");
 
 /** One way of making the sign from the file: its outline and its face artwork. */
 export type TracedVersion = {
@@ -110,8 +111,8 @@ async function renderPdf(file: File): Promise<File> {
   } catch {
     throw new LogoTraceError(
       /\.ai$/i.test(file.name)
-        ? "Tento súbor AI sa nedá otvoriť — uložte ho prosím v Illustratori ako PDF alebo SVG."
-        : "Súbor PDF sa nepodarilo otvoriť — nie je poškodený alebo zaheslovaný?",
+        ? tk("Tento súbor AI sa nedá otvoriť — uložte ho prosím v Illustratori ako PDF alebo SVG.")
+        : tk("Súbor PDF sa nepodarilo otvoriť — nie je poškodený alebo zaheslovaný?"),
     );
   }
   try {
@@ -123,7 +124,7 @@ async function renderPdf(file: File): Promise<File> {
     canvas.height = Math.max(1, Math.round(viewport.height));
     await page.render({ canvas, viewport, background: "rgba(0,0,0,0)" }).promise;
     const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-    if (!png) throw new LogoTraceError("PDF sa nepodarilo vykresliť.");
+    if (!png) throw new LogoTraceError(tk("PDF sa nepodarilo vykresliť."));
     return new File([png], file.name.replace(/\.(pdf|ai)$/i, "") + ".png", { type: "image/png" });
   } finally {
     void task.destroy();
@@ -138,7 +139,7 @@ async function traceLoaded(file: File, img: Picture): Promise<Omit<TracedLogo, "
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new LogoTraceError("Prehliadač nevie logo spracovať.");
+  if (!ctx) throw new LogoTraceError(tk("Prehliadač nevie logo spracovať."));
   ctx.drawImage(img.source, 0, 0, w, h);
   const { data } = ctx.getImageData(0, 0, w, h);
   const background = detectBackground(data, w, h);
@@ -186,7 +187,7 @@ async function traceCut(
       if (y > maxY) maxY = y;
     }
   }
-  if (maxX < 0) throw new LogoTraceError("V súbore sme nenašli žiadne logo — je celé jednej farby?");
+  if (maxX < 0) throw new LogoTraceError(tk("V súbore sme nenašli žiadne logo — je celé jednej farby?"));
 
   const cw = maxX - minX + 1;
   const ch = maxY - minY + 1;
@@ -262,7 +263,7 @@ async function traceCut(
     segmentCount += path.segments.length + holes.reduce((n, c) => n + c.segments.length, 0);
     if (parts.length > MAX_PARTS || segmentCount > MAX_SEGMENTS) throw new LogoTraceError(NOT_A_LOGO);
   }
-  if (parts.length === 0) throw new LogoTraceError("Logo je príliš drobné alebo tenké — skúste väčší súbor.");
+  if (parts.length === 0) throw new LogoTraceError(tk("Logo je príliš drobné alebo tenké — skúste väčší súbor."));
 
   const outline: LogoOutline = {
     parts,
@@ -465,7 +466,7 @@ async function loadPicture(file: File, longSide: number): Promise<Picture> {
   if (isSvg) {
     const doc = new DOMParser().parseFromString(await file.text(), "image/svg+xml");
     const svg = doc.documentElement;
-    if (!svg || svg.nodeName.toLowerCase() !== "svg") throw new LogoTraceError("Súbor SVG sa nedá prečítať.");
+    if (!svg || svg.nodeName.toLowerCase() !== "svg") throw new LogoTraceError(tk("Súbor SVG sa nedá prečítať."));
     const box = (svg.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
     let vw = box.length === 4 ? box[2] : parseFloat(svg.getAttribute("width") ?? "");
     let vh = box.length === 4 ? box[3] : parseFloat(svg.getAttribute("height") ?? "");
@@ -485,7 +486,7 @@ async function loadPicture(file: File, longSide: number): Promise<Picture> {
   try {
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
-      img.onerror = () => reject(new LogoTraceError("Súbor sa nepodarilo otvoriť ako obrázok."));
+      img.onerror = () => reject(new LogoTraceError(tk("Súbor sa nepodarilo otvoriť ako obrázok.")));
       img.src = url;
     });
   } catch (err) {
@@ -494,7 +495,7 @@ async function loadPicture(file: File, longSide: number): Promise<Picture> {
   }
   if (!img.naturalWidth || !img.naturalHeight) {
     URL.revokeObjectURL(url);
-    throw new LogoTraceError("Obrázok nemá žiadny rozmer.");
+    throw new LogoTraceError(tk("Obrázok nemá žiadny rozmer."));
   }
   return {
     source: img,

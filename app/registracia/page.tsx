@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { notifySessionChange } from "@/lib/session-client";
+import { useT } from "@/lib/i18n/client";
 
 // Registration is deliberately short: an e-mail and a password, then the
 // 6-digit code from the e-mail (the pop-up in components/auth/VerifyEmailNotice).
@@ -11,6 +12,7 @@ import { notifySessionChange } from "@/lib/session-client";
 // details — "detaily účtu" — are filled in later, in the cart or on the
 // account page (lib/account-details.ts).
 export default function RegisterPage() {
+  const t = useT();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,11 +32,11 @@ export default function RegisterPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        if (body?.error === "email_taken") setError("Tento e-mail už má vytvorený účet.");
-        else if (body?.error === "weak_password") setError("Heslo musí mať aspoň 8 znakov.");
-        else if (body?.error === "invalid_email") setError("Zadajte platnú e-mailovú adresu.");
-        else if (body?.error === "missing_fields") setError("Vyplňte e-mail a heslo.");
-        else setError("Registrácia zlyhala. Skontrolujte údaje a skúste znova.");
+        if (body?.error === "email_taken") setError(t("Tento e-mail už má vytvorený účet."));
+        else if (body?.error === "weak_password") setError(t("Heslo musí mať aspoň 8 znakov."));
+        else if (body?.error === "invalid_email") setError(t("Zadajte platnú e-mailovú adresu."));
+        else if (body?.error === "missing_fields") setError(t("Vyplňte e-mail a heslo."));
+        else setError(t("Registrácia zlyhala. Skontrolujte údaje a skúste znova."));
         return;
       }
       notifySessionChange(); // the header pill and the verification pop-up
@@ -44,7 +46,7 @@ export default function RegisterPage() {
       router.replace(back && back.startsWith("/") && !back.startsWith("//") ? back : "/#konfigurator");
       router.refresh();
     } catch {
-      setError("Registrácia zlyhala. Skúste to prosím znova.");
+      setError(t("Registrácia zlyhala. Skúste to prosím znova."));
     } finally {
       setSubmitting(false);
     }
@@ -64,40 +66,39 @@ export default function RegisterPage() {
         style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}
       >
         <div className="text-sm font-semibold" style={{ color: "var(--color-muted)" }}>
-          Registrácia
+          {t("Registrácia")}
         </div>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight" style={{ color: "var(--color-foreground)" }}>
-          Vytvoriť účet
+          {t("Vytvoriť účet")}
         </h1>
         <p className="mt-2 text-sm leading-6" style={{ color: "var(--color-muted)" }}>
-          Stačí e-mail a heslo. Na e-mail vám pošleme 6-miestny kód — po jeho zadaní
-          uvidíte ceny nápisov. Ostatné údaje doplníte až pri objednávke.
+          {t("Stačí e-mail a heslo. Na e-mail vám pošleme 6-miestny kód — po jeho zadaní uvidíte ceny nápisov. Ostatné údaje doplníte až pri objednávke.")}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-7 space-y-4" noValidate>
           <label className="block">
-            <div className="mb-2 text-sm font-semibold" style={{ color: "var(--color-foreground-soft)" }}>E-mail</div>
+            <div className="mb-2 text-sm font-semibold" style={{ color: "var(--color-foreground-soft)" }}>{t("E-mail")}</div>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               required
-              placeholder="jan@email.sk"
+              placeholder={t("jan@email.sk")}
               className={input}
               style={inputStyle}
             />
           </label>
           <label className="block">
             <div className="mb-2 flex items-center justify-between text-sm font-semibold" style={{ color: "var(--color-foreground-soft)" }}>
-              Heslo
+              {t("Heslo")}
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="text-xs font-semibold underline"
                 style={{ color: "var(--color-muted)" }}
               >
-                {showPassword ? "Skryť" : "Zobraziť"}
+                {showPassword ? t("Skryť") : t("Zobraziť")}
               </button>
             </div>
             <input
@@ -110,7 +111,7 @@ export default function RegisterPage() {
               className={input}
               style={inputStyle}
             />
-            <div className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>Aspoň 8 znakov.</div>
+            <div className="mt-1 text-xs" style={{ color: "var(--color-muted)" }}>{t("Aspoň 8 znakov.")}</div>
           </label>
 
           {error && <p className="text-[13px] text-red-500">{error}</p>}
@@ -121,13 +122,13 @@ export default function RegisterPage() {
             className="w-full rounded-2xl px-5 py-3 text-sm font-bold transition hover:opacity-90 disabled:opacity-50"
             style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
           >
-            {submitting ? "Registrujem…" : "Registrovať sa"}
+            {submitting ? t("Registrujem…") : t("Registrovať sa")}
           </button>
 
           <p className="text-center text-sm" style={{ color: "var(--color-muted)" }}>
-            Už máte účet?{" "}
+            {t("Už máte účet?")}{" "}
             <Link href="/prihlasenie" className="font-semibold underline" style={{ color: "var(--color-foreground)" }}>
-              Prihláste sa
+              {t("Prihláste sa")}
             </Link>
           </p>
         </form>

@@ -30,9 +30,13 @@ export function formatOrderNumber(groupNumber: number | null | undefined, orderI
 }
 
 /** "1 objednávka" / "3 objednávky" / "7 objednávok" — Slovak counts three ways. */
-export function orderCountLabel(count: number): string {
-  const word = count === 1 ? "objednávka" : count >= 2 && count <= 4 ? "objednávky" : "objednávok";
-  return `${count} ${word}`;
+export function orderCountLabel(
+  count: number,
+  t: (text: string, vars?: Record<string, string | number>) => string = (s, v) => s.replace("{count}", String(v?.count ?? "")),
+): string {
+  if (count === 1) return t("{count} objednávka", { count });
+  if (count >= 2 && count <= 4) return t("{count} objednávky", { count });
+  return t("{count} objednávok", { count });
 }
 
 export type Order = {

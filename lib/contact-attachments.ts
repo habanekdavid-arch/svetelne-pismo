@@ -4,6 +4,8 @@
 // The whole request goes through one Vercel function, whose body limit is
 // 4.5 MB, so the files together stay under 4 MB with room for the text.
 
+import { tk } from "@/lib/i18n/config";
+
 export const MAX_ATTACHMENTS = 5;
 export const MAX_ATTACHMENTS_BYTES = 4 * 1024 * 1024;
 
@@ -23,7 +25,7 @@ export const ATTACHMENT_EXTENSIONS = [
 export const ATTACHMENT_ACCEPT = ATTACHMENT_EXTENSIONS.map((e) => `.${e}`).join(",");
 
 /** "JPG, PNG, PDF, AI, …" — for the hint under the field. */
-export const ATTACHMENT_HINT = "obrázky (JPG, PNG, HEIC…), PDF, SVG, AI, EPS, CDR, DXF, DWG, PSD, Word, Excel, ZIP";
+export const ATTACHMENT_HINT = tk("obrázky (JPG, PNG, HEIC…), PDF, SVG, AI, EPS, CDR, DXF, DWG, PSD, Word, Excel, ZIP");
 
 export function extensionOf(filename: string): string {
   const dot = filename.lastIndexOf(".");

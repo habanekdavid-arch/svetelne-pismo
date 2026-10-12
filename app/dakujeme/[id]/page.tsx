@@ -11,6 +11,8 @@ import { bankAccount, variableSymbol } from "@/lib/bank";
 import { INSTALLATION_METHOD } from "@/lib/payment-methods";
 import { afterMadeText, deliveryPlace, DELIVERY_METHOD_LABEL, PRODUCTION_TIME } from "@/lib/shipping";
 import AwaitPayment from "@/components/orders/AwaitPayment";
+import { getT } from "@/lib/i18n/server";
+import { rich } from "@/lib/i18n/rich";
 
 export const metadata: Metadata = {
   title: "Ďakujeme za objednávku | rozsvieťTO",
@@ -29,6 +31,7 @@ export const metadata: Metadata = {
 type Props = { params: Promise<{ id: string }> };
 
 export default async function ThankYouPage({ params }: Props) {
+  const { t } = await getT();
   const session = await getUserSession();
   if (!session) redirect("/prihlasenie");
 
@@ -48,16 +51,16 @@ export default async function ThankYouPage({ params }: Props) {
   const vs = orders[0] ? variableSymbol(orders[0].id) : null;
 
   const status = paid
-    ? { tone: "ok" as const, title: "Platba prebehla", text: `Zaplatili ste ${formatEur(group.totalCents / 100)}. Ďakujeme!` }
+    ? { tone: "ok" as const, title: t("Platba prebehla"), text: t("Zaplatili ste {amount}. Ďakujeme!", { amount: formatEur(group.totalCents / 100) }) }
     : quote === "requested"
-      ? { tone: "info" as const, title: "Pripravíme cenovú ponuku", text: "Objednávka s montážou nevyžaduje platbu vopred. Pošleme vám cenovú ponuku s montážou a ozveme sa telefonicky." }
+      ? { tone: "info" as const, title: t("Pripravíme cenovú ponuku"), text: t("Objednávka s montážou nevyžaduje platbu vopred. Pošleme vám cenovú ponuku s montážou a ozveme sa telefonicky.") }
       : waitingForCard
-        ? { tone: "wait" as const, title: "Platbu overujeme…", text: "Potvrdenie od banky zvyčajne príde do pár sekúnd. Stránka sa obnoví sama." }
+        ? { tone: "wait" as const, title: t("Platbu overujeme…"), text: t("Potvrdenie od banky zvyčajne príde do pár sekúnd. Stránka sa obnoví sama.") }
         : group.paymentStatus === "failed"
-          ? { tone: "warn" as const, title: "Platba neprebehla", text: "Nič sme vám nestrhli. Objednávku máme uloženú a zaplatiť ju môžete znova v detaile objednávky." }
+          ? { tone: "warn" as const, title: t("Platba neprebehla"), text: t("Nič sme vám nestrhli. Objednávku máme uloženú a zaplatiť ju môžete znova v detaile objednávky.") }
           : transfer
-            ? { tone: "info" as const, title: "Čakáme na platbu prevodom", text: "Pošlite prosím sumu na účet nižšie. Výrobu začneme hneď, ako platba príde." }
-            : { tone: "info" as const, title: "Objednávku sme prijali", text: "Ozveme sa vám s potvrdením ceny, termínu a platby." };
+            ? { tone: "info" as const, title: t("Čakáme na platbu prevodom"), text: t("Pošlite prosím sumu na účet nižšie. Výrobu začneme hneď, ako platba príde.") }
+            : { tone: "info" as const, title: t("Objednávku sme prijali"), text: t("Ozveme sa vám s potvrdením ceny, termínu a platby.") };
 
   const tones = {
     ok:   { bg: "#f0fdf4", border: "#bbf7d0", fg: "#166534" },
@@ -67,16 +70,16 @@ export default async function ThankYouPage({ params }: Props) {
   }[status.tone];
 
   const steps = [
-    { Icon: Mail, text: `Potvrdenie objednávky sme poslali na ${group.customerEmail}.` },
+    { Icon: Mail, text: t("Potvrdenie objednávky sme poslali na {email}.", { email: group.customerEmail }) },
     installation
-      ? { Icon: Wrench, text: quote === "requested" ? "Pripravíme cenovú ponuku s montážou. Po jej úhrade začneme vyrábať." : "Po prijatí platby za nápis vás budeme kontaktovať — dohodneme montáž a realizáciu: termín, detaily a cenu montáže. Výrobu začneme hneď po platbe." }
-      : { Icon: Clock, text: `${PRODUCTION_TIME} Výrobu začneme po prijatí platby.` },
-    ...(installation ? [] : [{ Icon: Package, text: afterMadeText(group.deliveryMethod) }]),
+      ? { Icon: Wrench, text: quote === "requested" ? t("Pripravíme cenovú ponuku s montážou. Po jej úhrade začneme vyrábať.") : t("Po prijatí platby za nápis vás budeme kontaktovať — dohodneme montáž a realizáciu: termín, detaily a cenu montáže. Výrobu začneme hneď po platbe.") }
+      : { Icon: Clock, text: `${t(PRODUCTION_TIME)} ${t("Výrobu začneme po prijatí platby.")}` },
+    ...(installation ? [] : [{ Icon: Package, text: t(afterMadeText(group.deliveryMethod)) }]),
   ];
 
   const where = installation
     ? deliveryPlace(group)
-    : [DELIVERY_METHOD_LABEL[group.deliveryMethod], deliveryPlace(group)].filter(Boolean).join(" — ");
+    : [DELIVERY_METHOD_LABEL[group.deliveryMethod] ? t(DELIVERY_METHOD_LABEL[group.deliveryMethod]) : null, deliveryPlace(group)].filter(Boolean).join(" — ");
 
   return (
     <main className="px-5 py-14 md:py-20" style={{ background: "var(--color-background)" }}>
@@ -91,10 +94,10 @@ export default async function ThankYouPage({ params }: Props) {
             <CheckCircle2 size={34} strokeWidth={2.2} />
           </span>
           <h1 className="main-heading mt-5 text-3xl md:text-4xl" style={{ color: "var(--color-foreground)" }}>
-            Ďakujeme za objednávku!
+            {t("Ďakujeme za objednávku!")}
           </h1>
           <p className="mt-3 text-[15px]" style={{ color: "var(--color-muted)" }}>
-            Číslo objednávky <strong style={{ color: "var(--color-foreground)" }}>{no}</strong>
+            {rich(t("Číslo objednávky {number}"), { number: <strong style={{ color: "var(--color-foreground)" }}>{no}</strong> })}
           </p>
         </div>
 
@@ -112,18 +115,18 @@ export default async function ThankYouPage({ params }: Props) {
             className="mt-4 space-y-2 rounded-3xl p-5 text-sm"
             style={{ background: "#fff7ed", border: "1px solid #fed7aa" }}
           >
-            <p className="mb-1 text-[14px] font-extrabold" style={{ color: "#111" }}>Platobné údaje</p>
-            <Row label="Suma" value={formatEur(group.totalCents / 100)} />
-            <Row label="IBAN" value={bank.iban} />
-            {bank.bic && <Row label="BIC / SWIFT" value={bank.bic} />}
-            <Row label="Variabilný symbol" value={vs} />
-            <Row label="Príjemca" value={bank.holder} />
-            <Row label="Správa pre príjemcu" value={`Objednávka ${no}`} />
+            <p className="mb-1 text-[14px] font-extrabold" style={{ color: "#111" }}>{t("Platobné údaje")}</p>
+            <Row label={t("Suma")} value={formatEur(group.totalCents / 100)} />
+            <Row label={t("IBAN")} value={bank.iban} />
+            {bank.bic && <Row label={t("BIC / SWIFT")} value={bank.bic} />}
+            <Row label={t("Variabilný symbol")} value={vs} />
+            <Row label={t("Príjemca")} value={bank.holder} />
+            <Row label={t("Správa pre príjemcu")} value={t("Objednávka {number}", { number: no })} />
           </dl>
         )}
 
         <section className="mt-8">
-          <h2 className="text-[15px] font-extrabold" style={{ color: "var(--color-foreground)" }}>Čo bude nasledovať</h2>
+          <h2 className="text-[15px] font-extrabold" style={{ color: "var(--color-foreground)" }}>{t("Čo bude nasledovať")}</h2>
           <ol className="mt-3 space-y-2.5">
             {steps.map(({ Icon, text }, i) => (
               <li
@@ -148,16 +151,16 @@ export default async function ThankYouPage({ params }: Props) {
           className="mt-8 rounded-3xl p-5"
           style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
         >
-          <h2 className="text-[15px] font-extrabold" style={{ color: "var(--color-foreground)" }}>Súhrn</h2>
+          <h2 className="text-[15px] font-extrabold" style={{ color: "var(--color-foreground)" }}>{t("Súhrn")}</h2>
           <ul className="mt-3 space-y-2">
             {orders.map((o) => (
               <li key={o.id} className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-[14px] font-bold" style={{ color: "var(--color-foreground)" }}>
-                    {oneLine(o.config.text) || "Váš nápis"}
+                    {oneLine(o.config.text) || t("Váš nápis")}
                   </p>
                   <p className="text-[12.5px]" style={{ color: "var(--color-muted)" }}>
-                    {materialById(o.config.material).displayName} · {o.config.height} mm · {variantLabel(o.config)}
+                    {t(materialById(o.config.material).displayName)} · {o.config.height} mm · {t(variantLabel(o.config))}
                   </p>
                 </div>
                 <span className="shrink-0 text-[14px] font-black" style={{ color: "var(--color-foreground)" }}>
@@ -167,11 +170,11 @@ export default async function ThankYouPage({ params }: Props) {
             ))}
           </ul>
           <dl className="mt-4 space-y-1.5 border-t pt-3 text-[13.5px]" style={{ borderColor: "var(--color-border)" }}>
-            {where && <Row label={installation ? "Adresa inštalácie" : "Doprava"} value={where} />}
-            {!installation && group.deliveryCents > 0 && <Row label="Cena dopravy" value={formatEur(group.deliveryCents / 100)} />}
+            {where && <Row label={installation ? t("Adresa inštalácie") : t("Doprava")} value={where} />}
+            {!installation && group.deliveryCents > 0 && <Row label={t("Cena dopravy")} value={formatEur(group.deliveryCents / 100)} />}
             <div className="flex items-baseline justify-between pt-1">
               <dt className="font-bold" style={{ color: "var(--color-muted)" }}>
-                {quote === "requested" || quote === "pending" || quote === "consult" ? "Za nápisy s DPH" : "Spolu s DPH"}
+                {quote === "requested" || quote === "pending" || quote === "consult" ? t("Za nápisy s DPH") : t("Spolu s DPH")}
               </dt>
               <dd className="text-xl font-black" style={{ color: "var(--color-foreground)" }}>
                 {formatEur(group.totalCents / 100)}
@@ -186,20 +189,22 @@ export default async function ThankYouPage({ params }: Props) {
             className="rounded-2xl px-6 py-3.5 text-sm font-bold transition hover:-translate-y-px"
             style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "2px solid var(--color-foreground)" }}
           >
-            Detail objednávky
+            {t("Detail objednávky")}
           </Link>
           <Link
             href="/#konfigurator"
             className="rounded-2xl px-6 py-3.5 text-sm font-black transition hover:-translate-y-px"
             style={{ background: "var(--accent)", color: "#000", border: "2px solid var(--accent)" }}
           >
-            Navrhnúť ďalší nápis
+            {t("Navrhnúť ďalší nápis")}
           </Link>
         </div>
 
         <p className="mt-6 text-center text-[13px]" style={{ color: "var(--color-muted)" }}>
-          Otázky? Napíšte na <a href="mailto:info@4frommedia.sk" className="font-semibold underline">info@4frommedia.sk</a> alebo
-          zavolajte na <a href="tel:+421907907097" className="font-semibold underline">+421 907 907 097</a>.
+          {rich(t("Otázky? Napíšte na {email} alebo zavolajte na {phone}."), {
+            email: <a href="mailto:info@4frommedia.sk" className="font-semibold underline">info@4frommedia.sk</a>,
+            phone: <a href="tel:+421907907097" className="font-semibold underline">+421 907 907 097</a>,
+          })}
         </p>
       </div>
     </main>

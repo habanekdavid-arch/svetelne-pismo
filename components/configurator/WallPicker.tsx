@@ -11,6 +11,8 @@ import {
   type WallSurfaceId,
 } from "@/lib/walls";
 import type { DragTarget } from "@/components/three/LetterScene";
+import { tk } from "@/lib/i18n/config";
+import { useT } from "@/lib/i18n/client";
 
 // The wall under the preview, chosen in three tabs:
 //   · Farba          — plaster painted in one of a few façade colours;
@@ -22,9 +24,9 @@ import type { DragTarget } from "@/components/three/LetterScene";
 type Tab = "color" | "surface" | "photo";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "color",   label: "Farba" },
-  { id: "surface", label: "Povrch" },
-  { id: "photo",   label: "Vlastný návrh" },
+  { id: "color",   label: tk("Farba") },
+  { id: "surface", label: tk("Povrch") },
+  { id: "photo",   label: tk("Vlastný návrh") },
 ];
 
 export default function WallPicker({
@@ -66,23 +68,24 @@ export default function WallPicker({
     if (id === "photo" && !photoName) setHelp(true);
   }
   const tip = useTip();
+  const t = useT();
 
   return (
     <div className="rounded-2xl p-3" style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-[12px] font-bold uppercase tracking-[0.07em]" style={{ color: "var(--color-muted)" }}>
-          Pozadie
+          {t("Pozadie")}
         </span>
-        <div role="tablist" aria-label="Pozadie" className="flex rounded-full p-1" style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}>
-          {TABS.map((t) => {
-            const active = tab === t.id;
+        <div role="tablist" aria-label={t("Pozadie")} className="flex rounded-full p-1" style={{ background: "var(--color-background)", border: "1px solid var(--color-border)" }}>
+          {TABS.map((tabDef) => {
+            const active = tab === tabDef.id;
             return (
               <button
-                key={t.id}
+                key={tabDef.id}
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => openTab(t.id)}
+                onClick={() => openTab(tabDef.id)}
                 className="rounded-full px-3.5 py-1.5 text-[13px] font-bold tracking-[0.01em] transition"
                 style={
                   active
@@ -90,7 +93,7 @@ export default function WallPicker({
                     : { color: "var(--color-foreground-soft)" }
                 }
               >
-                {t.label}
+                {t(tabDef.label)}
               </button>
             );
           })}
@@ -105,10 +108,10 @@ export default function WallPicker({
               <Tile
                 key={c.id}
                 active={active}
-                label={`Omietka — ${c.label}`}
-                caption={c.label}
+                label={t("Omietka — {color}", { color: t(c.label) })}
+                caption={t(c.label)}
                 onClick={() => onWall({ surface: "plaster", color: c.value })}
-                tipProps={tip(c.label, "omietka v tejto farbe")}
+                tipProps={tip(t(c.label), t("omietka v tejto farbe"))}
               >
                 <span
                   className="block h-full w-full"
@@ -131,7 +134,7 @@ export default function WallPicker({
           return (
             <label
               className="flex cursor-pointer flex-col items-center gap-1 transition hover:-translate-y-px"
-              {...tip("Vlastná farba", "vyberte ľubovoľný odtieň steny")}
+              {...tip(t("Vlastná farba"), t("vyberte ľubovoľný odtieň steny"))}
             >
               <span
                 className="relative block h-12 w-12 overflow-hidden rounded-xl"
@@ -147,14 +150,14 @@ export default function WallPicker({
                   type="color"
                   value={custom ? wall.color : "#9e9e9e"}
                   onChange={(e) => onWall({ surface: "plaster", color: e.target.value })}
-                  aria-label="Vlastná farba steny"
+                  aria-label={t("Vlastná farba steny")}
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                 />
                 {!custom && (
                   <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-white" aria-hidden="true">+</span>
                 )}
               </span>
-              <span className="text-[12px] font-bold" style={{ color: "var(--color-foreground)" }}>Vlastná</span>
+              <span className="text-[12px] font-bold" style={{ color: "var(--color-foreground)" }}>{t("Vlastná")}</span>
             </label>
           );
         })()}
@@ -166,10 +169,10 @@ export default function WallPicker({
               <Tile
                 key={s.id}
                 active={active}
-                label={s.label}
-                caption={s.label}
+                label={t(s.label)}
+                caption={t(s.label)}
                 onClick={() => onWall({ surface: s.id as WallSurfaceId, color: wall.color })}
-                tipProps={tip(s.label, s.hint)}
+                tipProps={tip(t(s.label), t(s.hint))}
               >
                 <span
                   className="block h-full w-full"
@@ -192,10 +195,10 @@ export default function WallPicker({
               className="rounded-xl px-3 py-2.5 text-[13px] font-bold underline-offset-2 hover:underline"
               style={{ color: "var(--color-foreground-soft)" }}
             >
-              Ako to funguje?
+              {t("Ako to funguje?")}
             </button>
             {photoName && photoUrl ? (
-              <Tile active label={photoName} onClick={onClearPhoto} tipProps={tip(photoName, "kliknutím odstránite")}>
+              <Tile active label={photoName} onClick={onClearPhoto} tipProps={tip(photoName, t("kliknutím odstránite"))}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={photoUrl} alt="" className="h-full w-full object-cover" />
                 <span
@@ -214,7 +217,7 @@ export default function WallPicker({
               style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "2px dashed var(--color-border-strong)" }}
             >
               <Upload size={15} strokeWidth={2.25} />
-              {photoName ? "Nahrať inú fotku" : "Nahrať fotku vašej steny"}
+              {photoName ? t("Nahrať inú fotku") : t("Nahrať fotku vašej steny")}
             </button>
           </>
         )}
@@ -239,19 +242,19 @@ export default function WallPicker({
       {tab === "photo" && photoName && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <span className="text-[12px] font-semibold" style={{ color: "var(--color-muted)" }}>
-            Ťahaním posúvate:
+            {t("Ťahaním posúvate:")}
           </span>
           {([
-            { id: "sign"       as DragTarget, label: "Nápis" },
-            { id: "background" as DragTarget, label: "Pozadie" },
-          ]).map((t) => {
-            const active = dragTarget === t.id;
+            { id: "sign"       as DragTarget, label: t("Nápis") },
+            { id: "background" as DragTarget, label: t("Pozadie") },
+          ]).map((target) => {
+            const active = dragTarget === target.id;
             return (
               <button
-                key={t.id}
+                key={target.id}
                 type="button"
                 aria-pressed={active}
-                onClick={() => onDragTarget?.(t.id)}
+                onClick={() => onDragTarget?.(target.id)}
                 className="rounded-full px-3 py-1 text-[12px] font-bold transition hover:-translate-y-px"
                 style={{
                   background: active ? "color-mix(in srgb, var(--accent) 18%, transparent)" : "var(--color-background)",
@@ -259,7 +262,7 @@ export default function WallPicker({
                   border: `1.5px solid ${active ? "var(--accent)" : "var(--color-border-strong)"}`,
                 }}
               >
-                {t.label}
+                {target.label}
               </button>
             );
           })}
@@ -270,18 +273,18 @@ export default function WallPicker({
               className="rounded-full px-3 py-1 text-[12px] font-bold transition hover:-translate-y-px"
               style={{ background: "var(--color-background)", color: "var(--color-foreground)", border: "1.5px solid var(--color-border-strong)" }}
             >
-              Na stred
+              {t("Na stred")}
             </button>
           )}
           <span className="basis-full text-[11.5px]" style={{ color: "var(--color-muted)" }}>
-            Ľavé tlačidlo posúva, pravé otáča pohľad (na dotyk: jeden prst posúva, dva otáčajú).
+            {t("Ľavé tlačidlo posúva, pravé otáča pohľad (na dotyk: jeden prst posúva, dva otáčajú).")}
           </span>
         </div>
       )}
 
       {tab === "photo" && !photoName && (
         <p className="mt-2 text-[12px]" style={{ color: "var(--color-muted)" }}>
-          Fotka ostane len vo vašom prehliadači — nikam sa neodosiela.
+          {t("Fotka ostane len vo vašom prehliadači — nikam sa neodosiela.")}
         </p>
       )}
 
@@ -313,11 +316,12 @@ function PhotoHelp({ onClose, onUpload }: { onClose: () => void; onUpload: () =>
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+  const t = useT();
 
   const steps = [
-    { Icon: ImagePlus, title: "Odfoťte stenu", text: "Rovno spredu, mobil zvisle, za dňa." },
-    { Icon: Upload, title: "Nahrajte fotku", text: "Ostane len vo vašom prehliadači." },
-    { Icon: Move, title: "Posuňte nápis", text: "Myšou alebo prstom. Pravým tlačidlom (dvoma prstami) otočíte pohľad." },
+    { Icon: ImagePlus, title: t("Odfoťte stenu"), text: t("Rovno spredu, mobil zvisle, za dňa.") },
+    { Icon: Upload, title: t("Nahrajte fotku"), text: t("Ostane len vo vašom prehliadači.") },
+    { Icon: Move, title: t("Posuňte nápis"), text: t("Myšou alebo prstom. Pravým tlačidlom (dvoma prstami) otočíte pohľad.") },
   ];
 
   return (
@@ -335,14 +339,14 @@ function PhotoHelp({ onClose, onUpload }: { onClose: () => void; onUpload: () =>
       >
         <div className="flex items-start justify-between gap-3">
           <h3 id="photo-help-title" className="text-xl font-extrabold">
-            Nápis na vašej stene
+            {t("Nápis na vašej stene")}
           </h3>
-          <button type="button" onClick={onClose} aria-label="Zavrieť" className="rounded-full p-1.5 hover:bg-black/5">
+          <button type="button" onClick={onClose} aria-label={t("Zavrieť")} className="rounded-full p-1.5 hover:bg-black/5">
             <X size={18} />
           </button>
         </div>
         <p className="mt-1 text-[14px]" style={{ color: "var(--color-muted)" }}>
-          Uvidíte nápis v skutočnej veľkosti priamo na svojej fasáde.
+          {t("Uvidíte nápis v skutočnej veľkosti priamo na svojej fasáde.")}
         </p>
 
         <ol className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -372,7 +376,7 @@ function PhotoHelp({ onClose, onUpload }: { onClose: () => void; onUpload: () =>
             className="rounded-2xl px-5 py-3 text-sm font-bold"
             style={{ border: "2px solid var(--color-foreground)" }}
           >
-            Zavrieť
+            {t("Zavrieť")}
           </button>
           <button
             type="button"
@@ -380,7 +384,7 @@ function PhotoHelp({ onClose, onUpload }: { onClose: () => void; onUpload: () =>
             className="flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black"
             style={{ background: "var(--accent)", color: "#000" }}
           >
-            <Upload size={15} strokeWidth={2.5} /> Nahrať fotku steny
+            <Upload size={15} strokeWidth={2.5} /> {t("Nahrať fotku steny")}
           </button>
         </div>
       </div>

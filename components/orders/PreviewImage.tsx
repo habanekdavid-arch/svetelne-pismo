@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 // The watermarked picture of an ordered sign. Shown large on the page; a
 // click opens it bigger still, in a window over the same page (not a new
 // tab) — Escape, the × or a click beside it closes it again.
 
 export function PreviewLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  const t = useT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -29,7 +31,7 @@ export function PreviewLightbox({ src, alt, onClose }: { src: string; alt: strin
       <button
         type="button"
         onClick={onClose}
-        aria-label="Zavrieť náhľad"
+        aria-label={t("Zavrieť náhľad")}
         className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-2xl font-bold text-black shadow transition hover:bg-white"
       >
         ×
@@ -46,6 +48,7 @@ export function PreviewLightbox({ src, alt, onClose }: { src: string; alt: strin
 }
 
 export default function PreviewImage({ src, alt, className = "" }: { src: string; alt: string; className?: string }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -53,7 +56,7 @@ export default function PreviewImage({ src, alt, className = "" }: { src: string
         type="button"
         onClick={() => setOpen(true)}
         className={`group relative block w-full cursor-zoom-in overflow-hidden ${className}`}
-        aria-label={`Zväčšiť: ${alt}`}
+        aria-label={t("Zväčšiť: {name}", { name: alt })}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={alt} className="block w-full transition duration-300 group-hover:scale-[1.02]" />
@@ -61,7 +64,7 @@ export default function PreviewImage({ src, alt, className = "" }: { src: string
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3M11 8v6M8 11h6" />
           </svg>
-          Zväčšiť
+          {t("Zväčšiť")}
         </span>
       </button>
       {open && <PreviewLightbox src={src} alt={alt} onClose={() => setOpen(false)} />}

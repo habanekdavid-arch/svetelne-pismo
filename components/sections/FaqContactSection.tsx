@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { faqCategories } from "@/lib/faq-data";
 import ContactForm from "@/components/contact/ContactForm";
+import { useT } from "@/lib/i18n/client";
 
 // FAQ + contact, built from vytlacto3d's own FAQ section: the amber glow behind
 // the heading, accordions that expand on a grid-rows 0fr→1fr transition, the
@@ -29,6 +30,7 @@ const faqItems = HOME_QUESTIONS.map((q) => allItems.find((i) => i.q === q)).filt
 );
 
 export default function FaqContactSection() {
+  const t = useT();
   const [open, setOpen] = useState(0);
 
   return (
@@ -54,22 +56,21 @@ export default function FaqContactSection() {
             }}
           >
             <span className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} />
-            FAQ a užitočné informácie
+            {t("FAQ a užitočné informácie")}
           </div>
 
           <h2
             className="mt-6 text-4xl font-extrabold tracking-tight sm:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            Často kladené otázky
+            {t("Často kladené otázky")}
           </h2>
 
           <p
             className="mx-auto mt-4 max-w-2xl text-base leading-relaxed"
             style={{ color: "var(--color-muted)" }}
           >
-            Odpovede na najčastejšie otázky o materiáloch, svietení, cenách,
-            priebehu objednávky a doručení.
+            {t("Odpovede na najčastejšie otázky o materiáloch, svietení, cenách, priebehu objednávky a doručení.")}
           </p>
         </div>
 
@@ -109,7 +110,7 @@ export default function FaqContactSection() {
                       className="text-base font-extrabold sm:text-lg"
                       style={{ color: "var(--color-foreground)" }}
                     >
-                      {item.q}
+                      {t(item.q)}
                     </h3>
                   </div>
 
@@ -140,7 +141,7 @@ export default function FaqContactSection() {
                       className="px-6 pb-6 text-sm leading-7 sm:px-20"
                       style={{ color: "var(--color-muted)" }}
                     >
-                      {item.a}
+                      {t(item.a)}
                     </p>
                   </div>
                 </div>
@@ -165,16 +166,16 @@ export default function FaqContactSection() {
               }}
             >
               <span className="h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} />
-              Napíšte nám
+              {t("Napíšte nám")}
             </div>
             <h3
               className="mt-6 text-2xl font-extrabold tracking-tight sm:text-3xl"
               style={{ color: "var(--color-foreground)" }}
             >
-              Nenašli ste odpoveď?
+              {t("Nenašli ste odpoveď?")}
             </h3>
             <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-muted)" }}>
-              Napíšte nám priamo cez formulár nižšie, odpovieme vám čo najskôr.
+              {t("Napíšte nám priamo cez formulár nižšie, odpovieme vám čo najskôr.")}
             </p>
           </div>
 
@@ -188,7 +189,7 @@ export default function FaqContactSection() {
             className="rounded-2xl px-5 py-3 text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             style={{ background: "var(--accent)", color: "var(--accent-foreground)" }}
           >
-            Prejsť na konfigurátor
+            {t("Prejsť na konfigurátor")}
           </Link>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import ConfiguratorStage from "@/components/configurator/ConfiguratorStage";
 import EyebrowPill from "@/components/ui/EyebrowPill";
+import { getT } from "@/lib/i18n/server";
 
 // Deliberately NOT reading the session here (no getUserSession()/cookies())
 // — that would force this page to opt out of static rendering. The cart
@@ -8,7 +9,8 @@ import EyebrowPill from "@/components/ui/EyebrowPill";
 // The section clips with overflow-x-clip, not overflow-hidden: `hidden` turns
 // it into a scroll container, which silently disables the sticky preview
 // column inside ConfiguratorStage. `clip` clips the same way without that.
-export default function HeroConfigurator() {
+export default async function HeroConfigurator() {
+  const { t } = await getT();
   return (
     <section
       id="konfigurator"
@@ -18,26 +20,23 @@ export default function HeroConfigurator() {
       <div className="mx-auto max-w-7xl px-5">
         <div className="mx-auto max-w-3xl text-center">
           <div className="reveal mb-4 flex justify-center">
-            <EyebrowPill>Konfigurátor</EyebrowPill>
+            <EyebrowPill>{t("Konfigurátor")}</EyebrowPill>
           </div>
 
           <h1
             className="reveal delay-1 main-heading text-4xl md:text-6xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            Poď si s nami vytvoriť
+            {t("Poď si s nami vytvoriť")}
             <br />
-            tvoj svetelný text
+            {t("tvoj svetelný text")}
           </h1>
 
           <p
             className="reveal delay-2 mx-auto mt-5 max-w-2xl text-base leading-relaxed"
             style={{ color: "var(--color-muted)" }}
           >
-            Napíš text a vyber font, zadaj výšku písmen, zvoľ svietenie,
-            prevedenie a farby čela a tela — v 3D náhľade hneď uvidíš, ako bude
-            nápis vyzerať na tvojej stene, aj na vlastnej fotke. Po prihlásení
-            uvidíš aj cenu. Vyrábame na mieru z hliníka, plastu (3D tlač) aj plexi.
+            {t("Napíš text a vyber font, zadaj výšku písmen, zvoľ svietenie, prevedenie a farby čela a tela — v 3D náhľade hneď uvidíš, ako bude nápis vyzerať na tvojej stene, aj na vlastnej fotke. Po prihlásení uvidíš aj cenu. Vyrábame na mieru z hliníka, plastu (3D tlač) aj plexi.")}
           </p>
         </div>
 

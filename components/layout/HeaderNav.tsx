@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { onSessionChange } from "@/lib/session-client";
+import { useT } from "@/lib/i18n/client";
+import LanguageSwitcher, { LanguageButtons } from "@/components/layout/LanguageSwitcher";
 
 const cgRegular: React.CSSProperties = {
   fontFamily: "var(--font-century-gothic)",
@@ -38,6 +40,7 @@ type SessionUser = { name: string; email?: string };
 // using Header (i.e. the whole site, via app/layout.tsx) to opt out of
 // static rendering.
 export default function HeaderNav() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
 
@@ -55,11 +58,11 @@ export default function HeaderNav() {
   }, []);
 
   const links = [
-    { href: "/#konfigurator", label: "Konfigurátor" },
-    { href: "/#materialy", label: "Materiály" },
-    { href: "/#konfigurator", label: "Ceny" },
-    { href: "/#faq", label: "FAQ" },
-    { href: "/blog", label: "Blog" },
+    { href: "/#konfigurator", label: t("Konfigurátor") },
+    { href: "/#materialy", label: t("Materiály") },
+    { href: "/#konfigurator", label: t("Ceny") },
+    { href: "/#faq", label: t("FAQ") },
+    { href: "/blog", label: t("Blog") },
   ];
   // Finished jobs live on the 4from media site — opened in a new tab.
   const REALIZACIE = "https://www.4from.media/svetelna-reklama/";
@@ -73,7 +76,7 @@ export default function HeaderNav() {
       <nav
         className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 text-[14px] md:flex"
         style={cgRegular}
-        aria-label="Hlavná navigácia"
+        aria-label={t("Hlavná navigácia")}
       >
         {links.map((l) => (
           <Link key={l.label} href={l.href} className="nav-link whitespace-nowrap" style={{ color: "var(--color-foreground)" }}>
@@ -87,7 +90,7 @@ export default function HeaderNav() {
           className="nav-link whitespace-nowrap"
           style={{ color: "var(--color-foreground)" }}
         >
-          Realizácie
+          {t("Realizácie")}
         </a>
         <a
           href="https://www.4frommedia.sk"
@@ -107,6 +110,7 @@ export default function HeaderNav() {
           is solid amber with the account's initial. Colours go through tokens
           so the pill follows dark mode. */}
       <div className="hidden items-center gap-2 md:flex">
+        <LanguageSwitcher />
         {user ? (
             <Link
               href="/ucet"
@@ -118,7 +122,7 @@ export default function HeaderNav() {
               >
                 {(user.name?.trim()?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
               </span>
-              <span className="hidden sm:inline">Môj účet</span>
+              <span className="hidden sm:inline">{t("Môj účet")}</span>
             </Link>
         ) : (
           <Link
@@ -134,7 +138,7 @@ export default function HeaderNav() {
             >
               <UserGlyph />
             </span>
-            <span className="hidden sm:inline">Prihlásiť sa</span>
+            <span className="hidden sm:inline">{t("Prihlásiť sa")}</span>
           </Link>
         )}
       </div>
@@ -145,7 +149,7 @@ export default function HeaderNav() {
         onClick={() => setOpen((v) => !v)}
         className="flex h-10 w-10 items-center justify-center rounded-full transition hover:opacity-70 md:hidden"
         style={{ color: "var(--color-foreground)" }}
-        aria-label={open ? "Zavrieť menu" : "Otvoriť menu"}
+        aria-label={open ? t("Zavrieť menu") : t("Otvoriť menu")}
         aria-expanded={open}
         aria-controls="mobile-nav"
       >
@@ -157,13 +161,13 @@ export default function HeaderNav() {
         id="mobile-nav"
         className="absolute inset-x-0 top-full overflow-hidden transition-[max-height,opacity] duration-200 ease-out md:hidden"
         style={{
-          maxHeight: open ? "440px" : "0px",
+          maxHeight: open ? "520px" : "0px",
           opacity: open ? 1 : 0,
           borderTop: open ? "1px solid var(--color-border)" : "none",
           background: "var(--color-background)",
         }}
       >
-        <nav className="flex flex-col gap-1 px-5 py-4" style={cgRegular} aria-label="Mobilná navigácia">
+        <nav className="flex flex-col gap-1 px-5 py-4" style={cgRegular} aria-label={t("Mobilná navigácia")}>
           {links.map((l) => (
             <Link
               key={l.label}
@@ -183,7 +187,7 @@ export default function HeaderNav() {
             className="rounded-lg px-3 py-3 text-[15px] transition hover:opacity-70"
             style={{ color: "var(--color-foreground)" }}
           >
-            Realizácie
+            {t("Realizácie")}
           </a>
           <a
             href="https://www.4frommedia.sk"
@@ -208,7 +212,7 @@ export default function HeaderNav() {
               >
                 {(user.name?.trim()?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
               </span>
-              Môj účet
+              {t("Môj účet")}
             </Link>
           ) : (
             <Link
@@ -225,9 +229,12 @@ export default function HeaderNav() {
               >
                 <UserGlyph />
               </span>
-              Prihlásiť sa
+              {t("Prihlásiť sa")}
             </Link>
           )}
+          <div className="mt-3">
+            <LanguageButtons />
+          </div>
         </nav>
       </div>
     </>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getBlogPost, blogPosts } from "@/lib/blog-data";
+import { getT } from "@/lib/i18n/server";
 
 export function generateStaticParams() {
   return blogPosts.map((p) => ({ slug: p.slug }));
@@ -131,6 +132,7 @@ export default async function BlogPostPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const { t } = await getT();
   const { slug } = await params;
   const post = getBlogPost(slug);
   if (!post) notFound();
@@ -150,7 +152,7 @@ export default async function BlogPostPage({
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M19 12H5M12 5l-7 7 7 7" />
             </svg>
-            Späť na blog
+            {t("Späť na blog")}
           </Link>
 
           {/* Category badge */}
@@ -161,21 +163,21 @@ export default async function BlogPostPage({
               color: "var(--color-yellow)",
             }}
           >
-            {post.category}
+            {t(post.category)}
           </span>
 
           <h1
             className="main-heading mt-4 text-3xl md:text-5xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            {post.title}
+            {t(post.title)}
           </h1>
 
           <p
             className="mt-4 text-[13px]"
             style={{ color: "var(--color-muted)" }}
           >
-            {post.date} · {post.readMin} min čítania
+            {post.date} · {t("{min} min čítania", { min: post.readMin })}
           </p>
 
           {/* Featured image, or a placeholder when the post has none */}
@@ -189,7 +191,7 @@ export default async function BlogPostPage({
             {post.image ? (
               <Image
                 src={post.image}
-                alt={post.title}
+                alt={t(post.title)}
                 fill
                 sizes="(max-width: 768px) 100vw, 672px"
                 className="object-cover"
@@ -215,7 +217,7 @@ export default async function BlogPostPage({
       {/* Article body */}
       <article className="pb-20">
         <div className="mx-auto max-w-2xl px-5">
-          {renderMarkdown(post.content)}
+          {renderMarkdown(t(post.content))}
 
           {/* Extra angles of the same realization, when the post has any */}
           {post.gallery && post.gallery.length > 0 && (
@@ -228,7 +230,7 @@ export default async function BlogPostPage({
                 >
                   <Image
                     src={src}
-                    alt={post.title}
+                    alt={t(post.title)}
                     fill
                     sizes="(max-width: 640px) 100vw, 336px"
                     className="object-cover"
@@ -262,20 +264,20 @@ export default async function BlogPostPage({
             className="main-heading text-2xl"
             style={{ color: "var(--color-foreground)" }}
           >
-            Pripravený konfigurovať?
+            {t("Pripravený konfigurovať?")}
           </h2>
           <p
             className="mt-3 text-sm"
             style={{ color: "var(--color-muted)" }}
           >
-            Vyskúšajte náš konfigurátor — nápis uvidíte v 3D na svojej stene a po prihlásení hneď aj cenu.
+            {t("Vyskúšajte náš konfigurátor — nápis uvidíte v 3D na svojej stene a po prihlásení hneď aj cenu.")}
           </p>
           <Link
             href="/#konfigurator"
             className="mt-6 inline-block rounded-full px-10 py-3.5 text-sm font-black tracking-wide transition hover:opacity-85"
             style={{ background: "var(--color-yellow)", color: "#000" }}
           >
-            Otvoriť konfigurátor
+            {t("Otvoriť konfigurátor")}
           </Link>
         </div>
       </section>
@@ -288,7 +290,7 @@ export default async function BlogPostPage({
               className="main-heading mb-8 text-xl"
               style={{ color: "var(--color-foreground)" }}
             >
-              Ďalšie články
+              {t("Ďalšie články")}
             </h2>
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {related.map((r) => (
@@ -315,7 +317,7 @@ export default async function BlogPostPage({
                         className="text-[12px] font-black leading-tight group-hover:opacity-70 transition-opacity"
                         style={{ color: "var(--color-foreground)" }}
                       >
-                        {r.title}
+                        {t(r.title)}
                       </p>
                       <p className="mt-0.5 text-[11px]" style={{ color: "var(--color-muted)" }}>
                         {r.readMin} min

@@ -23,6 +23,7 @@ import type { LogoOutline } from "@/lib/logo";
 import { DEFAULT_WALL, wallSurface, wallTint as tintOf, type Wall } from "@/lib/walls";
 import { useWallTexture, usePhotoTexture } from "@/components/three/wallTexture";
 import { mmToUnits } from "@/components/three/scale";
+import { useT } from "@/lib/i18n/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TUNABLE CONSTANTS
@@ -1281,7 +1282,8 @@ function SceneContent({
   onFailedGlyphs,
   zoom = FULL_VIEW,
 }: LetterSceneProps) {
-  const safeText  = text?.trim() || "Váš text";
+  const t = useT();
+  const safeText  = text?.trim() || t("Váš text");
   const isNight   = previewMode === "night";
   const isIlluminated = signType === "illuminated";
   // 0 by day, the chosen darkness by night: every light below is mixed

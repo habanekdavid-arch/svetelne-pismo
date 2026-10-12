@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { getConsent, setConsent, subscribeConsent } from "@/lib/consent";
+import { useT } from "@/lib/i18n/client";
 
 // Bottom banner shown until the visitor accepts or rejects analytics
 // cookies. Reads/writes the same lib/consent.ts state the /cookies settings
@@ -12,6 +13,7 @@ import { getConsent, setConsent, subscribeConsent } from "@/lib/consent";
 // and the real value is read once the client subscribes — no manual effect,
 // no hydration flash.
 export default function CookieConsent() {
+  const t = useT();
   const consentStatus = useSyncExternalStore(subscribeConsent, getConsent, () => null);
 
   if (consentStatus !== null) return null;
@@ -20,7 +22,7 @@ export default function CookieConsent() {
     <div
       className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 sm:px-6"
       role="region"
-      aria-label="Súhlas s cookies"
+      aria-label={t("Súhlas s cookies")}
     >
       <div
         className="mx-auto flex max-w-3xl flex-col gap-4 rounded-2xl p-5 shadow-2xl sm:flex-row sm:items-center sm:justify-between"
@@ -30,14 +32,13 @@ export default function CookieConsent() {
         }}
       >
         <p className="text-[13px] leading-5" style={{ color: "var(--color-muted)" }}>
-          Používame cookies na meranie návštevnosti a zlepšovanie
-          konfigurátora.{" "}
+          {t("Používame cookies na meranie návštevnosti a zlepšovanie konfigurátora.")}{" "}
           <Link
             href="/cookies"
             className="underline underline-offset-2"
             style={{ color: "var(--color-foreground)" }}
           >
-            Viac o cookies
+            {t("Viac o cookies")}
           </Link>
         </p>
         <div className="flex shrink-0 gap-2">
@@ -50,7 +51,7 @@ export default function CookieConsent() {
               border: "1px solid var(--color-border)",
             }}
           >
-            Odmietnuť
+            {t("Odmietnuť")}
           </button>
           <button
             type="button"
@@ -58,7 +59,7 @@ export default function CookieConsent() {
             className="rounded-full px-5 py-2.5 text-[11px] font-black tracking-wide transition hover:opacity-85"
             style={{ background: "var(--accent)", color: "#000" }}
           >
-            Prijať všetko
+            {t("Prijať všetko")}
           </button>
         </div>
       </div>

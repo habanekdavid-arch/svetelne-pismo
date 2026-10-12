@@ -1,3 +1,6 @@
+import { tk } from "@/lib/i18n/config";
+import { getT } from "@/lib/i18n/server";
+
 // Structure, spacing and every hover transition are taken verbatim from
 // vytlacto3d's HowItWorks: a round amber badge with a blurred glow behind it,
 // a black number bubble clipped to its top-right corner, and a card that lifts
@@ -82,30 +85,31 @@ const steps = [
   {
     n: 1,
     icon: <TypeIcon />,
-    title: "Napíšte svoj text",
-    text: "Zadajte text, ktorý chcete rozsvietiť — meno, slogan alebo názov prevádzky — a vyberte font. V 3D náhľade ho hneď uvidíte na stene — aj na fotke vašej vlastnej steny.",
+    title: tk("Napíšte svoj text"),
+    text: tk("Zadajte text, ktorý chcete rozsvietiť — meno, slogan alebo názov prevádzky — a vyberte font. V 3D náhľade ho hneď uvidíte na stene — aj na fotke vašej vlastnej steny."),
   },
   {
     n: 2,
     icon: <SettingsIcon />,
-    title: "Vyberte si parametre",
-    text: "Zadajte výšku písmen, zvoľte svietenie (spredu, zozadu alebo nesvetelné), prevedenie z hliníka, plastu či plexi a farby čela a tela. Hrúbku určíme podľa výšky. Cenu uvidíte po prihlásení.",
+    title: tk("Vyberte si parametre"),
+    text: tk("Zadajte výšku písmen, zvoľte svietenie (spredu, zozadu alebo nesvetelné), prevedenie z hliníka, plastu či plexi a farby čela a tela. Hrúbku určíme podľa výšky. Cenu uvidíte po prihlásení."),
   },
   {
     n: 3,
     icon: <SendIcon />,
-    title: "Objednávka a platba",
-    text: "V košíku vyberte doručenie, doplňte detaily účtu a zaplaťte kartou alebo prevodom. Ak máte záujem aj o inštaláciu, vyplňte miesto inštalácie — pošleme vám cenovú ponuku.",
+    title: tk("Objednávka a platba"),
+    text: tk("V košíku vyberte doručenie, doplňte detaily účtu a zaplaťte kartou alebo prevodom. Ak máte záujem aj o inštaláciu, vyplňte miesto inštalácie — pošleme vám cenovú ponuku."),
   },
   {
     n: 4,
     icon: <SignIcon />,
-    title: "Výroba a dodanie",
-    text: "Nápis vyrobíme do 3 týždňov a odskúšame. Prevezmete si ho osobne v Prievidzi alebo v Bratislave, alebo ho pošleme kuriérom DPD.",
+    title: tk("Výroba a dodanie"),
+    text: tk("Nápis vyrobíme do 3 týždňov a odskúšame. Prevezmete si ho osobne v Prievidzi alebo v Bratislave, alebo ho pošleme kuriérom DPD."),
   },
 ] as const;
 
-export default function HowItWorks() {
+export default async function HowItWorks() {
+  const { t } = await getT();
   return (
     <section className="px-6 py-20" style={{ background: "var(--color-background)" }}>
       <div className="mx-auto max-w-7xl">
@@ -113,7 +117,7 @@ export default function HowItWorks() {
           className="reveal text-center text-4xl font-extrabold tracking-tight sm:text-5xl"
           style={{ color: "var(--color-foreground)" }}
         >
-          Ako to funguje
+          {t("Ako to funguje")}
         </h2>
 
         <ol className="mt-16 grid gap-10 md:grid-cols-2 xl:grid-cols-4">
@@ -153,14 +157,14 @@ export default function HowItWorks() {
                   className="mx-auto mt-6 max-w-xs text-2xl font-extrabold leading-snug transition-colors duration-300"
                   style={{ color: "var(--color-foreground)" }}
                 >
-                  {step.title}
+                  {t(step.title)}
                 </h3>
 
                 <p
                   className="mx-auto mt-4 max-w-xs text-sm leading-8"
                   style={{ color: "var(--color-muted)" }}
                 >
-                  {step.text}
+                  {t(step.text)}
                 </p>
               </article>
             </li>

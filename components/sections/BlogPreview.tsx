@@ -1,13 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { blogPosts } from "@/lib/blog-data";
+import { getT } from "@/lib/i18n/server";
 
 // Prvé tri články, tak ako sú v lib/blog-data.ts — nie ich kópia. Keď sa
 // článok zmení alebo zmizne, náhľad ide s ním; predtým tu boli natvrdo
 // prepísané tri slugy, ktoré prežili aj to, že články už neexistovali.
 const posts = blogPosts.slice(0, 3);
 
-export default function BlogPreview() {
+export default async function BlogPreview() {
+  const { t } = await getT();
   return (
     <section className="py-20 md:py-28">
       {/* max-w-6xl px-6 is vytlacto3d's content measure. This was max-w-360
@@ -18,17 +20,15 @@ export default function BlogPreview() {
         {/* Heading */}
         <div className="mx-auto mb-12 max-w-2xl text-center">
           <h2 className="reveal section-heading text-4xl sm:text-5xl">
-            Prečítajte si viac
+            {t("Prečítajte si viac")}
             <br />
-            v našom blogu
+            {t("v našom blogu")}
           </h2>
           <p
             className="reveal delay-1 mx-auto mt-4 max-w-xl leading-7"
             style={{ color: "var(--color-muted)" }}
           >
-            Neviete si rady s výberom? V článkoch nižšie nájdete, ako
-            <br className="hidden sm:block" />
-            jednotlivé materiály a spôsoby svietenia vyzerajú naživo.
+            {t("Neviete si rady s výberom? V článkoch nižšie nájdete, ako jednotlivé materiály a spôsoby svietenia vyzerajú naživo.")}
           </p>
         </div>
 
@@ -38,7 +38,7 @@ export default function BlogPreview() {
             <li key={post.slug} className={`reveal delay-${i + 1}`}>
               <Link
                 href={`/blog/${post.slug}`}
-                aria-label={post.title}
+                aria-label={t(post.title)}
                 className="field-card group block overflow-hidden rounded-field shadow-v3d-soft outline-none"
               >
                 {/* Fotka realizácie — 284 px vysoká podľa Figmy. */}
@@ -63,13 +63,13 @@ export default function BlogPreview() {
                       color: "var(--color-foreground)",
                     }}
                   >
-                    {post.title}
+                    {t(post.title)}
                   </h3>
                   <p
                     className="mt-2 text-sm leading-7"
                     style={{ color: "var(--color-muted)" }}
                   >
-                    {post.desc}
+                    {t(post.desc)}
                   </p>
                 </div>
               </Link>

@@ -2,11 +2,13 @@ import Link from "next/link";
 import Image from "next/image";
 import HeaderNav from "@/components/layout/HeaderNav";
 import CartButton from "@/components/cart/CartButton";
+import { getT } from "@/lib/i18n/server";
 
-// Plain Server Component — no cookies()/session read here on purpose, so
-// pages that render it (i.e. every page, via app/layout.tsx) can stay
-// statically rendered. HeaderNav (client) fetches /api/auth/me itself.
-export default function Header() {
+// Plain Server Component with no session read of its own — HeaderNav
+// (client) fetches /api/auth/me itself. (The page is rendered per request
+// anyway now: the root layout reads the language cookie, lib/i18n.)
+export default async function Header() {
+  const { t } = await getT();
   return (
     // Chrome taken from vytlacto3d's Navbar: translucent background with a
     // backdrop blur and one very soft shadow, and no bottom border. The border
@@ -20,7 +22,7 @@ export default function Header() {
         {/* The wordmark, replacing the text version that stood in for it.
             unoptimized: an SVG is already tiny and vector — running it through
             the image optimiser gains nothing and needs dangerouslyAllowSVG. */}
-        <Link href="/" aria-label="rozsvieťTO — domov" className="transition-opacity hover:opacity-70">
+        <Link href="/" aria-label={t("rozsvieťTO — domov")} className="transition-opacity hover:opacity-70">
           <Image
             src="/logo.svg"
             alt="rozsvieťTO"
