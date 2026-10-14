@@ -29,6 +29,9 @@ import {
   buildsFor,
   autoBuild,
   groupHeightRange,
+  LIGHT_BOX_GROUP,
+  LIGHT_BOX_VARIANTS,
+  lightBoxMaxHeightMm,
   buildForFont,
   hasSeparateFace,
   faceColorOptionsFor,
@@ -256,19 +259,28 @@ function Configurator() {
   const isIlluminated = config.signType === "illuminated";
   const currentFont = fontById(config.font);
 
-  const groupsMade = MATERIAL_GROUPS.filter((g) => buildsFor(variant, g.id).length > 0);
-
   // Height is the only dimension chosen; the build turns it into a thickness.
   // The version of the logo being made, and whether its face is printed.
   const logoVersion: LogoVersion | null = logo
     ? (logoShape === "box" ? logo.box : logo.cut) ?? logo.cut ?? logo.box
     : null;
   const lightBox = !!logo && logoVersion === logo.box;
+  // A light box is its own product in the price list (lib/options.ts
+  // LIGHT_BOX_*): alurol with a plexi face, lit from the front or not at all,
+  // at most 4 × 2 m. Only that is offered while the logo is made as one.
+  const boxAspect = lightBox && logoVersion ? logoVersion.outline.aspect : null;
+  const variantChoices = lightBox ? VARIANTS.filter((v) => LIGHT_BOX_VARIANTS.includes(v.id)) : VARIANTS;
+  const groupsMade = MATERIAL_GROUPS.filter((g) =>
+    lightBox ? g.id === LIGHT_BOX_GROUP : buildsFor(variant, g.id).length > 0);
   const printedFace = !!logoVersion?.faceUrl && facePrint;
 
   // The price list's rules that read the text read a logo as capitals.
   const ruleText = logo ? LOGO_RULE_TEXT : config.text;
-  const { minMm: minHeight, maxMm: maxHeight } = groupHeightRange(variant, currentMat.group, ruleText);
+  const groupRange = groupHeightRange(variant, currentMat.group, ruleText);
+  const minHeight = groupRange.minMm;
+  const maxHeight = boxAspect !== null
+    ? Math.max(minHeight, Math.min(groupRange.maxMm, lightBoxMaxHeightMm(boxAspect)))
+    : groupRange.maxMm;
   const depthMm = depthMmFor(config.material, config.height);
 
   // The letter every font dot is drawn with: the first one the customer typed.
@@ -300,11 +312,11 @@ function Configurator() {
     [logoVersion, config.height, textSize],
   );
   const signSizeLabel = signSize ? formatSignSize(signSize) : null;
-  const price = useMemo(() => calculatePrice(config, signSize), [config, signSize]);
-  const breakdown = useMemo(() => priceBreakdown(config, signSize), [config, signSize]);
+  const price = useMemo(() => calculatePrice(config, signSize, lightBox), [config, signSize, lightBox]);
+  const breakdown = useMemo(() => priceBreakdown(config, signSize, lightBox), [config, signSize, lightBox]);
   // When the sign is so small that area × €/m² does not reach the minimum,
   // the minimum sets the price — and the breakdown has to say so.
-  const atMinimum = useMemo(() => isMinimumPrice(config, signSize), [config, signSize]);
+  const atMinimum = useMemo(() => isMinimumPrice(config, signSize, lightBox), [config, signSize, lightBox]);
 
   // ── The sign goes in the cart by itself ────────────────────────────────────
   // From the first letter typed, and in step with every parameter clicked
@@ -371,20 +383,30 @@ function Configurator() {
   // the variant decides the builds, and the build decides the fonts, heights
   // and colours. One helper settles the whole set at once instead of each
   // control clamping the others behind the scenes.
-  function reconcile(next: Partial<Config>, asLogo: boolean = !!logo): Config {
+  function reconcile(
+    next: Partial<Config>,
+    asLogo: boolean = !!logo,
+    /** The light box's width ÷ height while the logo is made as one, else null. */
+    box: number | null = boxAspect,
+  ): Config {
     const merged: Config = { ...config, ...next };
     const text = asLogo ? LOGO_RULE_TEXT : merged.text;
-    const v = variantOf(merged);
+    let v = variantOf(merged);
+    if (box !== null && !LIGHT_BOX_VARIANTS.includes(v)) v = "front";
     const { signType, lightMode } = variantFields(v);
 
     // The group is the customer's choice; the build within it follows from
-    // the text and the height (lib/options.ts autoBuild).
-    const wanted = materialById(merged.material).group;
+    // the text and the height (lib/options.ts autoBuild). A light box is
+    // always alurol.
+    const wanted = box !== null ? LIGHT_BOX_GROUP : materialById(merged.material).group;
     const group = buildsFor(v, wanted).length > 0
       ? wanted
       : (MATERIAL_GROUPS.find((g) => buildsFor(v, g.id).length > 0)?.id ?? wanted);
     const range = groupHeightRange(v, group, text);
-    const height = Math.min(range.maxMm, Math.max(range.minMm, merged.height));
+    const maxMm = box !== null
+      ? Math.max(range.minMm, Math.min(range.maxMm, lightBoxMaxHeightMm(box)))
+      : range.maxMm;
+    const height = Math.min(maxMm, Math.max(range.minMm, merged.height));
     const material = autoBuild(v, group, text, height) ?? merged.material;
     const fonts = materialById(material).fonts;
     const font = fonts.includes(merged.font) ? merged.font : fonts[0];
@@ -483,9 +505,9 @@ function Configurator() {
       if (traced.box) {
         // A light box is a lit sign: shown lit through its printed face, at night.
         setManualMode("night");
-        patch(reconcile(variantFields("front"), true));
+        patch(reconcile(variantFields("front"), true, traced.box.outline.aspect));
       } else {
-        patch(reconcile({}, true));
+        patch(reconcile({}, true, null));
       }
     } catch (err) {
       console.error("[logo] spracovanie zlyhalo:", err);
@@ -560,7 +582,7 @@ function Configurator() {
     });
     setLogoError(null);
     setConsultOpen(false);
-    patch(reconcile({}, false));
+    patch(reconcile({}, false, null));
   }
 
   // Drag and drop onto step 1: only files count — dragging text around the
@@ -947,7 +969,11 @@ function Configurator() {
                         type="button"
                         role="radio"
                         aria-checked={logoShape === id}
-                        onClick={() => setLogoShape(id)}
+                        onClick={() => {
+                          setLogoShape(id);
+                          const made = id === "box" ? logo.box : logo.cut;
+                          patch(reconcile({}, true, id === "box" && made ? made.outline.aspect : null));
+                        }}
                         className="rounded-xl px-3 py-2 text-left lg:py-1.5"
                         style={logoShape === id
                           ? { background: "color-mix(in srgb, var(--accent) 14%, var(--color-background))", border: "1.5px solid var(--accent)" }
@@ -1054,8 +1080,12 @@ function Configurator() {
             step={3}
             title={t("Svietenie")}
           >
-            <div role="radiogroup" aria-label={t("Svietenie")} className="grid grid-cols-3 gap-2">
-              {VARIANTS.map((v) => (
+            <div
+              role="radiogroup"
+              aria-label={t("Svietenie")}
+              className={`grid gap-2 ${variantChoices.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
+            >
+              {variantChoices.map((v) => (
                 <OptionTile
                   key={v.id}
                   active={variant === v.id}

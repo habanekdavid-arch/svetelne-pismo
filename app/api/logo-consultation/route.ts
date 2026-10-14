@@ -70,7 +70,7 @@ export async function POST(req: Request) {
 
   const session = await getUserSession().catch(() => null);
   const showPrice = session ? await isVerified(session.userId).catch(() => false) : false;
-  const priceCents = calculatePrice(config, size) * 100;
+  const priceCents = calculatePrice(config, size, lightBox) * 100;
   const preview = readPreview(form.get("preview"));
   const logoFile = {
     filename,
