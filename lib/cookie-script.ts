@@ -9,6 +9,21 @@ export const COOKIE_SCRIPT_SRC = "https://cdn.cookie-script.com/s/0fee6588ee91c8
 /** Google Ads account (Google tag, gtag.js). */
 export const GOOGLE_ADS_ID = "AW-18512974601";
 
+/** Google Tag Manager container (Správca značiek Google). */
+export const GTM_ID = "GTM-MTH3RNWC";
+
+/**
+ * The container snippet exactly as Google hands it out. It runs after the
+ * Consent Mode defaults and CookieScript (app/layout.tsx), so every tag in
+ * the container sees the visitor's choice; GA4 purchases pushed to dataLayer
+ * by lib/analytics.ts land in it too.
+ */
+export const GTM_SCRIPT = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${GTM_ID}');`;
+
 /**
  * Runs before CookieScript and before gtag.js loads. Consent Mode v2 starts
  * with every storage denied; CookieScript updates it the moment the visitor
