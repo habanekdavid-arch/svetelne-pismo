@@ -34,14 +34,25 @@ const ENV_HDR_PATH        = "/hdri/studio.hdr";
 // mode: the customer picks a colour from a swatch and has to see that colour
 // on the sign, whether it is lit from the front or from behind. It
 // does not touch how bright the LEDs are — that is the emissive below.
-const ENV_INTENSITY            = 0.92;  // day — neutral studio HDRI
+// It lights face, return and wall alike and casts no shadow, so by day it is
+// kept to what the reflections need (it was 0.92) and the key light below
+// does the shaping — at 0.92 the letters looked printed on the wall.
+const ENV_INTENSITY            = 0.6;   // day — neutral studio HDRI
 const ENV_INTENSITY_DEEP_NIGHT = 0.06;  // night at 100 % — the sign is the light
 
 // Scene lights by day and at the darkest night; the night slider (0–100 %)
 // mixes between the two (geometrically — see `mix` in SceneContent), so the
 // default night is clearly darker than the old fixed one (ambient 0,62 / key
 // 0,55) and 100 % is a dark street where the sign is the light.
-const LIGHT_DAY        = { ambient: 0.82, key: 1.4,  fill: 0.6  } as const;
+//
+// The ambient share is kept low on purpose. It lights every surface the same,
+// face and return alike, and with it at 0.82 a black letter's face and sides
+// came out the same black and a white letter's the same white — the depth of
+// the build disappeared and the letters looked printed on the wall. The key
+// light does the work instead, so the face, the top edge and the shaded side
+// of each letter come out as three different tones, the way they do in a
+// photograph.
+const LIGHT_DAY        = { ambient: 0.3,  key: 2.6,  fill: 0.65 } as const;
 const LIGHT_DEEP_NIGHT = { ambient: 0.07, key: 0.28, fill: 0.03 } as const;
 /** How dark the wall's night tint goes at 100 %. */
 const WALL_DEEP_NIGHT_SCALE = 0.5;
@@ -66,11 +77,14 @@ const BLOOM_LUMINANCE_SMOOTHING = 0.4;
 // throws no light onto the wall behind it — its flare is kept tight to the
 // face (small radius) so it reads as a bright face, not as a glow on the
 // wall. Only a halo letter lights the wall, and there the spread is the point.
-const BLOOM_RADIUS_FRONT        = 0.82;
+// Tight: the dark return right beside a lit face is what shows a front-lit
+// letter's depth at night, and a wide flare painted straight over it (0.82)
+// left only a glowing cut-out.
+const BLOOM_RADIUS_FRONT        = 0.4;
 const BLOOM_RADIUS_HALO         = 0.85;
 // Softened across the board — bloom is what turns a bright face into a white
 // blob, so each mode gets only as much flare as it needs to read as light.
-const BLOOM_INTENSITY_BASE      = 0.95; // front — a lit face flares visibly round its edges, a soft halo of light
+const BLOOM_INTENSITY_BASE      = 0.3;  // front — a lit face flares round its edges, but not over the dark return beside it
 const BLOOM_INTENSITY_HALO      = 0.55; // back — on top of the glow texture, enough to make the halo read as light
 // A saturated colour gets a little more flare on top of the brightness
 // correction in LetterScene (shineLum), so it reads as coloured light.
@@ -85,7 +99,11 @@ const TEXT_DEBOUNCE_MS = 300; // only text/thickness are debounced — font swit
 
 // Default 3/4 view. The sign doesn't auto-rotate, but the viewer can drag
 // within a limited arc (see OrbitControls in SceneContent) to look around it.
-const CAMERA_POS: [number, number, number]    = [1.9, 0.78, 7.9];
+// About 33° from the right and 13° from above: far enough round that the
+// sides of the letters and their top edges are in the picture, so a 30 mm
+// profile and a 120 mm one look like what they are. Nearly head-on (the old
+// ~13°) the returns were a hairline and every build looked flat.
+const CAMERA_POS: [number, number, number]    = [4.3, 1.87, 6.62];
 const CAMERA_TARGET: [number, number, number] = [0, 0.05, 0];
 const CAMERA_FOV = 30;
 const ORBIT_AZIMUTH = Math.PI / 4;   // ± horizontal drag range (45°)
@@ -1468,7 +1486,13 @@ function SceneContent({
       <ambientLight intensity={mix(LIGHT_DAY.ambient, LIGHT_DEEP_NIGHT.ambient)} />
       <directionalLight
         ref={keyLight}
-        position={[3.2 * reach, 4.2 * reach, 3.5 * reach]}
+        // From the upper LEFT — the side away from the camera. The face and
+        // the top edges catch it, the returns the camera sees on the right
+        // stay in shade, and the shadow falls down and to the right, next to
+        // them: face, shaded side, shadow — the three tones that make a
+        // letter read as solid. Lit from the camera's side, face and returns
+        // came out the same tone.
+        position={[-3.2 * reach, 4.6 * reach, 3.4 * reach]}
         // At night the sign is the light. A strong key light then throws a
         // hard second silhouette of the letters onto the wall, which no photo
         // of a lit sign has — so it is kept to a gentle fill that still shows
@@ -1489,7 +1513,9 @@ function SceneContent({
         shadow-camera-top={6 * reach}
         shadow-camera-bottom={-6 * reach}
       />
-      <directionalLight position={[-4, 1.5, 2.5]} intensity={mix(LIGHT_DAY.fill, LIGHT_DEEP_NIGHT.fill)} />
+      {/* Fill from the camera's side, low: it opens up the shaded returns
+          just enough to show their colour without flattening them again. */}
+      <directionalLight position={[4.5, 0.8, 2.6]} intensity={mix(LIGHT_DAY.fill, LIGHT_DEEP_NIGHT.fill)} />
 
       {/* ── The wall the sign is mounted on ── */}
       <mesh position={[0, 0, wallZ]} receiveShadow>
