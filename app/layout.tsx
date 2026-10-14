@@ -5,9 +5,8 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ScrollReveal from "@/components/layout/ScrollReveal";
-import TagManager from "@/components/layout/TagManager";
 import Script from "next/script";
-import { CONSENT_DEFAULT_SCRIPT, COOKIE_SCRIPT_SRC, GOOGLE_ADS_ID } from "@/lib/cookie-script";
+import { CONSENT_DEFAULT_SCRIPT, COOKIE_SCRIPT_SRC, GOOGLE_ADS_ID, GTM_ID, GTM_SCRIPT } from "@/lib/cookie-script";
 import { CartProvider } from "@/lib/cart-context";
 import CartSidebar from "@/components/cart/CartSidebar";
 import FourFromFloatingButton from "@/components/layout/FourFromFloatingButton";
@@ -71,6 +70,15 @@ export default async function RootLayout({
       <body
         className={`${centuryGothic.variable} flex min-h-screen flex-col antialiased`}
       >
+        {/* Google Tag Manager (noscript) — right after <body>, as Google asks. */}
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
         {/* CartProvider wraps Header too — the header's cart badge and the
             drawer both read the same state. */}
         <LocaleProvider locale={locale} dict={dictionaryFor(locale)}>
@@ -94,19 +102,23 @@ export default async function RootLayout({
         </CartProvider>
         <ScrollReveal />
         </LocaleProvider>
-        {/* Cookies — CookieScript (lib/cookie-script.ts). Order matters:
+        {/* Cookies and Google tags (lib/cookie-script.ts). Order matters:
             Consent Mode defaults first (everything denied), then the
-            CookieScript banner that updates them, then the Google tag. */}
+            CookieScript banner that updates them, then Google Tag Manager
+            and the Google Ads tag, which both obey that consent.
+            beforeInteractive scripts run in this order, before hydration. */}
         <Script id="consent-default" strategy="beforeInteractive">
           {CONSENT_DEFAULT_SCRIPT}
         </Script>
         <Script id="cookie-script" src={COOKIE_SCRIPT_SRC} charSet="UTF-8" strategy="beforeInteractive" />
+        <Script id="google-tag-manager" strategy="beforeInteractive">
+          {GTM_SCRIPT}
+        </Script>
         <Script
           id="google-tag"
           src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
           strategy="afterInteractive"
         />
-        <TagManager />
       </body>
     </html>
   );

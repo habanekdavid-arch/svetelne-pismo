@@ -1,5 +1,5 @@
-// GA4 ecommerce tracking via GTM's dataLayer. The container itself is loaded
-// by components/layout/TagManager.tsx once NEXT_PUBLIC_GTM_ID is set.
+// GA4 ecommerce tracking via GTM's dataLayer. The container (GTM-MTH3RNWC)
+// is loaded on every page by app/layout.tsx (lib/cookie-script.ts).
 //
 // Consent is not checked here: the visitor's choice in the CookieScript
 // banner reaches every Google tag through Consent Mode (lib/cookie-script.ts),
