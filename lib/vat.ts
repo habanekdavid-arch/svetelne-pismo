@@ -1,8 +1,8 @@
 // VAT helpers for the price breakdown.
 //
 // IMPORTANT — which way round the headline price runs:
-// The figures in the price list (e-shop_rozsvietto_cennik_nova_schema.xlsx, sheet "ceny":
-// 960 / 870 / 650 €/m² and so on) are read as NET, trade prices. calculatePrice()
+// The figures in the price list (e-shop_rozsvietto_cennik_nova_schema_nizsie_ceny.xlsx, sheet "ceny":
+// 816 / 739,5 / 552,5 €/m² and so on) are read as NET, trade prices. calculatePrice()
 // in lib/pricing.ts therefore adds VAT — netToGross() — and the number the
 // customer sees as "Orientačná cena s DPH" is that gross figure; this file
 // splits it back for the breakdown underneath.

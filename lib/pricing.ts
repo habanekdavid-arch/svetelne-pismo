@@ -1,13 +1,15 @@
 import type { Config, PriceTier } from "@/lib/types";
-import { materialById, depthMmFor } from "@/lib/options";
+import { materialById, depthMmFor, LIGHT_BOX_LIT, LIGHT_BOX_PLAIN } from "@/lib/options";
 import type { SignSize } from "@/lib/useSignSize";
 import { netToGross } from "@/lib/vat";
 
-// Pricing straight off the price list (e-shop_rozsvietto_cennik_nova_schema.xlsx, sheet
-// "ceny"). A sign is sold by the AREA it covers — the rectangle the whole
-// inscription occupies on the wall — at a unit price that steps down at 3 m²
-// and again at 5 m². The one exception is solid 3D print, which is sold by the
-// volume of material actually printed.
+// Pricing straight off the price list
+// (e-shop_rozsvietto_cennik_nova_schema_nizsie_ceny.xlsx, sheet "ceny"). A
+// sign is sold by the AREA it covers — the rectangle the whole inscription
+// occupies on the wall — at a unit price that steps down at 3 m² and again at
+// 5 m². The exceptions: solid 3D print is sold by the volume of material
+// actually printed, and a logo made as a light box by the m² of the box at
+// the box's own prices (BOX).
 //
 // The unit prices are net; VAT is added for display (lib/vat.ts).
 
@@ -66,7 +68,7 @@ export type PriceBreakdown = {
   unitLabel: string;
 };
 
-export function priceBreakdown(config: Config, size: SignSize | null): PriceBreakdown {
+export function priceBreakdown(config: Config, size: SignSize | null, lightBox = false): PriceBreakdown {
   const material = materialById(config.material);
   const s = sizeOf(config, size);
   // Billed area is the letters themselves, each in its own rectangle — a sign
@@ -75,6 +77,13 @@ export function priceBreakdown(config: Config, size: SignSize | null): PriceBrea
   // is what has to fit the wall.
   const areaM2 = s.letterAreaM2;
   const boxM2 = (s.widthMm / 1000) * (s.heightMm / 1000);
+
+  // A light box is one lit rectangle: all of it is made, so all of it is
+  // billed, at the box's own prices (lib/options.ts LIGHT_BOX_*).
+  if (lightBox) {
+    const tier = tierFor(config.signType === "illuminated" ? LIGHT_BOX_LIT : LIGHT_BOX_PLAIN, boxM2);
+    return { net: boxM2 * tier.perM2, areaM2: boxM2, boxM2, volumeCm3: null, unit: tier.perM2, unitLabel: "€/m²" };
+  }
 
   // Sold by volume: what is printed is the letterform, not its bounding box,
   // so the ink ratio (how much of that box the glyphs actually cover, measured
@@ -118,11 +127,11 @@ export function priceBreakdown(config: Config, size: SignSize | null): PriceBrea
  * shows. The price list is a trade list, so its figures are net and VAT is
  * added here; lib/vat.ts then splits the same number back for the breakdown.
  */
-export function calculatePrice(config: Config, size: SignSize | null = null): number {
-  return Math.max(MIN_PRICE_GROSS, Math.round(netToGross(priceBreakdown(config, size).net)));
+export function calculatePrice(config: Config, size: SignSize | null = null, lightBox = false): number {
+  return Math.max(MIN_PRICE_GROSS, Math.round(netToGross(priceBreakdown(config, size, lightBox).net)));
 }
 
 /** True keď cenu určila minimálna cena, nie plocha — vtedy to treba povedať. */
-export function isMinimumPrice(config: Config, size: SignSize | null = null): boolean {
-  return Math.round(netToGross(priceBreakdown(config, size).net)) < MIN_PRICE_GROSS;
+export function isMinimumPrice(config: Config, size: SignSize | null = null, lightBox = false): boolean {
+  return Math.round(netToGross(priceBreakdown(config, size, lightBox).net)) < MIN_PRICE_GROSS;
 }

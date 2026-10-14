@@ -111,30 +111,32 @@ export function fontById(id: string): FontOption | undefined {
 }
 
 // ── Unit prices (hárok "ceny", € per m² without VAT unless noted) ────────────
+// From e-shop_rozsvietto_cennik_nova_schema_nizsie_ceny.xlsx.
 // Banded by the area of the whole sign: 0–3 m², 3,1–5 m², 5,1 m² and more.
 // The sheet derives most of them from three inputs and its discounts
-// (nesvetelné −30 %, plast −10 % oproti hliníku, plexi UV −20 % / −30 % za
-// množstvo); the results are written out here so a quote can be checked
-// against the sheet line by line. Svetelné spredu and zozadu cost the same.
-const ALUROL_LIT: PriceTier[] = [
-  { maxM2: 3, perM2: 960 },
-  { maxM2: 5, perM2: 870 },
-  { maxM2: Infinity, perM2: 650 },
+// (hliník 960 / 870 / 650 × 0,85; nesvetelné −30 %, plast −10 % oproti
+// hliníku, plexi UV −20 % / −30 % za množstvo); the results are written out
+// here so a quote can be checked against the sheet line by line. Svetelné
+// spredu and zozadu cost the same.
+const ALUROL_LIT: PriceTier[] = [     // 960 / 870 / 650 × 0,85
+  { maxM2: 3, perM2: 816 },
+  { maxM2: 5, perM2: 739.5 },
+  { maxM2: Infinity, perM2: 552.5 },
 ];
-const ALUROL_PLAIN: PriceTier[] = [   // 960 / 870 / 650 × 0,7
-  { maxM2: 3, perM2: 672 },
-  { maxM2: 5, perM2: 609 },
-  { maxM2: Infinity, perM2: 455 },
+const ALUROL_PLAIN: PriceTier[] = [   // hliník svetelné × 0,7
+  { maxM2: 3, perM2: 571.2 },
+  { maxM2: 5, perM2: 517.65 },
+  { maxM2: Infinity, perM2: 386.75 },
 ];
 const PRINT_LIT: PriceTier[] = [      // hliník × 0,9
-  { maxM2: 3, perM2: 864 },
-  { maxM2: 5, perM2: 783 },
-  { maxM2: Infinity, perM2: 585 },
+  { maxM2: 3, perM2: 734.4 },
+  { maxM2: 5, perM2: 665.55 },
+  { maxM2: Infinity, perM2: 497.25 },
 ];
 const PRINT_PLAIN: PriceTier[] = [    // hliník nesvetelné × 0,9
-  { maxM2: 3, perM2: 604.8 },
-  { maxM2: 5, perM2: 548.1 },
-  { maxM2: Infinity, perM2: 409.5 },
+  { maxM2: 3, perM2: 514.08 },
+  { maxM2: 5, perM2: 465.885 },
+  { maxM2: Infinity, perM2: 348.075 },
 ];
 /** 30 mm plexi, svetelné spredu: "cena ako hliník". */
 const PLEXI30_LIT = ALUROL_LIT;
@@ -149,6 +151,34 @@ const PLEXI_UV_PLAIN: PriceTier[] = [ // 460, −20 %, −30 %
  * added on top, lib/vat.ts).
  */
 const SOLID_PRICE_PER_CM3 = 0.07;
+
+// ── Svetelný box (hárok "ceny", BOX) ─────────────────────────────────────────
+// A logo on a coloured background is made as one lit box — alurol 60 / 80 /
+// 100 / 120 mm with a plexi face — sold by the m² of the box, up to 4 × 2 m.
+// It is lit from the front or not at all: svetelné zozadu is not made.
+export const LIGHT_BOX_VARIANTS: VariantId[] = ["front", "plain"];
+export const LIGHT_BOX_GROUP: MaterialGroupId = "aluminium";
+export const LIGHT_BOX_LIT: PriceTier[] = [
+  { maxM2: 3, perM2: 500 },
+  { maxM2: 5, perM2: 450 },
+  { maxM2: Infinity, perM2: 400 },    // 5,1 – 8 m², the biggest box there is
+];
+export const LIGHT_BOX_PLAIN: PriceTier[] = [ // 350, −20 %, −30 %
+  { maxM2: 3, perM2: 350 },
+  { maxM2: 5, perM2: 280 },
+  { maxM2: Infinity, perM2: 245 },
+];
+/** "BOX – obmedzenie 4 × 2 metre": the long side 4 m, the short side 2 m. */
+const LIGHT_BOX_LONG_MM = 4000;
+const LIGHT_BOX_SHORT_MM = 2000;
+
+/** The tallest a light box of this shape (width ÷ height) can be ordered. */
+export function lightBoxMaxHeightMm(aspect: number): number {
+  const a = Math.max(0.01, aspect);
+  return Math.floor(a >= 1
+    ? Math.min(LIGHT_BOX_SHORT_MM, LIGHT_BOX_LONG_MM / a)
+    : Math.min(LIGHT_BOX_LONG_MM, LIGHT_BOX_SHORT_MM / a));
+}
 
 // ── Builds ───────────────────────────────────────────────────────────────────
 // One entry per row of hárok "parametre". `bands` is that row's height →
