@@ -11,7 +11,7 @@ export default function GdprPage() {
     <LegalPage
       eyebrow="GDPR"
       title="Ochrana osobných údajov"
-      updated="30. 9. 2026"
+      updated="14. 10. 2026"
     >
       <LegalSection title="Prevádzkovateľ">
         <p>
@@ -50,7 +50,8 @@ export default function GdprPage() {
         <p>
           Pri návšteve stránky, ak s tým súhlasíte v cookie lište, môžeme
           anonymne spracúvať aj údaje o návštevnosti a priebehu objednávky na
-          účely merania (pozri stránku{" "}
+          účely merania a údaje o tom, či ste na stránku prišli cez našu
+          reklamu v Google Ads, na meranie jej účinnosti (pozri stránku{" "}
           <a href="/cookies" className="underline">
             Cookies
           </a>
@@ -74,6 +75,10 @@ export default function GdprPage() {
             <strong>Meranie návštevnosti</strong> — len ak s tým súhlasíte v
             cookie lište (čl. 6 ods. 1 písm. a) GDPR).
           </li>
+          <li>
+            <strong>Meranie účinnosti reklamy (Google Ads)</strong> — len ak s
+            tým súhlasíte v cookie lište (čl. 6 ods. 1 písm. a) GDPR).
+          </li>
         </ul>
       </LegalSection>
 
@@ -88,13 +93,15 @@ export default function GdprPage() {
 
       <LegalSection title="Príjemcovia údajov">
         <p>
-          Vaše údaje neposkytujeme tretím stranám na marketingové účely.
-          Prístup k nim môžu mať výlučne poskytovatelia technických služieb
-          nevyhnutných na prevádzku stránky a vybavenie objednávky — hosting
-          (Vercel Inc.), databáza (Neon Inc.), odosielanie e-mailov
-          (Microsoft), platobná brána (Stripe) a prepravca (DPD) pri
-          doručení kuriérom — a, len pri udelenom súhlase s cookies,
-          poskytovateľ analytických nástrojov (Google Analytics/GTM).
+          Vaše údaje nepredávame a bez vášho súhlasu ich neposkytujeme tretím
+          stranám na marketingové účely. Prístup k nim môžu mať výlučne
+          poskytovatelia technických služieb nevyhnutných na prevádzku stránky
+          a vybavenie objednávky — hosting (Vercel Inc.), databáza (Neon
+          Inc.), odosielanie e-mailov (Microsoft), platobná brána (Stripe),
+          prepravca (DPD) pri doručení kuriérom a správa súhlasu s cookies
+          (CookieScript) — a, len pri udelenom súhlase s cookies, Google
+          ako poskytovateľ analytických a reklamných nástrojov (Google
+          Analytics/GTM, Google Ads).
         </p>
       </LegalSection>
 
