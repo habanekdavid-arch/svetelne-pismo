@@ -3,7 +3,7 @@ import "server-only";
 import { bankAccount } from "@/lib/bank";
 import { mailConfigured, mailSetup, MAIL_FROM, SHOP_INBOX } from "@/lib/mailer.server";
 import { stripeConfigured, webhookSecret } from "@/lib/stripe";
-import { GTM_ID } from "@/lib/cookie-script";
+import { GTM_IDS } from "@/lib/cookie-script";
 
 // Which outside services are switched on — read from the environment, shown
 // in the admin so filling in the keys (docs/API-KLUCE-TODO.md) can be checked
@@ -69,7 +69,7 @@ export function integrations(): Integration[] {
     {
       name: "Analytika (Google Tag Manager)",
       ok: true,
-      status: `Zapnutá — kontajner ${GTM_ID} na každej stránke; čo smie merať, rozhoduje súhlas v CookieScripte (Consent Mode).`,
+      status: `Zapnutá — kontajnery ${GTM_IDS.join(" a ")} na každej stránke; čo smie merať, rozhoduje súhlas v CookieScripte (Consent Mode).`,
       missing: [],
     },
   ];
