@@ -13,7 +13,7 @@ export default async function CookiesPage() {
   const { t } = await getT();
   return (
     // Not a binding document — translated in full, so no "Slovak only" note.
-    <LegalPage eyebrow="Nastavenia" title={t("Cookies")} updated="11. 9. 2026" translated>
+    <LegalPage eyebrow="Nastavenia" title={t("Cookies")} updated="14. 10. 2026" translated>
       <LegalSection title={t("Čo sú cookies")}>
         <p>
           {t("Cookies sú malé textové súbory, ktoré si prehliadač ukladá pri návšteve stránky. Umožňujú stránke zapamätať si vaše nastavenia alebo nám (so súhlasom) pomáhajú pochopiť, ako stránku a konfigurátor používate.")}
@@ -27,6 +27,9 @@ export default async function CookiesPage() {
           </li>
           <li>
             <strong>{t("Analytické")}</strong> — {t("pomáhajú nám merať návštevnosť a priebeh objednávok cez konfigurátor (Google Analytics / Google Tag Manager). Ukladajú sa len ak s tým súhlasíte nižšie alebo v cookie lište.")}
+          </li>
+          <li>
+            <strong>{t("Marketingové")}</strong> — {t("pomáhajú nám merať, ktoré reklamy Google Ads priviedli návštevníkov a objednávky. Ukladajú sa len ak s tým súhlasíte nižšie alebo v cookie lište.")}
           </li>
         </ul>
       </LegalSection>

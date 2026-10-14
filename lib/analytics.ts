@@ -1,12 +1,9 @@
 // GA4 ecommerce tracking via GTM's dataLayer. The container itself is loaded
-// by components/layout/TagManager.tsx once NEXT_PUBLIC_GTM_ID is set and the
-// visitor accepts analytics cookies; until then these pushes just wait.
+// by components/layout/TagManager.tsx once NEXT_PUBLIC_GTM_ID is set.
 //
-// Gated on cookie consent (lib/consent.ts) — trackPurchase is a no-op until
-// the visitor has accepted analytics cookies via the CookieConsent banner
-// or the /cookies settings page.
-
-import { hasAnalyticsConsent } from "@/lib/consent";
+// Consent is not checked here: the visitor's choice in the CookieScript
+// banner reaches every Google tag through Consent Mode (lib/cookie-script.ts),
+// and a tag without consent stores nothing.
 
 declare global {
   interface Window {
@@ -37,8 +34,6 @@ export function generateClientOrderId(): string {
 }
 
 export function trackPurchase(payload: PurchasePayload) {
-  if (!hasAnalyticsConsent()) return;
-
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ ecommerce: null }); // clear previous ecommerce object first, per GA4/GTM convention
   window.dataLayer.push({

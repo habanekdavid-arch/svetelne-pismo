@@ -146,6 +146,16 @@ const messages: Messages = {
     hu: "segítenek mérni a látogatottságot és a rendelések menetét a konfigurátorban (Google Analytics / Google Tag Manager). Csak akkor tároljuk őket, ha alább vagy a sütisávban hozzájárul.",
     de: "helfen uns, die Besucherzahlen und den Ablauf von Bestellungen über den Konfigurator zu messen (Google Analytics / Google Tag Manager). Sie werden nur gespeichert, wenn Sie unten oder in der Cookie-Leiste zustimmen.",
   },
+  "Marketingové": {
+    en: "Marketing",
+    hu: "Marketing",
+    de: "Marketing",
+  },
+  "pomáhajú nám merať, ktoré reklamy Google Ads priviedli návštevníkov a objednávky. Ukladajú sa len ak s tým súhlasíte nižšie alebo v cookie lište.": {
+    en: "help us measure which Google Ads brought visitors and orders. They are stored only if you agree below or in the cookie bar.",
+    hu: "segítenek mérni, mely Google Ads hirdetések hoztak látogatókat és rendeléseket. Csak akkor tároljuk őket, ha alább vagy a sütisávban hozzájárul.",
+    de: "helfen uns zu messen, welche Google-Ads-Anzeigen Besucher und Bestellungen gebracht haben. Sie werden nur gespeichert, wenn Sie unten oder in der Cookie-Leiste zustimmen.",
+  },
   "Zmeňte svoj súhlas": {
     en: "Change your consent",
     hu: "Hozzájárulás módosítása",
