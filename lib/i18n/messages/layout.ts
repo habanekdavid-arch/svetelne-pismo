@@ -236,35 +236,15 @@ const messages: Messages = {
     hu: "Készítette",
     de: "Erstellt von",
   },
-  "Analytické cookies povolené": {
-    en: "Analytics cookies allowed",
-    hu: "Analitikai sütik engedélyezve",
-    de: "Analyse-Cookies erlaubt",
+  "Svoj súhlas môžete kedykoľvek zmeniť — pre každú kategóriu zvlášť.": {
+    en: "You can change your consent at any time — separately for each category.",
+    hu: "Hozzájárulását bármikor módosíthatja — minden kategóriánál külön.",
+    de: "Sie können Ihre Zustimmung jederzeit ändern — für jede Kategorie einzeln.",
   },
-  "Analytické cookies odmietnuté": {
-    en: "Analytics cookies declined",
-    hu: "Analitikai sütik elutasítva",
-    de: "Analyse-Cookies abgelehnt",
-  },
-  "Aktuálne nastavenie": {
-    en: "Current setting",
-    hu: "Jelenlegi beállítás",
-    de: "Aktuelle Einstellung",
-  },
-  "Zatiaľ ste sa nerozhodli": {
-    en: "You have not decided yet",
-    hu: "Még nem döntött",
-    de: "Sie haben sich noch nicht entschieden",
-  },
-  "Odmietnuť analytické cookies": {
-    en: "Decline analytics cookies",
-    hu: "Analitikai sütik elutasítása",
-    de: "Analyse-Cookies ablehnen",
-  },
-  "Povoliť analytické cookies": {
-    en: "Allow analytics cookies",
-    hu: "Analitikai sütik engedélyezése",
-    de: "Analyse-Cookies erlauben",
+  "Nastavenia cookies": {
+    en: "Cookie settings",
+    hu: "Süti-beállítások",
+    de: "Cookie-Einstellungen",
   },
   "Potrebujete pomôcť? Napíšte na {email} alebo zavolajte na {phone}.": {
     en: "Need help? Write to {email} or call {phone}.",
@@ -276,31 +256,6 @@ const messages: Messages = {
     hu: "rozsvieťTO — főoldal",
     de: "rozsvieťTO — Startseite",
   },
-  "Súhlas s cookies": {
-    en: "Cookie consent",
-    hu: "Sütik elfogadása",
-    de: "Cookie-Zustimmung",
-  },
-  "Používame cookies na meranie návštevnosti a zlepšovanie konfigurátora.": {
-    en: "We use cookies to measure traffic and improve the configurator.",
-    hu: "Sütiket használunk a látogatottság mérésére és a konfigurátor fejlesztésére.",
-    de: "Wir verwenden Cookies, um Besuche zu messen und den Konfigurator zu verbessern.",
-  },
-  "Viac o cookies": {
-    en: "More about cookies",
-    hu: "Bővebben a sütikről",
-    de: "Mehr über Cookies",
-  },
-  "Odmietnuť": {
-    en: "Decline",
-    hu: "Elutasítom",
-    de: "Ablehnen",
-  },
-  "Prijať všetko": {
-    en: "Accept all",
-    hu: "Mindet elfogadom",
-    de: "Alle akzeptieren",
-  },
   "Zmeniť jazyk": {
     en: "Change language",
     hu: "Nyelv váltása",
@@ -310,11 +265,6 @@ const messages: Messages = {
     en: "Language",
     hu: "Nyelv",
     de: "Sprache",
-  },
-  "Nastavenia cookies": {
-    en: "Cookie settings",
-    hu: "Süti-beállítások",
-    de: "Cookie-Einstellungen",
   },
   "Posledná aktualizácia:": {
     en: "Last updated:",

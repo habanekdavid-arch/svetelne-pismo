@@ -5,8 +5,9 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ScrollReveal from "@/components/layout/ScrollReveal";
-import CookieConsent from "@/components/layout/CookieConsent";
 import TagManager from "@/components/layout/TagManager";
+import Script from "next/script";
+import { CONSENT_DEFAULT_SCRIPT, COOKIE_SCRIPT_SRC, GOOGLE_ADS_ID } from "@/lib/cookie-script";
 import { CartProvider } from "@/lib/cart-context";
 import CartSidebar from "@/components/cart/CartSidebar";
 import FourFromFloatingButton from "@/components/layout/FourFromFloatingButton";
@@ -92,8 +93,19 @@ export default async function RootLayout({
           <AccountDetailsReminder />
         </CartProvider>
         <ScrollReveal />
-        <CookieConsent />
         </LocaleProvider>
+        {/* Cookies — CookieScript (lib/cookie-script.ts). Order matters:
+            Consent Mode defaults first (everything denied), then the
+            CookieScript banner that updates them, then the Google tag. */}
+        <Script id="consent-default" strategy="beforeInteractive">
+          {CONSENT_DEFAULT_SCRIPT}
+        </Script>
+        <Script id="cookie-script" src={COOKIE_SCRIPT_SRC} charSet="UTF-8" strategy="beforeInteractive" />
+        <Script
+          id="google-tag"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
+          strategy="afterInteractive"
+        />
         <TagManager />
       </body>
     </html>
