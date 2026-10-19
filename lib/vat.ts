@@ -29,23 +29,34 @@ export function netToGross(net: number): number {
 }
 
 /**
- * The bare amount, Slovak style — "604,80", no currency symbol. For places
- * that supply their own unit ("… €/m²"), where formatEur's symbol would be
- * doubled up.
+ * Cents only where there are any: a whole amount reads "1 004 €", one with
+ * cents keeps them — "18,45 €" — so a sum the customer has to pay (a bank
+ * transfer, the delivery) is never shown rounded.
+ */
+function fractionDigits(value: number): number {
+  return Math.abs(value - Math.round(value)) < 0.005 ? 0 : 2;
+}
+
+/**
+ * The bare amount, Slovak style — "604,80", "816", no currency symbol. For
+ * places that supply their own unit ("… €/m²"), where formatEur's symbol would
+ * be doubled up.
  */
 export function formatAmount(value: number): string {
+  const digits = fractionDigits(value);
   return new Intl.NumberFormat("sk-SK", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(value);
 }
 
 /** Slovak money formatting: comma decimal separator, space thousands, € suffix. */
 export function formatEur(value: number): string {
+  const digits = fractionDigits(value);
   return new Intl.NumberFormat("sk-SK", {
     style: "currency",
     currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(value);
 }
