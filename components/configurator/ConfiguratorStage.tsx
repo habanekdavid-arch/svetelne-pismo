@@ -14,7 +14,7 @@ import { useSharedConfig } from "@/lib/config-context";
 import { useCart } from "@/lib/cart-context";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { calculatePrice, priceBreakdown, isMinimumPrice, MIN_PRICE_GROSS } from "@/lib/pricing";
-import { formatEur, netFromGross, vatFromGross, VAT_RATE, formatAmount } from "@/lib/vat";
+import { formatEur, netFromGross, VAT_RATE, formatAmount } from "@/lib/vat";
 import {
   CATALOGUE_FONTS,
   MATERIAL_GROUPS,
@@ -1326,8 +1326,10 @@ function Configurator() {
               {t("Rozpis DPH")}
             </div>
             <div className="space-y-2">
-              <PriceLine label={t("Základ bez DPH")} value={formatEur(netFromGross(price))} />
-              <PriceLine label={t("DPH {rate} %", { rate: Math.round(VAT_RATE * 100) })} value={formatEur(vatFromGross(price))} />
+              {/* Whole euros, like the price itself — the VAT is what is left
+                  of it, so the two lines always add up to the price exactly. */}
+              <PriceLine label={t("Základ bez DPH")} value={formatEur(Math.round(netFromGross(price)))} />
+              <PriceLine label={t("DPH {rate} %", { rate: Math.round(VAT_RATE * 100) })} value={formatEur(price - Math.round(netFromGross(price)))} />
               <div className="my-1 border-t" style={{ borderColor: "var(--color-border)" }} />
               <PriceLine label={t("Cena s DPH")} value={formatEur(price)} bold />
             </div>
@@ -1363,7 +1365,8 @@ function Configurator() {
               />
               <TechLine
                 label={t("Jednotková cena")}
-                value={`${formatAmount(breakdown.unit)} ${breakdown.unitLabel}`}
+                // Whole euros per m²; per cm³ (solid print, 0,07 €) the cents ARE the price.
+                value={`${formatAmount(breakdown.unit >= 1 ? Math.round(breakdown.unit) : breakdown.unit)} ${breakdown.unitLabel}`}
               />
               <TechLine
                 label={separateFace ? t("Čelo / telo") : t("Farba")}
