@@ -1,13 +1,14 @@
 "use client";
 
-import { RECAPTCHA_SITE_KEY } from "@/lib/recaptcha";
+import { useRecaptchaEnabled } from "@/lib/recaptcha";
 import { useT } from "@/lib/i18n/client";
 
 // Google allows hiding the floating reCAPTCHA badge (globals.css) only when
 // the form says it is protected and links Google's terms — this line.
 export default function RecaptchaNotice({ className = "" }: { className?: string }) {
   const t = useT();
-  if (!RECAPTCHA_SITE_KEY) return null;
+  const enabled = useRecaptchaEnabled();
+  if (!enabled) return null;
   return (
     <p className={`text-[11px] leading-4 ${className}`} style={{ color: "var(--color-muted)" }}>
       {t("Formulár je chránený službou reCAPTCHA od Google. Platia")}{" "}

@@ -1,40 +1,76 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 // Google reCAPTCHA v3 in the browser — invisible: no pictures to click, Google
 // scores how human the visit looks and the server decides
-// (lib/recaptcha.server.ts). The script is loaded only once someone starts
-// filling a form, not on every page, and only when the site key is set
-// (NEXT_PUBLIC_RECAPTCHA_SITE_KEY); without it the forms work as before.
-
-export const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim() ?? "";
+// (lib/recaptcha.server.ts). The site key is fetched from /api/recaptcha when
+// first needed (so a key set in Vercel works without a rebuild), and Google's
+// script is loaded only once someone starts filling a form. Without a key the
+// forms work as before.
 
 type Grecaptcha = {
   ready: (cb: () => void) => void;
   execute: (siteKey: string, opts: { action: string }) => Promise<string>;
 };
 
-let loading: Promise<Grecaptcha | null> | null = null;
+let keyRequest: Promise<string> | null = null;
+
+/** The public site key, or "" when reCAPTCHA is off. */
+export function getRecaptchaSiteKey(): Promise<string> {
+  if (typeof window === "undefined") return Promise.resolve("");
+  if (!keyRequest) {
+    keyRequest = fetch("/api/recaptcha", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => (typeof d?.siteKey === "string" ? d.siteKey : ""))
+      .catch(() => {
+        keyRequest = null; // ask again next time
+        return "";
+      });
+  }
+  return keyRequest;
+}
+
+/** Whether this site has reCAPTCHA switched on — for the notice under a form. */
+export function useRecaptchaEnabled(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    getRecaptchaSiteKey().then((k) => { if (alive) setOn(Boolean(k)); });
+    return () => { alive = false; };
+  }, []);
+  return on;
+}
+
+let loading: Promise<{ g: Grecaptcha; key: string } | null> | null = null;
 
 /** Loads Google's script once. Resolves null when there is no key or it will not load. */
-export function loadRecaptcha(): Promise<Grecaptcha | null> {
-  if (!RECAPTCHA_SITE_KEY || typeof window === "undefined") return Promise.resolve(null);
+export function loadRecaptcha(): Promise<{ g: Grecaptcha; key: string } | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
   if (!loading) {
-    loading = new Promise((resolve) => {
-      const done = () => {
-        const g = (window as unknown as { grecaptcha?: Grecaptcha }).grecaptcha;
-        if (g) g.ready(() => resolve(g));
-        else resolve(null);
-      };
-      const script = document.createElement("script");
-      script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(RECAPTCHA_SITE_KEY)}`;
-      script.async = true;
-      script.onload = done;
-      script.onerror = () => {
-        loading = null; // let a later attempt try again
-        resolve(null);
-      };
-      document.head.appendChild(script);
-    });
+    loading = getRecaptchaSiteKey().then(
+      (key) =>
+        new Promise((resolve) => {
+          if (!key) {
+            loading = null;
+            return resolve(null);
+          }
+          const done = () => {
+            const g = (window as unknown as { grecaptcha?: Grecaptcha }).grecaptcha;
+            if (g) g.ready(() => resolve({ g, key }));
+            else resolve(null);
+          };
+          const script = document.createElement("script");
+          script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(key)}`;
+          script.async = true;
+          script.onload = done;
+          script.onerror = () => {
+            loading = null; // let a later attempt try again
+            resolve(null);
+          };
+          document.head.appendChild(script);
+        }),
+    );
   }
   return loading;
 }
@@ -45,10 +81,10 @@ export function loadRecaptcha(): Promise<Grecaptcha | null> {
  * server then decides whether to accept the form without it.
  */
 export async function getRecaptchaToken(action: string): Promise<string | null> {
-  const g = await loadRecaptcha();
-  if (!g) return null;
+  const loaded = await loadRecaptcha();
+  if (!loaded) return null;
   try {
-    return await g.execute(RECAPTCHA_SITE_KEY, { action });
+    return await loaded.g.execute(loaded.key, { action });
   } catch {
     return null;
   }
