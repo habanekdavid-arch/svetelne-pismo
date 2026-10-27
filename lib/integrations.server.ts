@@ -68,8 +68,8 @@ export function integrations(): Integration[] {
     },
     {
       name: "Ochrana formulárov (reCAPTCHA)",
-      ok: set("NEXT_PUBLIC_RECAPTCHA_SITE_KEY") && set("RECAPTCHA_SECRET_KEY"),
-      status: set("NEXT_PUBLIC_RECAPTCHA_SITE_KEY") && set("RECAPTCHA_SECRET_KEY")
+      ok: (set("NEXT_PUBLIC_RECAPTCHA_SITE_KEY") || set("RECAPTCHA_SITE_KEY")) && set("RECAPTCHA_SECRET_KEY"),
+      status: (set("NEXT_PUBLIC_RECAPTCHA_SITE_KEY") || set("RECAPTCHA_SITE_KEY")) && set("RECAPTCHA_SECRET_KEY")
         ? `Zapnutá — kontaktný formulár a konzultácia loga sa overujú cez reCAPTCHA v3 (minimálne skóre ${process.env.RECAPTCHA_MIN_SCORE?.trim() || "0.5"}).`
         : "Vypnutá — formuláre chráni len skryté pole proti robotom. Kľúče v3 vytvoríte na google.com/recaptcha/admin.",
       missing: missing("NEXT_PUBLIC_RECAPTCHA_SITE_KEY", "RECAPTCHA_SECRET_KEY"),
