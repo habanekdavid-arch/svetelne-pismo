@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { mailShopContact } from "@/lib/emails.server";
 import { createContactMessage } from "@/lib/contact";
+import { clientIp, verifyRecaptcha } from "@/lib/recaptcha.server";
 import {
   MAX_ATTACHMENTS,
   MAX_ATTACHMENTS_BYTES,
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
   if (isMultipart) {
     const form = await req.formData().catch(() => null);
     if (!form) return NextResponse.json({ error: "bad_request" }, { status: 400 });
-    for (const key of ["name", "email", "subject", "message", "website"]) fields[key] = form.get(key);
+    for (const key of ["name", "email", "subject", "message", "website", "recaptcha"]) fields[key] = form.get(key);
 
     const uploads = form
       .getAll("files")
@@ -63,6 +64,13 @@ export async function POST(req: Request) {
   // 200 so the bot believes it succeeded and doesn't retry, but store nothing.
   if (clean(fields.website, 100)) {
     return NextResponse.json({ ok: true });
+  }
+
+  // reCAPTCHA v3 (lib/recaptcha.server.ts): a visit Google scores as a bot is
+  // refused — and told so, since a person wrongly caught can still e-mail.
+  const human = await verifyRecaptcha(fields.recaptcha, "contact", clientIp(req));
+  if (!human.ok) {
+    return NextResponse.json({ error: "recaptcha" }, { status: 403 });
   }
 
   const name = clean(fields.name, MAX.name);

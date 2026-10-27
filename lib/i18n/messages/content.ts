@@ -1,6 +1,36 @@
 import type { Messages } from "./index";
 
 const messages: Messages = {
+  "Overenie proti robotom neprešlo. Obnovte stránku a skúste to znova, alebo nám napíšte na info@4frommedia.sk.": {
+    en: "The check against bots did not pass. Reload the page and try again, or write to us at info@4frommedia.sk.",
+    hu: "A robotok elleni ellenőrzés nem sikerült. Töltse újra az oldalt és próbálja újra, vagy írjon nekünk az info@4frommedia.sk címre.",
+    de: "Die Prüfung gegen Bots ist fehlgeschlagen. Laden Sie die Seite neu und versuchen Sie es erneut, oder schreiben Sie uns an info@4frommedia.sk.",
+  },
+  "Formulár je chránený službou reCAPTCHA od Google. Platia": {
+    en: "This form is protected by Google reCAPTCHA. The Google",
+    hu: "Az űrlapot a Google reCAPTCHA védi. A Google",
+    de: "Dieses Formular ist durch Google reCAPTCHA geschützt. Es gelten die",
+  },
+  "Zásady ochrany súkromia": {
+    en: "Privacy Policy",
+    hu: "Adatvédelmi irányelvei",
+    de: "Datenschutzerklärung",
+  },
+  "a": {
+    en: "and",
+    hu: "és",
+    de: "und",
+  },
+  "Zmluvné podmienky": {
+    en: "Terms of Service",
+    hu: "Szolgáltatási feltételei",
+    de: "Nutzungsbedingungen",
+  },
+  "spoločnosti Google.": {
+    en: "apply.",
+    hu: "érvényesek.",
+    de: "von Google.",
+  },
   "Kontakt": {
     en: "Contact",
     hu: "Kapcsolat",

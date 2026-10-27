@@ -786,3 +786,7 @@ html.dark .badge-ok { color: #4ade80; }
   font-size: 15px;
   font-weight: 900;
 }
+
+/* reCAPTCHA v3: the floating badge is hidden — each protected form shows
+   Google's notice instead (components/ui/RecaptchaNotice.tsx), as Google allows. */
+.grecaptcha-badge { visibility: hidden !important; }
