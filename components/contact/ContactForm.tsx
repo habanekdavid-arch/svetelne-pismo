@@ -11,6 +11,8 @@ import {
 } from "@/lib/contact-attachments";
 import { tk } from "@/lib/i18n/config";
 import { useT } from "@/lib/i18n/client";
+import { getRecaptchaToken, loadRecaptcha } from "@/lib/recaptcha";
+import RecaptchaNotice from "@/components/ui/RecaptchaNotice";
 
 // The contact form — on the home page under the FAQ and on /kontakt. The
 // message is stored first (app/api/contact → contact_messages, listed in the
@@ -24,6 +26,7 @@ const SERVER_ERRORS: Record<string, string> = {
   file_type: tk("Tento typ súboru nevieme prijať"),
   files_too_big: tk("Prílohy spolu presahujú {size}. Väčšie súbory nám pošlite e-mailom na info@4frommedia.sk."),
   too_many_files: tk("Priložiť sa dá najviac {count} súborov."),
+  recaptcha: tk("Overenie proti robotom neprešlo. Obnovte stránku a skúste to znova, alebo nám napíšte na info@4frommedia.sk."),
 };
 
 export default function ContactForm() {
@@ -81,6 +84,9 @@ export default function ContactForm() {
     setStatus("sending");
     setError("");
     try {
+      // Taken right before sending — a reCAPTCHA token lives two minutes.
+      const token = await getRecaptchaToken("contact");
+      if (token) data.append("recaptcha", token);
       const res = await fetch("/api/contact", { method: "POST", body: data });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string; file?: string } | null;
@@ -99,7 +105,12 @@ export default function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto mt-8 grid max-w-2xl gap-4 sm:grid-cols-2">
+    // Google's script comes in once someone starts filling the form in.
+    <form
+      onSubmit={handleSubmit}
+      onFocusCapture={() => void loadRecaptcha()}
+      className="mx-auto mt-8 grid max-w-2xl gap-4 sm:grid-cols-2"
+    >
       {/* Honeypot — hidden from people, filled by bots */}
       <input
         type="text"
@@ -210,6 +221,7 @@ export default function ContactForm() {
           {status === "error" &&
             (error || t("Správu sa nepodarilo odoslať. Skúste to prosím znova, alebo nám napíšte na info@4frommedia.sk."))}
         </p>
+        <RecaptchaNotice className="text-center" />
       </div>
     </form>
   );

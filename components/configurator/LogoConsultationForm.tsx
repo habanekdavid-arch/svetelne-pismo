@@ -9,6 +9,8 @@ import { snapshotPreview } from "@/lib/sign-preview";
 import { tk } from "@/lib/i18n/config";
 import { useT } from "@/lib/i18n/client";
 import { rich } from "@/lib/i18n/rich";
+import { getRecaptchaToken, loadRecaptcha } from "@/lib/recaptcha";
+import RecaptchaNotice from "@/components/ui/RecaptchaNotice";
 
 // The last step of a logo sign: not a payment, a request for a consultation.
 // The logo file, the sign as configured and how to reach the customer go to
@@ -23,6 +25,7 @@ const ERRORS: Record<string, string> = {
   invalid_email: tk("Skontrolujte prosím e-mailovú adresu."),
   logo_type: tk("Tento typ súboru loga nevieme prijať — pošlite PDF, SVG, PNG, JPG alebo WEBP."),
   logo_too_big: tk("Súbor loga je väčší ako {size}. Pošlite menší, alebo nám ho pošlite e-mailom na info@4frommedia.sk."),
+  recaptcha: tk("Overenie proti robotom neprešlo. Obnovte stránku a skúste to znova, alebo nám napíšte na info@4frommedia.sk."),
 };
 
 export default function LogoConsultationForm({
@@ -88,6 +91,9 @@ export default function LogoConsultationForm({
       const preview = await snapshotPreview().catch(() => null);
       if (preview) form.append("preview", preview);
 
+      const token = await getRecaptchaToken("logo_consultation");
+      if (token) form.append("recaptcha", token);
+
       const res = await fetch("/api/logo-consultation", { method: "POST", body: form });
       const body = (await res.json().catch(() => null)) as { id?: number; error?: string } | null;
       if (!res.ok) {
@@ -120,7 +126,7 @@ export default function LogoConsultationForm({
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-3 sm:grid-cols-3">
+    <form onSubmit={submit} onFocusCapture={() => void loadRecaptcha()} className="grid gap-3 sm:grid-cols-3">
       <input
         type="text"
         name="website"
@@ -167,6 +173,7 @@ export default function LogoConsultationForm({
           {error || t("Žiadosť sa nepodarilo odoslať. Skúste to prosím znova, alebo nám napíšte na info@4frommedia.sk.")}
         </p>
       )}
+      <RecaptchaNotice className="sm:col-span-3" />
     </form>
   );
 }

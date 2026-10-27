@@ -67,6 +67,14 @@ export function integrations(): Integration[] {
       missing: mail ? missing("RESEND_API_KEY", "GMAIL_USER", "GMAIL_APP_PASSWORD") : missing("RESEND_API_KEY", "SMTP_PASSWORD"),
     },
     {
+      name: "Ochrana formulárov (reCAPTCHA)",
+      ok: set("NEXT_PUBLIC_RECAPTCHA_SITE_KEY") && set("RECAPTCHA_SECRET_KEY"),
+      status: set("NEXT_PUBLIC_RECAPTCHA_SITE_KEY") && set("RECAPTCHA_SECRET_KEY")
+        ? `Zapnutá — kontaktný formulár a konzultácia loga sa overujú cez reCAPTCHA v3 (minimálne skóre ${process.env.RECAPTCHA_MIN_SCORE?.trim() || "0.5"}).`
+        : "Vypnutá — formuláre chráni len skryté pole proti robotom. Kľúče v3 vytvoríte na google.com/recaptcha/admin.",
+      missing: missing("NEXT_PUBLIC_RECAPTCHA_SITE_KEY", "RECAPTCHA_SECRET_KEY"),
+    },
+    {
       name: "Analytika (Google Tag Manager)",
       ok: true,
       status: `Zapnutá — kontajnery ${GTM_IDS.join(" a ")} na každej stránke; čo smie merať, rozhoduje súhlas v CookieScripte (Consent Mode).`,

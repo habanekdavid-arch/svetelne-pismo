@@ -98,8 +98,10 @@ export default function GdprPage() {
           poskytovatelia technických služieb nevyhnutných na prevádzku stránky
           a vybavenie objednávky — hosting (Vercel Inc.), databáza (Neon
           Inc.), odosielanie e-mailov (Microsoft), platobná brána (Stripe),
-          prepravca (DPD) pri doručení kuriérom a správa súhlasu s cookies
-          (CookieScript) — a, len pri udelenom súhlase s cookies, Google
+          prepravca (DPD) pri doručení kuriérom, správa súhlasu s cookies
+          (CookieScript), ochrana formulárov pred robotmi (Google reCAPTCHA —
+          pri odoslaní formulára posúdi, či ho vypĺňa človek) — a, len pri
+          udelenom súhlase s cookies, Google
           ako poskytovateľ analytických a reklamných nástrojov (Google
           Analytics/GTM, Google Ads).
         </p>
