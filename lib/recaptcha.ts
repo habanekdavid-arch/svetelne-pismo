@@ -75,17 +75,27 @@ export function loadRecaptcha(): Promise<{ g: Grecaptcha; key: string } | null> 
   return loading;
 }
 
+/** How long a submission waits for Google before it is sent without a token. */
+const TOKEN_TIMEOUT_MS = 6000;
+
 /**
  * A fresh token for one submission (tokens live two minutes, so it is taken
- * right before sending). Null when reCAPTCHA is off or unreachable — the
- * server then decides whether to accept the form without it.
+ * right before sending). Null when reCAPTCHA is off, blocked or too slow — the
+ * form is then sent without it and the server marks it for the shop instead
+ * of refusing it. Never waits longer than TOKEN_TIMEOUT_MS: a script that
+ * stalls (a blocker that swallows the request) must not leave the customer
+ * looking at "Odosielam…".
  */
 export async function getRecaptchaToken(action: string): Promise<string | null> {
-  const loaded = await loadRecaptcha();
-  if (!loaded) return null;
-  try {
-    return await loaded.g.execute(loaded.key, { action });
-  } catch {
-    return null;
-  }
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), TOKEN_TIMEOUT_MS));
+  const token = (async () => {
+    const loaded = await loadRecaptcha();
+    if (!loaded) return null;
+    try {
+      return await loaded.g.execute(loaded.key, { action });
+    } catch {
+      return null;
+    }
+  })();
+  return Promise.race([token, timeout]);
 }
