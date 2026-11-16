@@ -495,6 +495,8 @@ export function buildShopContact(msg: {
   message: string;
   /** Files the visitor attached — sent on as ordinary attachments. */
   files?: { filename: string; contentType: string; content: Buffer }[];
+  /** Set when the reCAPTCHA check failed (lib/recaptcha.server.ts). */
+  unverified?: string | null;
 }): BuiltMail {
   const files = msg.files ?? [];
   const list = files.length
@@ -503,9 +505,10 @@ export function buildShopContact(msg: {
   return {
     to: SHOP_INBOX,
     replyTo: msg.email,
-    subject: `Kontaktný formulár: ${msg.subject}`,
+    subject: `${msg.unverified ? "[neoverené] " : ""}Kontaktný formulár: ${msg.subject}`,
     html: layout(
       "Správa z kontaktného formulára",
+      unverifiedBox(msg.unverified) +
       rows([["Od", `${esc(msg.name)} &lt;${esc(msg.email)}&gt;`], ["Predmet", esc(msg.subject)]]) +
         `<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fafaf9;border-radius:12px;padding:12px 14px">${esc(msg.message)}</div>` +
         list,
@@ -532,7 +535,16 @@ export type LogoConsultationMail = {
   logo: { filename: string; contentType: string; content: Buffer };
   /** Watermarked preview, base64 JPEG. */
   preview: string | null;
+  /** Set when the reCAPTCHA check failed (lib/recaptcha.server.ts) — shop mail only. */
+  unverified?: string | null;
 };
+
+/** A highlighted line for the shop: this message did not pass reCAPTCHA. */
+function unverifiedBox(warning: string | null | undefined): string {
+  return warning
+    ? `<div style="font-size:13px;line-height:1.5;background:#fef3c7;color:#92400e;border-radius:12px;padding:10px 14px;margin-bottom:12px">⚠ ${esc(warning)}</div>`
+    : "";
+}
 
 function logoSpec(m: LogoConsultationMail): [string, string][] {
   const c = m.config;
@@ -568,9 +580,10 @@ export function buildShopLogoConsultation(m: LogoConsultationMail): BuiltMail {
   return {
     to: SHOP_INBOX,
     replyTo: m.email,
-    subject: `Konzultácia k logu č. ${m.id} — ${m.name}`,
+    subject: `${m.unverified ? "[neoverené] " : ""}Konzultácia k logu č. ${m.id} — ${m.name}`,
     html: layout(
       "Nová žiadosť o konzultáciu k logu",
+      unverifiedBox(m.unverified) +
       rows([
         ["Meno", esc(m.name)],
         ["E-mail", `<a href="mailto:${esc(m.email)}">${esc(m.email)}</a>`],

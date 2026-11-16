@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { mailShopContact } from "@/lib/emails.server";
 import { createContactMessage } from "@/lib/contact";
-import { clientIp, verifyRecaptcha } from "@/lib/recaptcha.server";
+import { clientIp, recaptchaWarning, verifyRecaptcha } from "@/lib/recaptcha.server";
 import {
   MAX_ATTACHMENTS,
   MAX_ATTACHMENTS_BYTES,
@@ -66,12 +66,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // reCAPTCHA v3 (lib/recaptcha.server.ts): a visit Google scores as a bot is
-  // refused — and told so, since a person wrongly caught can still e-mail.
-  const human = await verifyRecaptcha(fields.recaptcha, "contact", clientIp(req));
-  if (!human.ok) {
-    return NextResponse.json({ error: "recaptcha" }, { status: 403 });
-  }
+  // reCAPTCHA v3 (lib/recaptcha.server.ts): a failed check never turns the
+  // visitor away — the message is kept and marked for the shop, which decides
+  // whether it is spam.
+  const unverified = recaptchaWarning(await verifyRecaptcha(fields.recaptcha, "contact", clientIp(req)));
 
   const name = clean(fields.name, MAX.name);
   const email = clean(fields.email, MAX.email);
@@ -86,7 +84,15 @@ export async function POST(req: Request) {
   }
 
   try {
-    await createContactMessage({ name, email, subject, message, attachments: files });
+    // The admin lists messages by subject — the mark rides in front of it
+    // there, and the reason at the top of the message.
+    await createContactMessage({
+      name,
+      email,
+      subject: unverified ? `[neoverené] ${subject}` : subject,
+      message: unverified ? `⚠ ${unverified}\n\n${message}` : message,
+      attachments: files,
+    });
   } catch {
     // Don't leak database detail to the browser; the form shows a retry hint.
     return NextResponse.json({ error: "store_failed" }, { status: 500 });
@@ -94,7 +100,7 @@ export async function POST(req: Request) {
 
   // Saved first, e-mailed after: the message — and its files — are never lost
   // to a mail problem; the admin lists both.
-  after(() => mailShopContact({ name, email, subject, message, files }));
+  after(() => mailShopContact({ name, email, subject, message, files, unverified }));
 
   return NextResponse.json({ ok: true });
 }

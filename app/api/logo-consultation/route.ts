@@ -7,7 +7,7 @@ import { calculatePrice } from "@/lib/pricing";
 import { createLogoConsultation } from "@/lib/logo-consultations";
 import { mailLogoConsultationReceived, mailShopLogoConsultation } from "@/lib/emails.server";
 import { isLogoFile, LOGO_RULE_TEXT, MAX_LOGO_BYTES } from "@/lib/logo";
-import { clientIp, verifyRecaptcha } from "@/lib/recaptcha.server";
+import { clientIp, recaptchaWarning, verifyRecaptcha } from "@/lib/recaptcha.server";
 import type { SignSize } from "@/lib/useSignSize";
 
 // "Objednať konzultáciu k logu" — the configurator's last step for a sign made
@@ -34,9 +34,12 @@ export async function POST(req: Request) {
 
   // Honeypot, as on the contact form: a bot is told it worked and nothing is kept.
   if (clean(form.get("website"), 100)) return NextResponse.json({ ok: true });
-  // reCAPTCHA v3, as on the contact form (lib/recaptcha.server.ts).
-  const human = await verifyRecaptcha(form.get("recaptcha"), "logo_consultation", clientIp(req));
-  if (!human.ok) return NextResponse.json({ error: "recaptcha" }, { status: 403 });
+  // reCAPTCHA v3, as on the contact form (lib/recaptcha.server.ts). A failed
+  // check never turns the customer away — the request is kept and marked for
+  // the shop, which decides whether it is spam.
+  const unverified = recaptchaWarning(
+    await verifyRecaptcha(form.get("recaptcha"), "logo_consultation", clientIp(req)),
+  );
 
   const name = clean(form.get("name"), MAX.name);
   const email = clean(form.get("email"), MAX.email);
@@ -86,7 +89,9 @@ export async function POST(req: Request) {
   try {
     id = await createLogoConsultation({
       userId: session?.userId ?? null,
-      name, email, phone, note,
+      name, email, phone,
+      // The admin shows the note — the warning rides at its top there.
+      note: unverified ? `⚠ ${unverified}${note ? `\n\n${note}` : ""}` : note,
       config: { ...config, text: "Logo" },
       widthMm: size.widthMm,
       heightMm: size.heightMm,
@@ -111,7 +116,11 @@ export async function POST(req: Request) {
     logo: logoFile,
     preview,
   };
-  after(() => Promise.all([mailShopLogoConsultation(mail), mailLogoConsultationReceived(mail, showPrice)]));
+  // The warning goes to the shop only; the customer's confirmation is the usual one.
+  after(() => Promise.all([
+    mailShopLogoConsultation({ ...mail, unverified }),
+    mailLogoConsultationReceived(mail, showPrice),
+  ]));
 
   return NextResponse.json({ ok: true, id });
 }

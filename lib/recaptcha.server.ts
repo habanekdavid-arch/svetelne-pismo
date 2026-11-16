@@ -1,12 +1,16 @@
 import "server-only";
 
-// Checks a reCAPTCHA v3 token with Google before a form is accepted
-// (lib/recaptcha.ts takes the token in the browser). Google answers with a
-// score from 0.0 (a bot) to 1.0 (a person); below RECAPTCHA_MIN_SCORE
-// (default 0.5) the form is refused.
+// Checks a reCAPTCHA v3 token with Google (lib/recaptcha.ts takes the token
+// in the browser). Google answers with a score from 0.0 (a bot) to 1.0 (a
+// person); below RECAPTCHA_MIN_SCORE (default 0.5) the check fails.
 //
-// Without RECAPTCHA_SECRET_KEY nothing is checked and every form passes — the
-// honeypot field in each form still catches the simplest bots.
+// A failed check does NOT turn a form away: a customer whose browser blocks
+// Google's script, or whom Google scores low (VPN, a private window), could
+// otherwise never reach us. The forms take the message anyway and mark it
+// for the shop (recaptchaWarning) — the honeypot field still drops the
+// simplest bots outright.
+//
+// Without RECAPTCHA_SECRET_KEY nothing is checked and every form passes.
 
 export type RecaptchaResult =
   | { ok: true; skipped?: boolean; score?: number }
@@ -31,6 +35,29 @@ export async function verifyRecaptcha(
   action: string,
   ip?: string,
 ): Promise<RecaptchaResult> {
+  const result = await check(token, action, ip);
+  // Every miss is logged with its reason and score, so a customer's "it would
+  // not send" can be traced afterwards.
+  if (!result.ok) console.warn("[reCAPTCHA] neprešlo:", { action, reason: result.reason, score: result.score });
+  return result;
+}
+
+/**
+ * The line the shop sees on a message whose check failed — why, in plain
+ * words. Null when the check passed or was not run.
+ */
+export function recaptchaWarning(result: RecaptchaResult): string | null {
+  if (result.ok) return null;
+  const why = {
+    missing_token: "prehliadač neposlal overenie (skript Googlu bol zablokovaný alebo sa nenačítal)",
+    invalid: "Google overenie neuznal",
+    low_score: `Google odhadol robota (skóre ${result.score ?? "?"})`,
+    wrong_action: "overenie patrilo inému formuláru",
+  }[result.reason];
+  return `Neoverené reCAPTCHA — ${why}. Môže ísť o spam, ale aj o skutočného zákazníka.`;
+}
+
+async function check(token: unknown, action: string, ip?: string): Promise<RecaptchaResult> {
   const secret = process.env.RECAPTCHA_SECRET_KEY?.trim();
   if (!secret) return { ok: true, skipped: true };
   if (typeof token !== "string" || !token) return { ok: false, reason: "missing_token" };
